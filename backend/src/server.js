@@ -48,6 +48,9 @@ app.get('/api/health', async (req, res) => {
 // Вход и смена пароля — без проверки «временный пароль сменён»
 app.use('/api/auth', require('./routes/auth'));
 
+// Юридические документы открыты всем (ссылки со страницы входа)
+app.use('/api/legal/public', require('./routes/legal').publicRouter);
+
 // Всё остальное — только после входа и смены временного пароля
 const protectedApi = express.Router();
 protectedApi.use(authenticate, requirePasswordChanged);
@@ -59,6 +62,8 @@ protectedApi.use('/finance', require('./routes/finance'));
 protectedApi.use('/homework', require('./routes/homework'));
 protectedApi.use('/assignments', require('./routes/assignments'));
 protectedApi.use('/files', require('./routes/files'));
+protectedApi.use('/booking', require('./routes/booking'));
+protectedApi.use('/legal', require('./routes/legal').protectedRouter);
 protectedApi.use('/progress', require('./routes/progress'));
 app.use('/api', protectedApi);
 

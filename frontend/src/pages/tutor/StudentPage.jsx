@@ -388,6 +388,8 @@ function FinanceTab({ student, onChange }) {
 }
 
 /* ---------- Доступ ---------- */
+const DOC_NAMES = { offer: 'оферта', privacy: 'политика', consent_adult: 'согласие', consent_parent: 'согласие родителя' };
+
 function AccessTab({ student, onChange }) {
   const [modal, setModal] = useState(null);
   const toast = useToast();
@@ -416,6 +418,11 @@ function AccessTab({ student, onChange }) {
         <div className="list-sub">
           {label}, логин <strong>{a.login}</strong>.{' '}
           {a.last_login_at ? `Заходил ${relativeDay(a.last_login_at).toLowerCase()} в ${time(a.last_login_at)}` : 'Ещё не заходил'}
+        </div>
+        <div className="list-sub">
+          {a.accepted_docs?.length
+            ? `Принял документы: ${a.accepted_docs.map((d) => `${DOC_NAMES[d.kind]} (ред. ${d.version}, ${shortDate(d.accepted_at)})`).join(', ')}`
+            : 'Документы ещё не приняты'}
         </div>
       </div>
       {!a.is_active && <Badge tone="red">Заблокирован</Badge>}

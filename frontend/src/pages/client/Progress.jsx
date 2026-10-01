@@ -1,7 +1,7 @@
 // pages/client/Progress.jsx — программа, навыки, отчёты
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Bar, Link, Badge } from '../../ui';
-import { SKILLS, shortDate, monthName } from '../../format';
+import { SKILLS, shortDate, monthName, plural } from '../../format';
 
 export default function ClientProgress({ student }) {
   const p = useLoad(() => api.progress(student.id), [student.id]);
@@ -21,6 +21,7 @@ export default function ClientProgress({ student }) {
   return (
     <>
       <div className="page-head"><h1 className="page-title">Прогресс</h1></div>
+      <MonthSummaries studentId={student.id} />
       <div className="grid grid-main">
         <section className="panel">
           <div className="panel-head"><h2 className="section-title">Программа</h2></div>
@@ -94,5 +95,45 @@ export default function ClientProgress({ student }) {
         </div>
       </div>
     </>
+  );
+}
+
+/* ============================================================
+   Итоги по месяцам — собираются сами из занятий, заданий и тем
+   ============================================================ */
+function MonthSummaries({ studentId }) {
+  const months = useLoad(() => api.monthSummaries(studentId), [studentId]);
+  if (months.loading || months.error || !months.data?.length) return null;
+
+  return (
+    <section className="panel" style={{ marginBottom: 20 }}>
+      <div className="panel-head">
+        <h2 className="section-title">Итоги по месяцам</h2>
+        <span className="small muted">Обновляются автоматически</span>
+      </div>
+      {months.data.map((m) => {
+        const attendance = m.lessons_done + m.lessons_missed ? Math.round((m.lessons_done / (m.lessons_done + m.lessons_missed)) * 100) : null;
+        return (
+          <div key={m.month} className="month-card">
+            <div className="row-between">
+              <div className="serif" style={{ fontSize: 21 }}>{monthName(m.month)}</div>
+              {m.report_id && <Link to={`/reports/${m.report_id}`} className="small">Отзыв преподавателя</Link>}
+            </div>
+            <div className="month-stats">
+              <div><b className="num">{m.lessons_done}</b><span>{plural(m.lessons_done, 'занятие', 'занятия', 'занятий')}</span></div>
+              <div><b className="num">{attendance === null ? '—' : `${attendance}%`}</b><span>посещаемость</span></div>
+              <div><b className="num">{m.homework_given ? `${m.homework_done}/${m.homework_given}` : '—'}</b><span>заданий сдано</span></div>
+              <div><b className="num">{m.homework_avg_score === null ? '—' : `${m.homework_avg_score}%`}</b><span>средняя оценка</span></div>
+            </div>
+            {m.topics_completed?.length > 0 && (
+              <div className="small" style={{ marginTop: 12 }}>
+                <span className="muted">Пройдено: </span>{m.topics_completed.join(', ')}
+              </div>
+            )}
+            {m.tutor_summary && <p style={{ margin: '12px 0 0', whiteSpace: 'pre-line' }}>{m.tutor_summary}</p>}
+          </div>
+        );
+      })}
+    </section>
   );
 }

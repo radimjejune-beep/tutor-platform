@@ -105,7 +105,7 @@ h1, h2, h3 { margin: 0; font-weight: 400; }
 }
 .panel + .panel { margin-top: 20px; }
 .grid > * { min-width: 0; }
-.grid > .panel + .panel { margin-top: 0; }
+.grid > .panel + .panel, .assign-layout > .panel + .panel { margin-top: 0; }
 .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .grid { display: grid; gap: 20px; }
 .grid-2 { grid-template-columns: 1fr 1fr; }
@@ -181,7 +181,7 @@ h1, h2, h3 { margin: 0; font-weight: 400; }
 .form { display: flex; flex-direction: column; gap: 16px; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .check { display: flex; align-items: center; gap: 10px; font-size: 14px; }
-.check input { width: 18px; height: 18px; accent-color: var(--green); }
+.check input { width: 18px; height: 18px; accent-color: var(--green); flex: none; }
 
 /* ---------- Списки ---------- */
 .list { display: flex; flex-direction: column; }
@@ -324,6 +324,46 @@ h1, h2, h3 { margin: 0; font-weight: 400; }
 .student-pick label.on { border-color: var(--green); background: var(--green-soft); }
 .student-pick input { width: 17px; height: 17px; accent-color: var(--green); }
 
+/* ---------- Запись: выбор дня и времени ---------- */
+.day-chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.day-chip {
+  flex: none; width: 58px; padding: 8px 0; border-radius: 14px; border: 1px solid var(--line); background: var(--surface);
+  display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; color: var(--muted);
+}
+.day-chip b { font-family: var(--serif); font-weight: 400; font-size: 21px; color: var(--ink); line-height: 1.1; }
+.day-chip.on { background: var(--green); border-color: var(--green); color: rgba(255, 255, 255, 0.8); }
+.day-chip.on b { color: #fff; }
+.time-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+.time-btn {
+  height: 42px; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--surface); cursor: pointer;
+  font-family: var(--serif); font-size: 17px; color: var(--green-ink);
+}
+.time-btn:hover { border-color: var(--green); }
+.time-btn.on { background: var(--green); border-color: var(--green); color: #fff; }
+
+/* Окна доступности по дням */
+.window-day { display: grid; grid-template-columns: 120px 1fr auto; gap: 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
+.window-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 0; }
+.window-day:first-of-type { border-top: 0; }
+.window-name { font-weight: 600; font-size: 14.5px; }
+.window-list { display: flex; flex-direction: column; gap: 6px; }
+
+/* ---------- Документы ---------- */
+.legal-page { min-height: 100vh; background: var(--bg); padding: 40px 16px 80px; }
+.legal-wrap { max-width: 760px; margin: 0 auto; }
+.legal-text p { margin: 0 0 12px; white-space: pre-line; line-height: 1.65; }
+.accept-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 0; border-top: 1px solid var(--line); }
+.accept-row:first-child { border-top: 0; padding-top: 0; }
+.accept-row .check { flex: 1; min-width: 220px; }
+.accept-doc { flex-basis: 100%; max-height: 360px; overflow-y: auto; background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; font-size: 14px; }
+
+/* Итоги месяца */
+.month-card { border: 1px solid var(--line); border-radius: 18px; padding: 18px 20px; background: var(--surface); }
+.month-card + .month-card { margin-top: 12px; }
+.month-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 12px; }
+.month-stats b { display: block; font-family: var(--serif); font-weight: 400; font-size: 24px; line-height: 1.15; }
+.month-stats span { font-size: 12.5px; color: var(--muted); }
+
 /* ---------- Модальное окно ---------- */
 .overlay {
   position: fixed; inset: 0; z-index: 50;
@@ -436,4 +476,6 @@ h1, h2, h3 { margin: 0; font-weight: 400; }
   .assign-title { font-size: 25px; }
   .assign-row .counter { display: none; }
   .files { grid-template-columns: 1fr; }
+  .window-day { grid-template-columns: 1fr; gap: 8px; }
+  .month-stats { grid-template-columns: repeat(2, 1fr); }
 }

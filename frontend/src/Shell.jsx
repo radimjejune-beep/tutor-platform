@@ -11,6 +11,7 @@ export const TUTOR_NAV = [
   { to: '/students', label: 'Ученики', icon: 'users' },
   { to: '/homework', label: 'Задания', short: 'Задания', icon: 'book', countKey: 'homework' },
   { to: '/finance', label: 'Доход', icon: 'wallet' },
+  { to: '/settings', label: 'Настройки', short: 'Ещё', icon: 'settings' },
 ];
 
 export const CLIENT_NAV = [

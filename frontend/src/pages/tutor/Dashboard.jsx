@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Link, navigate } from '../../ui';
 import { LessonModal, NewLessonModal } from './modals';
+import BookingRequests from '../../components/BookingRequests';
 import { useAuth } from '../../auth';
 import { time, dayMonth, weekday, cap, rub, relativeDay, LESSON_STATUS, monthName, prevMonth, plural } from '../../format';
 
@@ -24,7 +25,7 @@ export default function TutorDashboard() {
   const [d, month] = dash.data;
   const a = d.attention;
   const attentionCount =
-    a.unmarked_lessons.length + a.homework_to_check.length + a.payments.length + a.reports_missing.length;
+    a.unmarked_lessons.length + a.homework_to_check.length + a.payments.length;
   const now = new Date();
   const hours = Math.round((month.minutes_taught / 60) * 10) / 10;
 
@@ -101,6 +102,8 @@ export default function TutorDashboard() {
         </section>
       </div>
 
+      <BookingRequests requests={d.booking_requests || []} cancellations={d.client_cancellations || []} onChanged={dash.reload} />
+
       {/* Требует внимания */}
       <section className="panel" style={{ marginTop: 20 }}>
         <div className="panel-head">
@@ -142,15 +145,6 @@ export default function TutorDashboard() {
                     {p.balance < 0 && p.lessons_remaining !== null && '. '}
                     {p.lessons_remaining !== null && `В абонементе ${p.lessons_remaining === 0 ? 'не осталось занятий' : `осталось ${p.lessons_remaining}`}`}
                   </div>
-                </div>
-              </div>
-            ))}
-            {a.reports_missing.map((r) => (
-              <div key={`r${r.student_id}`} className="list-item clickable" onClick={() => navigate(`/students/${r.student_id}/reports`)}>
-                <div className="avatar"><Icon name="report" size={20} /></div>
-                <div className="list-main">
-                  <div className="list-title">Отчёт за {monthName(prevMonth()).toLowerCase()}: {r.student_name}</div>
-                  <div className="list-sub">Родители и ученик ещё не видели итоги месяца</div>
                 </div>
               </div>
             ))}

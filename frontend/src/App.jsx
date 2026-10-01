@@ -3,8 +3,10 @@ import { useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from './auth';
 import { api } from './api';
 import { Shell, TUTOR_NAV, CLIENT_NAV } from './Shell';
-import { ToastProvider, Spinner, useRoute, Empty, Link } from './ui';
+import { ToastProvider, Spinner, useRoute, Empty, Link, useLoad } from './ui';
 import { Login, ChangePassword } from './pages/Login';
+import { LegalPage, AcceptDocuments } from './pages/Legal';
+import Settings from './pages/tutor/Settings';
 
 import TutorDashboard from './pages/tutor/Dashboard';
 import TutorSchedule from './pages/tutor/Schedule';
@@ -37,6 +39,8 @@ function Root() {
   const [path, search] = route.split('?');
   const params = new URLSearchParams(search || '');
 
+  // Документы открываются и без входа
+  if (path.startsWith('/legal/')) return <LegalPage kind={path.split('/')[2]} />;
   if (session === undefined) return <Spinner />;
   if (!session) return <Login />;
   if (user.must_change_password) return <ChangePassword forced />;
@@ -73,6 +77,7 @@ function TutorApp({ path, params }) {
   else if (parts[0] === 'homework' && parts[1]) page = <AssignmentPage id={Number(parts[1])} />;
   else if (parts[0] === 'homework') page = <AssignmentsList />;
   else if (parts[0] === 'finance') page = <Finance />;
+  else if (parts[0] === 'settings') page = <Settings tab={parts[1] || 'booking'} />;
   else if (parts[0] === 'password') page = <ChangePassword />;
   else page = <NotFound />;
 
@@ -85,6 +90,13 @@ function TutorApp({ path, params }) {
 
 /* ---------- Кабинет ученика / родителя ---------- */
 function ClientApp({ path }) {
+  const pending = useLoad(() => api.legalPending(), []);
+  if (pending.loading) return <Spinner />;
+  if (pending.data?.length) return <AcceptDocuments docs={pending.data} onDone={pending.reload} />;
+  return <ClientCabinet path={path} />;
+}
+
+function ClientCabinet({ path }) {
   const { students, user } = useAuth();
   const [childId, setChildId] = useState(students[0]?.id);
   const [counts, setCounts] = useState({});

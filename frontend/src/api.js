@@ -99,6 +99,28 @@ export const api = {
   submitHomework: (id, data) => request('POST', `/homework/${id}/submit`, data),
   unsubmitHomework: (id) => request('POST', `/homework/${id}/unsubmit`),
 
+  // Запись и перенос
+  bookingSettings: () => request('GET', '/booking/settings'),
+  saveBookingSettings: (data) => request('PUT', '/booking/settings', data),
+  bookingInfo: () => request('GET', '/booking/info'),
+  slots: (student_id, lesson_id) => request('GET', `/booking/slots${qs({ student_id, lesson_id })}`),
+  bookingRequests: (status) => request('GET', `/booking/requests${qs({ status })}`),
+  createBookingRequest: (data) => request('POST', '/booking/requests', data),
+  withdrawRequest: (id) => request('POST', `/booking/requests/${id}/withdraw`),
+  approveRequest: (id) => request('POST', `/booking/requests/${id}/approve`),
+  declineRequest: (id, tutor_comment) => request('POST', `/booking/requests/${id}/decline`, tutor_comment ? { tutor_comment } : {}),
+  cancelLessonClient: (id) => request('POST', `/booking/lessons/${id}/cancel`),
+
+  // Итоги месяцев
+  monthSummaries: (studentId) => request('GET', `/progress/students/${studentId}/months`),
+
+  // Документы
+  legalPublic: (kind) => request('GET', `/legal/public/${kind}`),
+  legalPending: () => request('GET', '/legal/pending'),
+  legalAccept: (document_ids) => request('POST', '/legal/accept', { document_ids }),
+  legalAdmin: () => request('GET', '/legal/admin'),
+  saveLegalDoc: (kind, data) => request('PUT', `/legal/docs/${kind}`, data),
+
   // Файлы
   uploadFile: async (target, file) => {
     const prepared = await prepareFile(file);

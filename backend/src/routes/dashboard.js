@@ -74,8 +74,28 @@ async function tutorDashboard() {
       ORDER BY s.full_name`
   );
 
+  // Запросы учеников на запись / перенос
+  const { rows: bookingRequests } = await query(
+    `SELECT r.*, s.full_name AS student_name, l.starts_at AS lesson_starts_at
+       FROM booking_requests r
+       JOIN students s ON s.id = r.student_id
+       LEFT JOIN lessons l ON l.id = r.lesson_id
+      WHERE r.status = 'pending'
+      ORDER BY r.starts_at`
+  );
+
+  // Отмены учениками за последнюю неделю — чтобы ничего не пропустить
+  const { rows: clientCancellations } = await query(
+    `SELECT l.id, l.starts_at, l.cancelled_by_client_at, s.full_name AS student_name
+       FROM lessons l JOIN students s ON s.id = l.student_id
+      WHERE l.cancelled_by_client_at > NOW() - INTERVAL '7 days'
+      ORDER BY l.cancelled_by_client_at DESC`
+  );
+
   return {
     today,
+    booking_requests: bookingRequests,
+    client_cancellations: clientCancellations,
     attention: {
       unmarked_lessons: unmarked,
       homework_to_check: toCheck,

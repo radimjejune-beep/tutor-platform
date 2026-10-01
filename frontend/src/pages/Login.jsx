@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { useAuth } from '../auth';
 import { api } from '../api';
 import { BRAND } from '../config';
-import { Field, useSubmit } from '../ui';
+import { Field, useSubmit, Link } from '../ui';
+import { LEGAL_LINKS } from './Legal';
 
 function AuthLayout({ children }) {
   return (
@@ -68,6 +69,9 @@ export function Login() {
       </form>
       <p className="muted small" style={{ marginTop: 22 }}>
         Забыли пароль? Напишите преподавателю — он задаст новый.
+      </p>
+      <p className="small" style={{ marginTop: 28, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+        {LEGAL_LINKS.map((l) => <Link key={l.kind} to={`/legal/${l.kind}`} className="muted">{l.label}</Link>)}
       </p>
     </AuthLayout>
   );

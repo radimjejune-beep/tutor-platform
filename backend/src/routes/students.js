@@ -97,7 +97,11 @@ router.get(
     let accounts = undefined;
     if (isTutor) {
       const { rows: acc } = await query(
-        `SELECT u.id, u.role, u.login, u.full_name, u.is_active, u.last_login_at
+        `SELECT u.id, u.role, u.login, u.full_name, u.is_active, u.last_login_at,
+                (SELECT json_agg(json_build_object('kind', d.kind, 'version', d.version, 'accepted_at', a.accepted_at)
+                                 ORDER BY a.accepted_at)
+                   FROM document_acceptances a JOIN legal_documents d ON d.id = a.document_id
+                  WHERE a.user_id = u.id) AS accepted_docs
            FROM users u
           WHERE u.id = $1
              OR u.id IN (SELECT parent_user_id FROM parent_students WHERE student_id = $2)

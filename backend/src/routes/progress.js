@@ -164,6 +164,36 @@ router.delete(
 // Ежемесячные отчёты
 // ------------------------------------------------------------
 
+// ------------------------------------------------------------
+// Итоги по месяцам — собираются сами, видят ученик и родитель
+// К месяцу добавляется опубликованный отзыв преподавателя, если он есть
+// ------------------------------------------------------------
+router.get(
+  '/students/:studentId/months',
+  requireStudentAccess(),
+  asyncHandler(async (req, res) => {
+    // Месяцы, в которых были проведённые занятия (последние 6)
+    const { rows: months } = await query(
+      `SELECT DISTINCT to_char(date_trunc('month', starts_at), 'YYYY-MM') AS month
+         FROM lessons
+        WHERE student_id = $1 AND status = 'done' AND starts_at >= date_trunc('month', NOW()) - INTERVAL '5 months'
+        ORDER BY 1 DESC`,
+      [req.studentId]
+    );
+    const { rows: reports } = await query(
+      `SELECT id, to_char(month, 'YYYY-MM') AS month_key, summary FROM monthly_reports
+        WHERE student_id = $1 AND published`,
+      [req.studentId]
+    );
+    const out = [];
+    for (const { month } of months) {
+      const r = reports.find((x) => x.month_key === month);
+      out.push({ month, ...(await monthStats(req.studentId, month)), report_id: r?.id || null, tutor_summary: r?.summary || null });
+    }
+    res.json(out);
+  })
+);
+
 // Цифры за месяц для заполнения отчёта (репетитор)
 router.get(
   '/students/:studentId/month-stats',
