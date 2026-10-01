@@ -9,7 +9,7 @@
 
 Два проекта из одного репозитория: бэкенд и фронтенд.
 
-**1. База.** Создать базу PostgreSQL, открыть её в Adminer → «SQL-запрос» → по очереди выполнить файлы из `backend/migrations/` (`001_init.sql`, `002_assignments.sql`, `003_booking_legal.sql`). Каждый файл применяется один раз.
+**1. База.** Создать базу PostgreSQL, открыть её в Adminer → «SQL-запрос» → по очереди выполнить файлы из `backend/migrations/` (`001_init.sql`, `002_assignments.sql`, `003_booking_legal.sql`, `004_room_library_telegram.sql`). Каждый файл применяется один раз.
 
 **2. Бэкенд** (папка `backend`, команда запуска `npm start`). Переменные окружения:
 
@@ -19,6 +19,8 @@
 | `JWT_SECRET` | 64+ случайных символа (как сгенерировать — в `backend/.env.example`) |
 | `FRONTEND_ORIGINS` | адрес сайта, например `https://tutor-cabinet.relaxdev.ru` |
 | `APP_TIMEZONE` | `Europe/Moscow` |
+| `TELEGRAM_BOT_TOKEN` | токен бота от @BotFather (необязательно — для итогов уроков в Telegram) |
+| `TG_OPTION` | `1` — нужен на RelaxDev, чтобы сервер достучался до Telegram |
 
 Проверка: `https://<адрес-бэкенда>/api/health` → `{"ok":true}`.
 

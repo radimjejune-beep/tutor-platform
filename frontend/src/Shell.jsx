@@ -7,18 +7,20 @@ const ROLE_LABEL = { tutor: 'Преподаватель', student: 'Ученик
 
 export const TUTOR_NAV = [
   { to: '/', label: 'Главная', icon: 'home' },
-  { to: '/schedule', label: 'Расписание', icon: 'calendar' },
+  { to: '/schedule', label: 'Расписание', short: 'Уроки', icon: 'calendar' },
   { to: '/students', label: 'Ученики', icon: 'users' },
   { to: '/homework', label: 'Задания', short: 'Задания', icon: 'book', countKey: 'homework' },
-  { to: '/finance', label: 'Доход', icon: 'wallet' },
+  { to: '/library', label: 'Библиотека', short: 'Библ.', icon: 'library' },
+  { to: '/finance', label: 'Доход', icon: 'wallet', hideMobile: true },
   { to: '/settings', label: 'Настройки', short: 'Ещё', icon: 'settings' },
 ];
 
 export const CLIENT_NAV = [
   { to: '/', label: 'Главная', icon: 'home' },
-  { to: '/schedule', label: 'Расписание', icon: 'calendar' },
+  { to: '/schedule', label: 'Расписание', short: 'Уроки', icon: 'calendar' },
   { to: '/homework', label: 'Задания', short: 'Задания', icon: 'book', countKey: 'homework' },
-  { to: '/progress', label: 'Прогресс', icon: 'chart' },
+  { to: '/theory', label: 'Теория', icon: 'library' },
+  { to: '/progress', label: 'Прогресс', short: 'Успехи', icon: 'chart' },
   { to: '/payments', label: 'Оплата', icon: 'wallet' },
 ];
 
@@ -78,7 +80,7 @@ export function Shell({ nav, path, counts = {}, children }) {
         <main className="content">{children}</main>
 
         <nav className="tabbar" aria-label="Разделы">
-          {nav.map((item) => (
+          {nav.filter((item) => !item.hideMobile).map((item) => (
             <Link key={item.to} to={item.to} className={isActive(path, item.to) ? 'active' : ''}>
               <Icon name={item.icon} />
               {item.short || item.label}

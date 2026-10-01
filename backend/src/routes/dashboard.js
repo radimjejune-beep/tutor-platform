@@ -22,7 +22,7 @@ router.get(
 // Репетитор: сегодня + «требует внимания»
 async function tutorDashboard() {
   const { rows: today } = await query(
-    `SELECT l.*, s.full_name AS student_name, s.board_link
+    `SELECT l.*, s.full_name AS student_name, s.board_link, COALESCE(l.call_link, s.call_link) AS join_link
        FROM lessons l JOIN students s ON s.id = l.student_id
       WHERE l.starts_at >= CURRENT_DATE AND l.starts_at < CURRENT_DATE + INTERVAL '1 day'
         AND l.status <> 'cancelled'
@@ -107,7 +107,7 @@ async function tutorDashboard() {
 
 // Ученик / родитель: по каждому ребёнку
 async function studentDashboard(studentId) {
-  const { rows: st } = await query('SELECT id, full_name, level, goal, textbook, board_link FROM students WHERE id = $1', [
+  const { rows: st } = await query('SELECT id, full_name, level, goal, textbook, board_link, call_link FROM students WHERE id = $1', [
     studentId,
   ]);
   const { rows: upcoming } = await query(

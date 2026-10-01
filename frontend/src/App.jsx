@@ -7,6 +7,9 @@ import { ToastProvider, Spinner, useRoute, Empty, Link, useLoad } from './ui';
 import { Login, ChangePassword } from './pages/Login';
 import { LegalPage, AcceptDocuments } from './pages/Legal';
 import Settings from './pages/tutor/Settings';
+import { LibraryPage, LibraryEditor } from './pages/tutor/Library';
+import LessonRoom from './pages/LessonRoom';
+import { TheoryList, TheoryView } from './pages/client/Theory';
 
 import TutorDashboard from './pages/tutor/Dashboard';
 import TutorSchedule from './pages/tutor/Schedule';
@@ -71,13 +74,17 @@ function TutorApp({ path, params }) {
   else if (parts[0] === 'schedule') page = <TutorSchedule />;
   else if (parts[0] === 'students' && parts[1]) page = <StudentPage id={Number(parts[1])} tab={parts[2] || 'lessons'} />;
   else if (parts[0] === 'students') page = <Students />;
-  else if (parts[0] === 'homework' && parts[1] === 'new') page = <AssignmentEditor presetStudentId={Number(params.get('student')) || undefined} />;
+  else if (parts[0] === 'homework' && parts[1] === 'new') page = <AssignmentEditor presetStudentId={Number(params.get('student')) || undefined} presetItems={(params.get('items') || '').split(',').map(Number).filter(Boolean)} />;
   else if (parts[0] === 'homework' && parts[2] === 'edit') page = <AssignmentEditor id={Number(parts[1])} />;
   else if (parts[0] === 'homework' && parts[2] === 'review' && parts[3]) page = <ReviewPage assignmentId={Number(parts[1])} homeworkId={Number(parts[3])} />;
   else if (parts[0] === 'homework' && parts[1]) page = <AssignmentPage id={Number(parts[1])} />;
   else if (parts[0] === 'homework') page = <AssignmentsList />;
   else if (parts[0] === 'finance') page = <Finance />;
   else if (parts[0] === 'settings') page = <Settings tab={parts[1] || 'booking'} />;
+  else if (parts[0] === 'library' && parts[1] === 'new') page = <LibraryEditor presetKind={params.get('kind') || 'task'} />;
+  else if (parts[0] === 'library' && /^\d+$/.test(parts[1] || '')) page = <LibraryEditor id={Number(parts[1])} />;
+  else if (parts[0] === 'library') page = <LibraryPage key={parts[1] || 'tasks'} kind={parts[1] === 'theory' ? 'theory' : 'task'} />;
+  else if (parts[0] === 'lesson' && parts[1]) page = <LessonRoom id={Number(parts[1])} />;
   else if (parts[0] === 'password') page = <ChangePassword />;
   else page = <NotFound />;
 
@@ -133,6 +140,9 @@ function ClientCabinet({ path }) {
   else if (parts[0] === 'homework' && parts[1]) page = <HomeworkPage id={Number(parts[1])} isParent={props.isParent} />;
   else if (parts[0] === 'homework') page = <ClientHomework {...props} />;
   else if (parts[0] === 'progress') page = <ClientProgress {...props} />;
+  else if (parts[0] === 'theory' && parts[1]) page = <TheoryView id={Number(parts[1])} />;
+  else if (parts[0] === 'theory') page = <TheoryList />;
+  else if (parts[0] === 'lesson' && parts[1]) page = <LessonRoom id={Number(parts[1])} />;
   else if (parts[0] === 'payments') page = <ClientPayments {...props} />;
   else if (parts[0] === 'reports' && parts[1]) page = <ReportView id={Number(parts[1])} />;
   else if (parts[0] === 'password') page = <ChangePassword />;

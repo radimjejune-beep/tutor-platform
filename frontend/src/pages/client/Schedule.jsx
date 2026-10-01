@@ -1,7 +1,7 @@
 // pages/client/Schedule.jsx — расписание ученика: запись, перенос и отмена
 import { useState } from 'react';
 import { api } from '../../api';
-import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Modal, Field, useToast, useSubmit } from '../../ui';
+import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Modal, Field, Link, useToast, useSubmit } from '../../ui';
 import LessonsByDay from '../../components/LessonsByDay';
 import { time, dayMonth, relativeDay, dayKey, isToday, cap, weekday } from '../../format';
 
@@ -125,6 +125,7 @@ export default function ClientSchedule({ student }) {
                         <div className="list-title truncate">{l.topic || 'Занятие'}</div>
                         <div className="list-sub">{l.duration_min} минут</div>
                       </div>
+                      <Link to={`/lesson/${l.id}`} className="btn btn-secondary btn-sm">Урок</Link>
                       {info.enabled && (
                         movePending.has(l.id) ? (
                           <Badge tone="brass">Перенос на рассмотрении</Badge>

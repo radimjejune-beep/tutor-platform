@@ -121,6 +121,26 @@ export const api = {
   legalAdmin: () => request('GET', '/legal/admin'),
   saveLegalDoc: (kind, data) => request('PUT', `/legal/docs/${kind}`, data),
 
+  // Библиотека
+  library: (params) => request('GET', `/library${qs(params || {})}`),
+  libraryFacets: () => request('GET', '/library/facets'),
+  libraryItem: (id) => request('GET', `/library/${id}`),
+  libraryBatch: (ids) => (ids?.length ? request('GET', `/library/batch${qs({ ids: ids.join(',') })}`) : Promise.resolve([])),
+  createLibraryItem: (data) => request('POST', '/library', data),
+  updateLibraryItem: (id, data) => request('PATCH', `/library/${id}`, data),
+  deleteLibraryItem: (id) => request('DELETE', `/library/${id}`),
+
+  // Комната урока
+  lessonRoom: (id) => request('GET', `/lessons/${id}/room`),
+  setLessonItems: (id, item_ids) => request('PUT', `/lessons/${id}/items`, { item_ids }),
+  sendLessonSummary: (id) => request('POST', `/lessons/${id}/send-summary`),
+
+  // Telegram
+  telegramStatus: () => request('GET', '/telegram/status'),
+  telegramLink: () => request('POST', '/telegram/link'),
+  telegramUnlink: () => request('DELETE', '/telegram/link'),
+  telegramOverview: () => request('GET', '/telegram/overview'),
+
   // Файлы
   uploadFile: async (target, file) => {
     const prepared = await prepareFile(file);

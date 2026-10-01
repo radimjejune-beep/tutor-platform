@@ -2,6 +2,8 @@
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Link, PassMarks, Bar } from '../../ui';
 import { CONTACT_URL } from '../../config';
+import { callService } from '../LessonRoom';
+import TelegramCard from '../../components/TelegramCard';
 import { time, dayMonth, relativeDay, rub, shortDate, monthName, lessonsWord, HW_STATUS } from '../../format';
 
 export default function ClientHome({ student, isParent }) {
@@ -45,7 +47,13 @@ export default function ClientHome({ student, isParent }) {
             <div className="hero-date" style={{ fontSize: 32 }}>Пока не назначено</div>
           )}
           <div className="hero-actions">
-            {s.student.board_link && (
+            {next && (next.call_link || s.student.call_link) && (
+              <a className="btn btn-light" href={next.call_link || s.student.call_link} target="_blank" rel="noreferrer">
+                <Icon name="video" /> Войти в {callService(next.call_link || s.student.call_link)}
+              </a>
+            )}
+            {next && <Link to={`/lesson/${next.id}`} className="btn btn-ghost-light">Комната урока</Link>}
+            {s.student.board_link && !next && (
               <a className="btn btn-light" href={s.student.board_link} target="_blank" rel="noreferrer">
                 <Icon name="board" /> Открыть доску
               </a>
@@ -143,6 +151,7 @@ export default function ClientHome({ student, isParent }) {
           <p style={{ margin: 0, whiteSpace: 'pre-line' }}>{s.last_lesson.summary}</p>
         </section>
       )}
+      <TelegramCard />
     </>
   );
 }

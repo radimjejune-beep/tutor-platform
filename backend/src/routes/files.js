@@ -5,6 +5,7 @@ const { z } = require('zod');
 const { query } = require('../db');
 const { canAccessStudent } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
+const { visibleTaskIds } = require('./library');
 
 const router = express.Router();
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -19,12 +20,16 @@ const uploadSchema = z
   .object({
     assignment_id: z.number().int().positive().optional(),
     homework_id: z.number().int().positive().optional(),
+    library_item_id: z.number().int().positive().optional(),
     filename: z.string().trim().min(1).max(255),
     mime: z.string().trim().max(100).default('application/octet-stream'),
     data: z.string().min(1), // base64
   })
   .strict()
-  .refine((b) => Boolean(b.assignment_id) !== Boolean(b.homework_id), 'Укажите задание или работу');
+  .refine(
+    (b) => [b.assignment_id, b.homework_id, b.library_item_id].filter(Boolean).length === 1,
+    'Укажите, к чему прикрепить файл'
+  );
 
 // Кто может прикрепить файл
 async function canUpload(user, b) {
@@ -38,6 +43,12 @@ async function canUpload(user, b) {
 // Кто может открыть файл
 async function canRead(user, file) {
   if (user.role === 'tutor') return true;
+  if (file.library_item_id) {
+    const { rows } = await query('SELECT id, kind FROM library_items WHERE id = $1', [file.library_item_id]);
+    if (!rows[0]) return false;
+    if (rows[0].kind === 'theory') return true;
+    return (await visibleTaskIds(user)).includes(rows[0].id);
+  }
   if (file.homework_id) {
     const { rows } = await query('SELECT student_id FROM homework WHERE id = $1', [file.homework_id]);
     return Boolean(rows[0] && (await canAccessStudent(user, rows[0].student_id)));
@@ -64,10 +75,10 @@ router.post(
     if (buf.length > MAX_BYTES) return res.status(413).json({ error: 'Файл больше 10 МБ' });
 
     const { rows } = await query(
-      `INSERT INTO files (assignment_id, homework_id, filename, mime, size_bytes, data, uploaded_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO files (assignment_id, homework_id, library_item_id, filename, mime, size_bytes, data, uploaded_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING id, filename, mime, size_bytes, uploaded_by, created_at`,
-      [b.assignment_id || null, b.homework_id || null, safeName(b.filename), b.mime, buf.length, buf, req.user.id]
+      [b.assignment_id || null, b.homework_id || null, b.library_item_id || null, safeName(b.filename), b.mime, buf.length, buf, req.user.id]
     );
     console.log(`✅ Файл «${rows[0].filename}» (${Math.round(buf.length / 1024)} КБ)`);
     res.status(201).json(rows[0]);

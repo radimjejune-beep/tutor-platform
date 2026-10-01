@@ -67,12 +67,12 @@ router.get(
     let students = [];
     if (req.user.role === 'student') {
       ({ rows: students } = await query(
-        'SELECT id, full_name, level, board_link FROM students WHERE user_id = $1',
+        'SELECT id, full_name, level, board_link, call_link, category FROM students WHERE user_id = $1',
         [req.user.id]
       ));
     } else if (req.user.role === 'parent') {
       ({ rows: students } = await query(
-        `SELECT s.id, s.full_name, s.level, s.board_link
+        `SELECT s.id, s.full_name, s.level, s.board_link, s.call_link, s.category
            FROM students s JOIN parent_students ps ON ps.student_id = s.id
           WHERE ps.parent_user_id = $1 AND s.status <> 'archived'
           ORDER BY s.full_name`,

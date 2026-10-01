@@ -1,7 +1,7 @@
 // pages/tutor/modals.jsx — формы преподавателя в модальных окнах
 import { useState } from 'react';
 import { api } from '../../api';
-import { Modal, Field, useSubmit, useToast, useLoad, Badge } from '../../ui';
+import { Modal, Field, useSubmit, useToast, useLoad, Badge, Icon } from '../../ui';
 import {
   LESSON_STATUS, SKILLS, METHOD, CATEGORY,
   toLocalInput, fromLocalInput, todayISO, rub, relativeDay, time, dayMonth, lessonsWord,
@@ -140,7 +140,11 @@ export function LessonModal({ lesson, onClose, onSaved }) {
     topic: lesson.topic || '',
     summary: lesson.summary || '',
     private_notes: lesson.private_notes || '',
+    call_link: lesson.call_link || '',
+    notify: !lesson.summary_sent_at,
   });
+  const tgStatus = useLoad(() => api.telegramStatus(), []);
+  const tgOn = tgStatus.data?.enabled;
 
   const { busy, error, submit } = useSubmit(async () => {
     const saved = await api.updateLesson(lesson.id, {
@@ -151,8 +155,19 @@ export function LessonModal({ lesson, onClose, onSaved }) {
       topic: orNull(f.topic),
       summary: orNull(f.summary),
       private_notes: orNull(f.private_notes),
+      call_link: orNull(f.call_link),
     });
-    toast(saved.charged && !lesson.charged ? 'Сохранено, занятие списано' : 'Сохранено');
+    let msg = saved.charged && !lesson.charged ? 'Сохранено, занятие списано' : 'Сохранено';
+    // Итоги — родителям в Telegram
+    if (tgOn && f.notify && (orNull(f.summary) || orNull(f.topic)) && f.status === 'done') {
+      try {
+        const r = await api.sendLessonSummary(lesson.id);
+        msg += r.sent.length ? `. Итоги отправлены: ${r.sent.join(', ')}` : '. Никто из родителей не подключил Telegram';
+      } catch (err) {
+        msg += `. Итоги не отправлены: ${err.message}`;
+      }
+    }
+    toast(msg);
     onSaved();
   });
 
@@ -173,6 +188,12 @@ export function LessonModal({ lesson, onClose, onSaved }) {
         {relativeDay(lesson.starts_at)}, {dayMonth(lesson.starts_at)} в {time(lesson.starts_at)}
         {lesson.charged && (lesson.subscription_id ? ', списано с абонемента' : `, списано разово ${rub(lesson.price)}`)}
       </p>
+      <div className="row wrap" style={{ gap: 8, marginTop: -4, marginBottom: 18 }}>
+        <a className="btn btn-sm" href={`#/lesson/${lesson.id}`} onClick={onClose}><Icon name="board" /> Комната урока</a>
+        {(lesson.join_link || lesson.call_link) && (
+          <a className="btn btn-secondary btn-sm" href={lesson.join_link || lesson.call_link} target="_blank" rel="noreferrer"><Icon name="video" /> Звонок</a>
+        )}
+      </div>
       <form className="form" onSubmit={submit}>
         <Field label="Как прошло">
           <div className="row wrap" style={{ gap: 8 }}>
@@ -192,9 +213,21 @@ export function LessonModal({ lesson, onClose, onSaved }) {
           <textarea className="textarea" value={f.summary} onChange={(e) => setF({ ...f, summary: e.target.value })}
             placeholder="Разобрали вопросы в Present Simple, новая лексика по теме Daily routine" />
         </Field>
+        {tgOn && (
+          <label className="check" style={{ marginTop: -6 }}>
+            <input type="checkbox" checked={f.notify} onChange={(e) => setF({ ...f, notify: e.target.checked })} />
+            <span>
+              Отправить итоги родителям в Telegram при сохранении{f.status !== 'done' ? ' (когда урок отмечен проведённым)' : ''}
+              {lesson.summary_sent_at && <span className="muted"> — уже отправлялись {dayMonth(lesson.summary_sent_at)} в {time(lesson.summary_sent_at)}</span>}
+            </span>
+          </label>
+        )}
         <Field label="Заметки для себя" hint="Видите только вы">
           <textarea className="textarea" style={{ minHeight: 70 }} value={f.private_notes}
             onChange={(e) => setF({ ...f, private_notes: e.target.value })} />
+        </Field>
+        <Field label="Ссылка на звонок для этого урока" hint="Если пусто — берётся постоянная ссылка из карточки ученика">
+          <input className="input" type="url" value={f.call_link} onChange={(e) => setF({ ...f, call_link: e.target.value })} placeholder="https://telemost.yandex.ru/j/…" />
         </Field>
         <div className="form-row">
           <Field label="Дата и время">
@@ -236,6 +269,7 @@ export function StudentModal({ student, onClose, onSaved }) {
     default_price: student?.default_price ?? 1500,
     default_duration: student?.default_duration ?? 60,
     board_link: student?.board_link || '',
+    call_link: student?.call_link || '',
     notes: student?.notes || '',
     status: student?.status || 'active',
     consent: Boolean(student?.pd_consent_at),
@@ -251,6 +285,7 @@ export function StudentModal({ student, onClose, onSaved }) {
       default_price: Number(f.default_price) || 0,
       default_duration: Number(f.default_duration) || 60,
       board_link: orNull(f.board_link),
+      call_link: orNull(f.call_link),
       notes: orNull(f.notes),
     };
     if (student) body.status = f.status;
@@ -295,6 +330,9 @@ export function StudentModal({ student, onClose, onSaved }) {
             <input className="input" type="number" min={15} max={240} step={5} value={f.default_duration} onChange={(e) => setF({ ...f, default_duration: e.target.value })} />
           </Field>
         </div>
+        <Field label="Постоянная ссылка на звонок" hint="Телемост, Zoom или Meet — появится кнопка «Войти в звонок» у ученика">
+          <input className="input" type="url" value={f.call_link} placeholder="https://telemost.yandex.ru/j/…" onChange={(e) => setF({ ...f, call_link: e.target.value })} />
+        </Field>
         <Field label="Ссылка на доску в Холсте" hint="Ученик откроет её из кабинета одной кнопкой">
           <input className="input" type="url" value={f.board_link} placeholder="https://holst.so/…" onChange={(e) => setF({ ...f, board_link: e.target.value })} />
         </Field>

@@ -63,6 +63,8 @@ protectedApi.use('/homework', require('./routes/homework'));
 protectedApi.use('/assignments', require('./routes/assignments'));
 protectedApi.use('/files', require('./routes/files'));
 protectedApi.use('/booking', require('./routes/booking'));
+protectedApi.use('/library', require('./routes/library').router);
+protectedApi.use('/telegram', require('./routes/telegram'));
 protectedApi.use('/legal', require('./routes/legal').protectedRouter);
 protectedApi.use('/progress', require('./routes/progress'));
 app.use('/api', protectedApi);
@@ -82,6 +84,7 @@ app.use((err, req, res, next) => {
 const PORT = Number(process.env.PORT) || 3001;
 if (require.main === module) {
   app.listen(PORT, () => console.log(`✅ API запущен на порту ${PORT}`));
+  require('./services/telegram').start();
 }
 
 module.exports = app;

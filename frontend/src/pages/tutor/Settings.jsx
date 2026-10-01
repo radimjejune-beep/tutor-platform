@@ -13,8 +13,9 @@ export default function Settings({ tab }) {
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'booking'} className={tab === 'booking' ? 'active' : ''} onClick={() => navigate('/settings/booking')}>Запись учеников</button>
         <button role="tab" aria-selected={tab === 'documents'} className={tab === 'documents' ? 'active' : ''} onClick={() => navigate('/settings/documents')}>Документы</button>
+        <button role="tab" aria-selected={tab === 'telegram'} className={tab === 'telegram' ? 'active' : ''} onClick={() => navigate('/settings/telegram')}>Telegram</button>
       </div>
-      {tab === 'documents' ? <DocumentsTab /> : <BookingTab />}
+      {tab === 'documents' ? <DocumentsTab /> : tab === 'telegram' ? <TelegramTab /> : <BookingTab />}
     </>
   );
 }
@@ -240,5 +241,53 @@ function DocEditor({ doc, onClose, onSaved }) {
         <button type="button" className="btn btn-secondary" onClick={onClose}>Отмена</button>
       </aside>
     </div>
+  );
+}
+
+/* ============================================================
+   Telegram: состояние бота и кто подключился
+   ============================================================ */
+function TelegramTab() {
+  const data = useLoad(() => api.telegramOverview(), []);
+  if (data.loading) return <Spinner />;
+  if (data.error) return <ErrorBox error={data.error} onRetry={data.reload} />;
+  const d = data.data;
+  const linked = d.users.filter((u) => u.linked_at);
+
+  if (!d.enabled) {
+    return (
+      <section className="panel" style={{ maxWidth: 760 }}>
+        <h2 className="section-title">Бот ещё не подключён</h2>
+        <ol className="steps">
+          <li>В Telegram откройте <b>@BotFather</b>, отправьте <code>/newbot</code>, придумайте имя (например, «Lessonfold — итоги уроков») и адрес бота, оканчивающийся на <code>bot</code>.</li>
+          <li>BotFather пришлёт токен — длинную строку вида <code>123456:ABC…</code>. Никому её не показывайте.</li>
+          <li>В RelaxDev, проект <b>tutor-platform</b> → «Переменные», добавьте <code>TELEGRAM_BOT_TOKEN</code> = токен и <code>TG_OPTION</code> = <code>1</code> (без неё сервер не достучится до Telegram).</li>
+          <li>Нажмите «Редеплой» и обновите эту страницу.</li>
+        </ol>
+      </section>
+    );
+  }
+
+  return (
+    <section className="panel">
+      <div className="panel-head">
+        <div>
+          <h2 className="section-title">Бот @{d.bot_username} работает</h2>
+          <div className="small muted">Родители и взрослые ученики подключают его сами: на главной их кабинета есть кнопка «Подключить». Итоги уходят, когда вы отмечаете урок проведённым и пишете, что сделали.</div>
+        </div>
+        <Badge tone="green">Подключено: {linked.length} из {d.users.length}</Badge>
+      </div>
+      <div className="list">
+        {d.users.map((u) => (
+          <div key={u.id} className="list-item">
+            <div className="list-main">
+              <div className="list-title">{u.full_name}</div>
+              <div className="list-sub">{u.role === 'parent' ? 'Родитель' : 'Ученик'}{u.students ? `: ${u.students}` : ''}</div>
+            </div>
+            {u.linked_at ? <Badge tone="green">С {fullDate(u.linked_at)}</Badge> : <Badge>Не подключил</Badge>}
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

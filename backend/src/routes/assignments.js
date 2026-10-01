@@ -17,6 +17,7 @@ const fields = {
   links: z.array(z.string().trim().url().max(1000)).max(10),
   due_on: isoDate.nullable(),
   questions: questionsSchema,
+  library_item_ids: z.array(z.number().int().positive()).max(50),
 };
 
 // Список метаданных файлов (без содержимого)
@@ -31,6 +32,7 @@ router.get(
     const { rows } = await query(
       `SELECT a.id, a.title, a.due_on, a.created_at,
               jsonb_array_length(a.questions) AS question_count,
+              cardinality(a.library_item_ids) AS task_count,
               COUNT(h.id)::int AS total,
               COUNT(h.id) FILTER (WHERE h.status = 'submitted')::int AS submitted,
               COUNT(h.id) FILTER (WHERE h.status = 'checked')::int AS checked,
@@ -55,7 +57,7 @@ const createSchema = z
     ...fields,
     student_ids: z.array(z.number().int().positive()).min(1, 'Выберите хотя бы одного ученика').max(100),
   })
-  .partial({ description: true, links: true, due_on: true, questions: true })
+  .partial({ description: true, links: true, due_on: true, questions: true, library_item_ids: true })
   .strict();
 
 router.post(
@@ -68,9 +70,10 @@ router.post(
       if (found.length !== new Set(b.student_ids).size) return { error: 'Некоторые ученики не найдены' };
 
       const { rows } = await client.query(
-        `INSERT INTO assignments (title, description, links, due_on, questions)
-         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-        [b.title, b.description || null, b.links || [], b.due_on || null, JSON.stringify(b.questions || [])]
+        `INSERT INTO assignments (title, description, links, due_on, questions, library_item_ids)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [b.title, b.description || null, b.links || [], b.due_on || null, JSON.stringify(b.questions || []),
+          [...new Set(b.library_item_ids || [])]]
       );
       for (const sid of new Set(b.student_ids)) {
         await client.query('INSERT INTO homework (assignment_id, student_id) VALUES ($1, $2)', [rows[0].id, sid]);

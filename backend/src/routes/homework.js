@@ -12,7 +12,7 @@ const tutorOnly = requireRole('tutor');
 
 // Работа + поля задания
 const SELECT_HW = `
-  SELECT h.*, a.title, a.description, a.links, a.due_on,
+  SELECT h.*, a.title, a.description, a.links, a.due_on, a.library_item_ids,
          jsonb_array_length(a.questions) AS question_count,
          s.full_name AS student_name
     FROM homework h

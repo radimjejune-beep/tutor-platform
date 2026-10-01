@@ -4,7 +4,7 @@ import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Badge, Icon, Link, Field, useToast, useSubmit } from '../../ui';
 import { FileList, FileUploadButton } from '../../components/Files';
 import { QuizForm } from '../../components/Quiz';
-import { linkLabel } from '../tutor/Assignments';
+import { linkLabel, AssignmentTasks } from '../tutor/Assignments';
 import { shortDate, relativeDay, time, HW_STATUS, todayISO } from '../../format';
 
 export default function HomeworkPage({ id, isParent }) {
@@ -64,6 +64,8 @@ function HomeworkView({ h, isParent, reload }) {
               <FileList files={h.materials} />
             </div>
           )}
+
+          {h.library_item_ids?.length > 0 && <AssignmentTasks ids={h.library_item_ids} />}
 
           {h.questions.length > 0 && (
             <section style={{ marginTop: 24 }}>

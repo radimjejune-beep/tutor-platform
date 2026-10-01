@@ -20,6 +20,7 @@ const studentFields = {
   default_price: z.number().int().min(0).max(100000),
   default_duration: z.number().int().min(15).max(240),
   board_link: z.string().trim().url().max(1000).nullable(),
+  call_link: z.string().trim().url().max(1000).nullable(),
   notes: z.string().max(5000).nullable(),
   status: z.enum(['active', 'paused', 'archived']),
   pd_consent_at: z.string().datetime({ offset: true }).nullable(),
@@ -98,6 +99,7 @@ router.get(
     if (isTutor) {
       const { rows: acc } = await query(
         `SELECT u.id, u.role, u.login, u.full_name, u.is_active, u.last_login_at,
+                EXISTS (SELECT 1 FROM telegram_links tl WHERE tl.user_id = u.id) AS telegram_linked,
                 (SELECT json_agg(json_build_object('kind', d.kind, 'version', d.version, 'accepted_at', a.accepted_at)
                                  ORDER BY a.accepted_at)
                    FROM document_acceptances a JOIN legal_documents d ON d.id = a.document_id

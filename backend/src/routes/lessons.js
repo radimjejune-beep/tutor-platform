@@ -2,7 +2,8 @@
 const express = require('express');
 const { z } = require('zod');
 const { query, transaction } = require('../db');
-const { requireRole, accessibleStudentIds } = require('../middleware/auth');
+const { requireRole, accessibleStudentIds, canAccessStudent } = require('../middleware/auth');
+const tg = require('../services/telegram');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { syncLessonCharge } = require('../services/billing');
 const { stripPrivate, buildUpdate } = require('../utils');
@@ -29,7 +30,7 @@ router.get(
     }
 
     const { rows } = await query(
-      `SELECT l.*, s.full_name AS student_name, s.board_link
+      `SELECT l.*, s.full_name AS student_name, s.board_link, COALESCE(l.call_link, s.call_link) AS join_link
          FROM lessons l JOIN students s ON s.id = l.student_id
         WHERE l.starts_at >= $1 AND l.starts_at < $2
           AND ($3::int IS NULL OR l.student_id = $3)
@@ -125,6 +126,7 @@ const updateSchema = z
     topic: z.string().trim().max(255).nullable(),
     summary: z.string().max(5000).nullable(),
     private_notes: z.string().max(5000).nullable(),
+    call_link: z.string().trim().url().max(1000).nullable(),
   })
   .partial()
   .strict();
@@ -164,6 +166,76 @@ router.delete(
     if (!rows[0]) return res.status(409).json({ error: 'Занятие не найдено или уже списано — смените статус на «отменено»' });
     console.log(`🗑️ Занятие #${req.params.id} удалено`);
     res.json({ ok: true });
+  })
+);
+
+// ------------------------------------------------------------
+// Комната урока: звонок, доска, задачи урока. Видят преподаватель и сам ученик / родитель
+// ------------------------------------------------------------
+router.get(
+  '/:id/room',
+  asyncHandler(async (req, res) => {
+    const { rows } = await query(
+      `SELECT l.*, s.full_name AS student_name, s.board_link, COALESCE(l.call_link, s.call_link) AS join_link
+         FROM lessons l JOIN students s ON s.id = l.student_id WHERE l.id = $1`,
+      [Number(req.params.id)]
+    );
+    const l = rows[0];
+    if (!l || !(await canAccessStudent(req.user, l.student_id))) return res.status(404).json({ error: 'Занятие не найдено' });
+
+    const isTutor = req.user.role === 'tutor';
+    const fields = isTutor
+      ? 'i.*'
+      : 'i.id, i.kind, i.subject, i.title, i.body, i.exam, i.exam_task, i.links';
+    const { rows: items } = await query(
+      `SELECT ${fields} FROM lesson_items li JOIN library_items i ON i.id = li.item_id
+        WHERE li.lesson_id = $1 ORDER BY li.position, li.item_id`,
+      [l.id]
+    );
+    const { rows: files } = items.length
+      ? await query(
+          'SELECT id, filename, mime, size_bytes, uploaded_by, created_at, library_item_id FROM files WHERE library_item_id = ANY($1) ORDER BY id',
+          [items.map((i) => i.id)]
+        )
+      : { rows: [] };
+
+    res.json({
+      ...(isTutor ? l : stripPrivate(l, ['private_notes'])),
+      items: items.map((i) => ({ ...i, files: files.filter((f) => f.library_item_id === i.id) })),
+    });
+  })
+);
+
+// Задачи урока: полный список в нужном порядке
+router.put(
+  '/:id/items',
+  tutorOnly,
+  validateBody(z.object({ item_ids: z.array(z.number().int().positive()).max(60) }).strict()),
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    const ids = [...new Set(req.body.item_ids)];
+    await transaction(async (client) => {
+      await client.query('DELETE FROM lesson_items WHERE lesson_id = $1', [id]);
+      for (const [pos, itemId] of ids.entries()) {
+        await client.query(
+          `INSERT INTO lesson_items (lesson_id, item_id, position)
+           SELECT $1, $2, $3 WHERE EXISTS (SELECT 1 FROM library_items WHERE id = $2)`,
+          [id, itemId, pos]
+        );
+      }
+    });
+    res.json({ ok: true, count: ids.length });
+  })
+);
+
+// Итоги урока → в Telegram родителям (и взрослому ученику)
+router.post(
+  '/:id/send-summary',
+  tutorOnly,
+  asyncHandler(async (req, res) => {
+    const result = await tg.sendLessonSummary(Number(req.params.id));
+    if (result.error) return res.status(409).json({ error: result.error });
+    res.json(result);
   })
 );
 

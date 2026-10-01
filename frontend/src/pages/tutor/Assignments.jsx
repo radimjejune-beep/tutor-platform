@@ -5,6 +5,8 @@ import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Link, Field, navigate, useToast, useSubmit } from '../../ui';
 import { FileList, FileUploadButton } from '../../components/Files';
 import { QuizEditor, QuizForm, cleanQuestions } from '../../components/Quiz';
+import LibraryItem from '../../components/LibraryItem';
+import { TaskPicker, PickedTasks } from './Library';
 import { shortDate, fullDate, relativeDay, time, HW_STATUS, plural, todayISO } from '../../format';
 
 const orNull = (v) => (v && String(v).trim() ? String(v).trim() : null);
@@ -42,6 +44,7 @@ export function AssignmentsList() {
               <div className="list-title truncate">{a.title}</div>
               <div className="list-sub truncate">
                 {dueText(a.due_on)}. {a.students.join(', ')}
+                {a.task_count ? `. Задач: ${a.task_count}` : ''}
                 {a.question_count ? `. Тест: ${a.question_count} ${plural(a.question_count, 'вопрос', 'вопроса', 'вопросов')}` : ''}
               </div>
             </div>
@@ -58,16 +61,16 @@ export function AssignmentsList() {
 /* ============================================================
    Создание и редактирование задания
    ============================================================ */
-export function AssignmentEditor({ id, presetStudentId }) {
+export function AssignmentEditor({ id, presetStudentId, presetItems }) {
   const isNew = !id;
   const data = useLoad(() => Promise.all([api.students(), id ? api.assignment(id) : Promise.resolve(null)]), [id]);
   if (data.loading) return <Spinner />;
   if (data.error) return <ErrorBox error={data.error} onRetry={data.reload} />;
   const [students, assignment] = data.data;
-  return <EditorForm isNew={isNew} students={students} assignment={assignment} presetStudentId={presetStudentId} onFilesChanged={data.reload} />;
+  return <EditorForm isNew={isNew} students={students} assignment={assignment} presetStudentId={presetStudentId} presetItems={presetItems} onFilesChanged={data.reload} />;
 }
 
-function EditorForm({ isNew, students, assignment, presetStudentId, onFilesChanged }) {
+function EditorForm({ isNew, students, assignment, presetStudentId, presetItems, onFilesChanged }) {
   const toast = useToast();
   const assignedIds = new Set((assignment?.submissions || []).map((s) => s.student_id));
   const [f, setF] = useState({
@@ -77,9 +80,11 @@ function EditorForm({ isNew, students, assignment, presetStudentId, onFilesChang
     due_on: assignment?.due_on || '',
     questions: assignment?.questions || [],
     students: new Set(presetStudentId ? [presetStudentId] : []),
+    items: assignment?.library_item_ids || presetItems || [],
   });
   const [pendingFiles, setPendingFiles] = useState([]); // для нового задания — загрузим после создания
   const [showQuiz, setShowQuiz] = useState(Boolean(assignment?.questions?.length));
+  const [picking, setPicking] = useState(false);
 
   const toggle = (sid) => {
     const next = new Set(f.students);
@@ -94,6 +99,7 @@ function EditorForm({ isNew, students, assignment, presetStudentId, onFilesChang
       links: f.links.split(/\s+/).map((s) => s.trim()).filter(Boolean),
       due_on: f.due_on || null,
       questions: showQuiz ? cleanQuestions(f.questions) : [],
+      library_item_ids: f.items,
     };
     if (isNew) {
       if (!f.students.size) throw new Error('Выберите хотя бы одного ученика');
@@ -158,6 +164,20 @@ function EditorForm({ isNew, students, assignment, presetStudentId, onFilesChang
                 </>
               )}
             </Field>
+          </section>
+
+          <section className="panel">
+            <div className="panel-head">
+              <div>
+                <h2 className="section-title">Задачи из задачника</h2>
+                <div className="small muted">Ученик увидит условия; ответы и ваши заметки — нет</div>
+              </div>
+            </div>
+            <PickedTasks ids={f.items} onChange={(items) => setF({ ...f, items })} onAdd={() => setPicking(true)} />
+            {picking && (
+              <TaskPicker selected={f.items} onClose={() => setPicking(false)}
+                onPick={(items) => { setPicking(false); setF({ ...f, items }); }} />
+            )}
           </section>
 
           <section className="panel">
@@ -248,6 +268,8 @@ export function AssignmentPage({ id }) {
             </div>
           )}
           {d.files.length > 0 && <div style={{ margin: '18px 0' }}><FileList files={d.files} /></div>}
+
+          {d.library_item_ids?.length > 0 && <AssignmentTasks ids={d.library_item_ids} showPrivate />}
 
           {d.questions.length > 0 && (
             <section style={{ marginTop: 24 }}>
@@ -387,5 +409,19 @@ function ReviewForm({ hw, assignment, reload }) {
         </aside>
       </div>
     </>
+  );
+}
+
+// Задачи из задачника внутри задания
+export function AssignmentTasks({ ids, showPrivate }) {
+  const items = useLoad(() => api.libraryBatch(ids), [ids.join(',')]);
+  if (!items.data?.length) return null;
+  return (
+    <section style={{ marginTop: 22 }}>
+      <h2 className="section-title" style={{ marginBottom: 12 }}>Задачи</h2>
+      <div className="stack" style={{ gap: 12 }}>
+        {items.data.map((it, i) => <LibraryItem key={it.id} item={it} index={i} showPrivate={showPrivate} />)}
+      </div>
+    </section>
   );
 }

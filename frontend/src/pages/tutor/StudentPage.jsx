@@ -423,6 +423,7 @@ function AccessTab({ student, onChange }) {
           {a.accepted_docs?.length
             ? `Принял документы: ${a.accepted_docs.map((d) => `${DOC_NAMES[d.kind]} (ред. ${d.version}, ${shortDate(d.accepted_at)})`).join(', ')}`
             : 'Документы ещё не приняты'}
+          {a.telegram_linked ? '. Telegram подключён' : ''}
         </div>
       </div>
       {!a.is_active && <Badge tone="red">Заблокирован</Badge>}
