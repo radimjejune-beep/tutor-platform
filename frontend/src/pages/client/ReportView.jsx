@@ -57,7 +57,7 @@ export default function ReportView({ id }) {
           </div>
         )}
 
-        <div className="muted small" style={{ marginTop: 32 }}>{BRAND.tutorName}, {BRAND.name}</div>
+        <div className="muted small" style={{ marginTop: 32 }}>{BRAND.name}</div>
       </article>
     </>
   );

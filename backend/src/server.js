@@ -20,7 +20,9 @@ if (!process.env.DATABASE_URL) {
 const app = express();
 app.set('trust proxy', 1); // хостинг стоит за прокси — нужно для ограничения попыток входа
 app.use(helmet());
-app.use(express.json({ limit: '200kb' }));
+// Обычные запросы — до 200 КБ; загрузка файлов (/api/files) разбирается отдельно, до 15 МБ
+const smallJson = express.json({ limit: '200kb' });
+app.use((req, res, next) => (req.path.startsWith('/api/files') ? next() : smallJson(req, res, next)));
 
 // CORS: только адреса из FRONTEND_ORIGINS (через запятую)
 const origins = (process.env.FRONTEND_ORIGINS || 'http://localhost:5173')
@@ -55,6 +57,8 @@ protectedApi.use('/accounts', require('./routes/accounts'));
 protectedApi.use('/lessons', require('./routes/lessons'));
 protectedApi.use('/finance', require('./routes/finance'));
 protectedApi.use('/homework', require('./routes/homework'));
+protectedApi.use('/assignments', require('./routes/assignments'));
+protectedApi.use('/files', require('./routes/files'));
 protectedApi.use('/progress', require('./routes/progress'));
 app.use('/api', protectedApi);
 
@@ -64,6 +68,7 @@ app.use('/api', (req, res) => res.status(404).json({ error: 'Не найдено
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Некорректный JSON' });
+  if (err.type === 'entity.too.large') return res.status(413).json({ error: 'Слишком большой файл (до 10 МБ)' });
   if (err.status) return res.status(err.status).json({ error: err.message });
   console.error(`❌ ${req.method} ${req.originalUrl}:`, err);
   res.status(500).json({ error: 'Внутренняя ошибка сервера' });

@@ -17,7 +17,7 @@ function AuthLayout({ children }) {
           Каждое занятие, задание и шаг вперёд в одном месте
         </div>
         <div style={{ color: 'rgba(255,255,255,.7)', fontSize: 14, position: 'relative' }}>
-          Расписание, домашние задания, прогресс и отчёты
+          {BRAND.tagline}
         </div>
       </div>
       <div className="auth-form-wrap">

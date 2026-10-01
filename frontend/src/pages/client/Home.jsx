@@ -95,7 +95,7 @@ export default function ClientHome({ student, isParent }) {
           {!s.homework.length && <Empty title="Заданий нет">Новое появится здесь после занятия.</Empty>}
           <div className="list">
             {s.homework.slice(0, 4).map((h) => (
-              <Link key={h.id} to="/homework" className="list-item clickable" style={{ color: 'inherit', textDecoration: 'none' }}>
+              <Link key={h.id} to={`/homework/${h.id}`} className="list-item clickable" style={{ color: 'inherit', textDecoration: 'none' }}>
                 <div className="list-main">
                   <div className="list-title truncate">{h.title}</div>
                   <div className="list-sub">{h.due_on ? `К ${shortDate(h.due_on)}` : 'Без срока'}</div>

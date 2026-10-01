@@ -9,14 +9,14 @@ export const TUTOR_NAV = [
   { to: '/', label: 'Главная', icon: 'home' },
   { to: '/schedule', label: 'Расписание', icon: 'calendar' },
   { to: '/students', label: 'Ученики', icon: 'users' },
-  { to: '/homework', label: 'Проверка ДЗ', short: 'ДЗ', icon: 'book', countKey: 'homework' },
+  { to: '/homework', label: 'Задания', short: 'Задания', icon: 'book', countKey: 'homework' },
   { to: '/finance', label: 'Доход', icon: 'wallet' },
 ];
 
 export const CLIENT_NAV = [
   { to: '/', label: 'Главная', icon: 'home' },
   { to: '/schedule', label: 'Расписание', icon: 'calendar' },
-  { to: '/homework', label: 'Задания', short: 'ДЗ', icon: 'book', countKey: 'homework' },
+  { to: '/homework', label: 'Задания', short: 'Задания', icon: 'book', countKey: 'homework' },
   { to: '/progress', label: 'Прогресс', icon: 'chart' },
   { to: '/payments', label: 'Оплата', icon: 'wallet' },
 ];

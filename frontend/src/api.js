@@ -84,12 +84,32 @@ export const api = {
   deletePayment: (id) => request('DELETE', `/finance/payments/${id}`),
   summary: (month) => request('GET', `/finance/summary${qs({ month })}`),
 
-  // ДЗ
+  // Задания (преподаватель)
+  assignments: () => request('GET', '/assignments'),
+  assignment: (id) => request('GET', `/assignments/${id}`),
+  createAssignment: (data) => request('POST', '/assignments', data),
+  updateAssignment: (id, data) => request('PATCH', `/assignments/${id}`, data),
+  deleteAssignment: (id) => request('DELETE', `/assignments/${id}`),
+
+  // Работы учеников
   homework: (params) => request('GET', `/homework${qs(params)}`),
-  createHomework: (data) => request('POST', '/homework', data),
+  homeworkItem: (id) => request('GET', `/homework/${id}`),
   updateHomework: (id, data) => request('PATCH', `/homework/${id}`, data),
   deleteHomework: (id) => request('DELETE', `/homework/${id}`),
-  submitHomework: (id, student_answer) => request('POST', `/homework/${id}/submit`, { student_answer }),
+  submitHomework: (id, data) => request('POST', `/homework/${id}/submit`, data),
+  unsubmitHomework: (id) => request('POST', `/homework/${id}/unsubmit`),
+
+  // Файлы
+  uploadFile: async (target, file) => {
+    const prepared = await prepareFile(file);
+    return request('POST', '/files', { ...target, filename: prepared.name, mime: prepared.type, data: prepared.base64 });
+  },
+  fileBlob: async (id) => {
+    const res = await fetch(`${BASE}/api/files/${id}`, { headers: { Authorization: `Bearer ${getToken()}` } });
+    if (!res.ok) throw new ApiError(res.status, await res.json().catch(() => ({})));
+    return res.blob();
+  },
+  deleteFile: (id) => request('DELETE', `/files/${id}`),
 
   // Прогресс и отчёты
   progress: (studentId) => request('GET', `/progress/students/${studentId}`),
@@ -101,3 +121,48 @@ export const api = {
   updateReport: (id, data) => request('PATCH', `/progress/reports/${id}`, data),
   report: (id) => request('GET', `/progress/reports/${id}`),
 };
+
+/* ============================================================
+   Подготовка файла к загрузке: фото уменьшаем (телефонные снимки весят 3–8 МБ)
+   ============================================================ */
+const MAX_UPLOAD = 10 * 1024 * 1024;
+
+const toBase64 = (blob) =>
+  new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(',')[1]);
+    r.onerror = () => reject(new Error('Не удалось прочитать файл'));
+    r.readAsDataURL(blob);
+  });
+
+async function shrinkImage(file, maxSide = 2000, quality = 0.85) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = url;
+    });
+    const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+    if (scale === 1 && file.size < 1.5 * 1024 * 1024) return file;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+    if (!blob) return file;
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+  } catch {
+    return file; // не картинка, которую умеет браузер — загружаем как есть
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function prepareFile(file) {
+  let f = file;
+  if (/^image\/(jpeg|png|webp)$/.test(file.type)) f = await shrinkImage(file);
+  if (f.size > MAX_UPLOAD) throw new ApiError(413, { error: `«${file.name}» больше 10 МБ` });
+  return { name: f.name, type: f.type || 'application/octet-stream', base64: await toBase64(f) };
+}

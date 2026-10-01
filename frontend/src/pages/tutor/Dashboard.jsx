@@ -2,13 +2,16 @@
 import { useState } from 'react';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Link, navigate } from '../../ui';
-import { LessonModal, NewLessonModal, CheckHomeworkModal } from './modals';
-import { BRAND } from '../../config';
+import { LessonModal, NewLessonModal } from './modals';
+import { useAuth } from '../../auth';
 import { time, dayMonth, weekday, cap, rub, relativeDay, LESSON_STATUS, monthName, prevMonth, plural } from '../../format';
 
 export default function TutorDashboard() {
   const dash = useLoad(() => Promise.all([api.dashboard(), api.summary()]), []);
   const [modal, setModal] = useState(null);
+  const { user } = useAuth();
+  // Приветствие по имени из учётки (у «Преподаватель» — без имени)
+  const firstName = user.full_name && user.full_name !== 'Преподаватель' ? user.full_name.split(/\s+/)[0] : '';
   const close = () => setModal(null);
   const saved = () => {
     setModal(null);
@@ -29,7 +32,7 @@ export default function TutorDashboard() {
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Добрый день, {BRAND.tutorName}</h1>
+          <h1 className="page-title">{firstName ? `Добрый день, ${firstName}` : 'Добрый день'}</h1>
           <div className="lead">{cap(weekday(now))}, {dayMonth(now)}</div>
         </div>
         <div className="row">
@@ -120,10 +123,10 @@ export default function TutorDashboard() {
               </div>
             ))}
             {a.homework_to_check.map((h) => (
-              <div key={`h${h.id}`} className="list-item clickable" onClick={() => setModal({ type: 'check', homework: h })}>
+              <div key={`h${h.id}`} className="list-item clickable" onClick={() => navigate(`/homework/${h.assignment_id}/review/${h.id}`)}>
                 <div className="avatar"><Icon name="book" size={20} /></div>
                 <div className="list-main">
-                  <div className="list-title">Проверить ДЗ: {h.student_name}</div>
+                  <div className="list-title">Проверить работу: {h.student_name}</div>
                   <div className="list-sub truncate">{h.title}</div>
                 </div>
                 <button className="btn btn-secondary btn-sm">Проверить</button>
@@ -157,7 +160,6 @@ export default function TutorDashboard() {
 
       {modal?.type === 'new' && <NewLessonModal onClose={close} onSaved={saved} />}
       {modal?.type === 'lesson' && <LessonModal lesson={modal.lesson} onClose={close} onSaved={saved} />}
-      {modal?.type === 'check' && <CheckHomeworkModal homework={modal.homework} onClose={close} onSaved={saved} />}
     </>
   );
 }

@@ -213,6 +213,10 @@ const PATHS = {
   trash: 'M5 7h14M10 11v6M14 11v6M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12M9 7V4h6v3',
   report: 'M7 3h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1ZM9 12h6M9 16h6M13 3v5h5',
   clock: 'M12 7v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
+  clip: 'm20 11.5-7.8 7.8a5 5 0 0 1-7-7l8.2-8.2a3.3 3.3 0 0 1 4.7 4.7l-8.2 8.2a1.7 1.7 0 0 1-2.4-2.4l7.5-7.5',
+  quiz: 'M9 5h10M9 12h10M9 19h10M4.5 5l.8.8L7 4M4.5 12l.8.8L7 11M5 18.5h1.5',
+  arrowUp: 'M12 19V5M6 11l6-6 6 6',
+  arrowDown: 'M12 5v14M6 13l6 6 6-6',
 };
 
 export function Icon({ name, size }) {

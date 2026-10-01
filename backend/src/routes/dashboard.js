@@ -38,8 +38,10 @@ async function tutorDashboard() {
   );
 
   const { rows: toCheck } = await query(
-    `SELECT h.*, s.full_name AS student_name
-       FROM homework h JOIN students s ON s.id = h.student_id
+    `SELECT h.id, h.assignment_id, h.student_id, h.submitted_at, a.title, s.full_name AS student_name
+       FROM homework h
+       JOIN students s ON s.id = h.student_id
+       JOIN assignments a ON a.id = h.assignment_id
       WHERE h.status = 'submitted' ORDER BY h.submitted_at`
   );
 
@@ -98,7 +100,10 @@ async function studentDashboard(studentId) {
     [studentId]
   );
   const { rows: homework } = await query(
-    `SELECT * FROM homework WHERE student_id = $1 AND status <> 'checked' ORDER BY due_on NULLS LAST, id`,
+    `SELECT h.id, h.status, h.assignment_id, a.title, a.due_on
+       FROM homework h JOIN assignments a ON a.id = h.assignment_id
+      WHERE h.student_id = $1 AND h.status <> 'checked'
+      ORDER BY a.due_on NULLS LAST, h.id`,
     [studentId]
   );
   const { rows: progress } = await query(

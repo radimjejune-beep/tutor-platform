@@ -248,6 +248,82 @@ h1, h2, h3 { margin: 0; font-weight: 400; }
 .report-block h4 { margin: 0 0 4px; font-size: 14px; color: var(--brass); font-weight: 600; }
 .report-block p { margin: 0; white-space: pre-line; }
 
+/* ---------- Файлы ---------- */
+.files { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.file {
+  display: flex; align-items: center; gap: 4px; min-width: 0;
+  border: 1px solid var(--line); border-radius: 14px; background: var(--surface); padding: 6px 6px 6px 6px;
+}
+.file-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; border: 0; background: none; cursor: pointer; text-align: left; padding: 0; }
+.file-main:hover .file-name { color: var(--green); }
+.file-thumb {
+  flex: none; width: 52px; height: 52px; border-radius: 10px; overflow: hidden;
+  background: var(--brass-soft); display: flex; align-items: center; justify-content: center;
+}
+.file-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.file-kind { font-size: 11.5px; font-weight: 700; color: #7a5717; letter-spacing: 0.02em; }
+.file-text { min-width: 0; display: flex; flex-direction: column; }
+.file-name { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-size { font-size: 12.5px; color: var(--muted); }
+
+/* ---------- Задание в стиле Classroom ---------- */
+.assign-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
+.assign-head { display: flex; gap: 18px; align-items: flex-start; padding-bottom: 20px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+.assign-icon {
+  flex: none; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: var(--green); color: #fff;
+}
+.assign-icon svg { width: 22px; height: 22px; }
+.assign-title { font-family: var(--serif); font-size: 30px; line-height: 1.15; letter-spacing: -0.01em; }
+.assign-meta { color: var(--muted); font-size: 14px; margin-top: 6px; }
+.instructions { white-space: pre-line; line-height: 1.65; }
+.work-card { position: sticky; top: 24px; }
+.work-status { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
+.score-big { font-family: var(--serif); font-size: 38px; line-height: 1; color: var(--green-ink); }
+
+/* Карточки заданий в списке */
+.assign-row { display: flex; align-items: center; gap: 16px; padding: 16px 12px; border-top: 1px solid var(--line); cursor: pointer; border-radius: 12px; }
+.assign-row:first-child { border-top: 0; }
+.assign-row:hover { background: var(--surface-2); }
+.assign-row .assign-icon { width: 40px; height: 40px; }
+.assign-row .assign-icon svg { width: 19px; height: 19px; }
+.counter { text-align: center; min-width: 64px; }
+.counter b { display: block; font-family: var(--serif); font-size: 22px; font-weight: 400; line-height: 1.1; }
+.counter span { font-size: 12px; color: var(--muted); }
+
+/* ---------- Тест ---------- */
+.quiz { display: flex; flex-direction: column; gap: 14px; }
+.question { border: 1px solid var(--line); border-radius: 16px; padding: 18px; background: var(--surface); }
+.question.ok { border-color: #bcd9cf; background: #f4faf7; }
+.question.bad { border-color: #ecc9c0; background: #fdf6f4; }
+.question-head { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.question-prompt { font-weight: 600; white-space: pre-line; }
+.question-points { font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+.option {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--line); margin-top: 8px; background: var(--surface);
+}
+.option:hover { border-color: var(--line-strong); }
+.option input { width: 18px; height: 18px; accent-color: var(--green); flex: none; }
+.option.selected { border-color: var(--green); background: var(--green-soft); }
+.option.correct { border-color: var(--green); background: var(--green-soft); }
+.option.wrong { border-color: var(--danger); background: var(--danger-soft); }
+.answer-note { font-size: 13.5px; margin-top: 10px; }
+.answer-note.ok { color: var(--green-ink); }
+.answer-note.bad { color: var(--danger); }
+
+/* Редактор вопросов */
+.q-edit { border: 1px solid var(--line); border-radius: 16px; padding: 16px; background: var(--surface-2); }
+.q-edit + .q-edit { margin-top: 12px; }
+.q-option-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.q-option-row input[type='radio'] { width: 18px; height: 18px; accent-color: var(--green); flex: none; }
+.student-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.student-pick label {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; background: var(--surface);
+}
+.student-pick label.on { border-color: var(--green); background: var(--green-soft); }
+.student-pick input { width: 17px; height: 17px; accent-color: var(--green); }
+
 /* ---------- Модальное окно ---------- */
 .overlay {
   position: fixed; inset: 0; z-index: 50;
@@ -317,6 +393,7 @@ h1, h2, h3 { margin: 0; font-weight: 400; }
 
 /* ---------- Планшет ---------- */
 @media (max-width: 1080px) {
+  .assign-layout { grid-template-columns: minmax(0, 1fr) 300px; }
   .grid-main, .grid-3 { grid-template-columns: 1fr 1fr; }
   .grid-main > :first-child { grid-column: 1 / -1; }
 }
@@ -354,4 +431,9 @@ h1, h2, h3 { margin: 0; font-weight: 400; }
   .auth-quote { font-size: 32px; }
   .modal { padding: 22px 18px; border-radius: 20px; }
   .list-item .hide-sm { display: none; }
+  .assign-layout { grid-template-columns: 1fr; }
+  .work-card { position: static; }
+  .assign-title { font-size: 25px; }
+  .assign-row .counter { display: none; }
+  .files { grid-template-columns: 1fr; }
 }

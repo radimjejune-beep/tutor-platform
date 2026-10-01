@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Link, navigate, PassMarks, Bar, useToast } from '../../ui';
 import {
-  StudentModal, NewLessonModal, LessonModal, HomeworkModal, CheckHomeworkModal, SubscriptionModal,
+  StudentModal, NewLessonModal, LessonModal, SubscriptionModal,
   PaymentModal, AccountModal, ResetPasswordModal, TopicsModal, ReportModal,
 } from './modals';
 import LessonsByDay from '../../components/LessonsByDay';
@@ -14,7 +14,7 @@ import {
 
 const TABS = [
   { key: 'lessons', label: 'Занятия' },
-  { key: 'homework', label: 'ДЗ' },
+  { key: 'homework', label: 'Задания' },
   { key: 'progress', label: 'Прогресс' },
   { key: 'reports', label: 'Отчёты' },
   { key: 'finance', label: 'Оплаты' },
@@ -142,48 +142,35 @@ function LessonsTab({ student, onChange }) {
   );
 }
 
-/* ---------- ДЗ ---------- */
+/* ---------- Задания ---------- */
 function HomeworkTab({ student }) {
-  const [modal, setModal] = useState(null);
   const hw = useLoad(() => api.homework({ student_id: student.id }), [student.id]);
-  const toast = useToast();
-  const saved = () => { setModal(null); hw.reload(); };
-
-  const remove = async (h) => {
-    if (!window.confirm(`Удалить задание «${h.title}»?`)) return;
-    await api.deleteHomework(h.id);
-    toast('Задание удалено');
-    hw.reload();
-  };
 
   return (
     <section className="panel">
       <div className="panel-head">
-        <h2 className="section-title">Домашние задания</h2>
-        <button className="btn btn-sm" onClick={() => setModal({ type: 'new' })}><Icon name="plus" /> Задание</button>
+        <h2 className="section-title">Задания</h2>
+        <Link to={`/homework/new?student=${student.id}`} className="btn btn-sm"><Icon name="plus" /> Задание</Link>
       </div>
       {hw.loading && <Spinner />}
       {hw.data && !hw.data.length && <Empty title="Заданий пока нет" />}
-      <div className="list">
-        {(hw.data || []).map((h) => (
-          <div key={h.id} className="list-item clickable"
-            onClick={() => setModal(h.status === 'submitted' ? { type: 'check', homework: { ...h, student_name: student.full_name } } : { type: 'edit', homework: h })}>
-            <div className="list-main">
-              <div className="list-title">{h.title}</div>
-              <div className="list-sub truncate">
-                {h.due_on ? `К ${shortDate(h.due_on)}` : 'Без срока'}
-                {h.score !== null && h.score !== undefined ? `. Оценка ${h.score}%` : ''}
-                {h.tutor_feedback ? `. ${h.tutor_feedback}` : ''}
-              </div>
+      {(hw.data || []).map((h) => (
+        <div key={h.id} className="assign-row" onClick={() => navigate(`/homework/${h.assignment_id}/review/${h.id}`)}>
+          <div className="assign-icon"><Icon name={h.question_count ? 'quiz' : 'book'} /></div>
+          <div className="list-main">
+            <div className="list-title truncate">{h.title}</div>
+            <div className="list-sub truncate">
+              {h.due_on ? `Срок: ${shortDate(h.due_on)}` : 'Без срока'}
+              {h.quiz_score !== null && h.quiz_score !== undefined ? `. Тест ${h.quiz_score}%` : ''}
             </div>
-            <Badge tone={HW_STATUS[h.status].tone}>{HW_STATUS[h.status].label}</Badge>
-            <button className="icon-btn" aria-label="Удалить" onClick={(e) => { e.stopPropagation(); remove(h); }}><Icon name="trash" size={18} /></button>
           </div>
-        ))}
-      </div>
-      {modal?.type === 'new' && <HomeworkModal studentId={student.id} onClose={() => setModal(null)} onSaved={saved} />}
-      {modal?.type === 'edit' && <HomeworkModal studentId={student.id} homework={modal.homework} onClose={() => setModal(null)} onSaved={saved} />}
-      {modal?.type === 'check' && <CheckHomeworkModal homework={modal.homework} onClose={() => setModal(null)} onSaved={saved} />}
+          {h.status === 'checked' && h.score !== null ? (
+            <Badge tone="green">{h.score}%</Badge>
+          ) : (
+            <Badge tone={HW_STATUS[h.status].tone}>{h.status === 'submitted' ? 'Проверить' : HW_STATUS[h.status].label}</Badge>
+          )}
+        </div>
+      ))}
     </section>
   );
 }

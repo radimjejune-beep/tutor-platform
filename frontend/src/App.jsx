@@ -10,7 +10,7 @@ import TutorDashboard from './pages/tutor/Dashboard';
 import TutorSchedule from './pages/tutor/Schedule';
 import Students from './pages/tutor/Students';
 import StudentPage from './pages/tutor/StudentPage';
-import HomeworkReview from './pages/tutor/HomeworkReview';
+import { AssignmentsList, AssignmentEditor, AssignmentPage, ReviewPage } from './pages/tutor/Assignments';
 import Finance from './pages/tutor/Finance';
 
 import ClientHome from './pages/client/Home';
@@ -19,6 +19,7 @@ import ClientHomework from './pages/client/Homework';
 import ClientProgress from './pages/client/Progress';
 import ClientPayments from './pages/client/Payments';
 import ReportView from './pages/client/ReportView';
+import HomeworkPage from './pages/client/HomeworkPage';
 
 export default function App() {
   return (
@@ -32,12 +33,14 @@ export default function App() {
 
 function Root() {
   const { session, user } = useAuth();
-  const path = useRoute();
+  const route = useRoute();
+  const [path, search] = route.split('?');
+  const params = new URLSearchParams(search || '');
 
   if (session === undefined) return <Spinner />;
   if (!session) return <Login />;
   if (user.must_change_password) return <ChangePassword forced />;
-  return user.role === 'tutor' ? <TutorApp path={path} /> : <ClientApp path={path} />;
+  return user.role === 'tutor' ? <TutorApp path={path} params={params} /> : <ClientApp path={path} />;
 }
 
 const NotFound = () => (
@@ -47,7 +50,7 @@ const NotFound = () => (
 );
 
 /* ---------- Кабинет преподавателя ---------- */
-function TutorApp({ path }) {
+function TutorApp({ path, params }) {
   const [counts, setCounts] = useState({});
   const parts = path.split('/').filter(Boolean);
 
@@ -64,7 +67,11 @@ function TutorApp({ path }) {
   else if (parts[0] === 'schedule') page = <TutorSchedule />;
   else if (parts[0] === 'students' && parts[1]) page = <StudentPage id={Number(parts[1])} tab={parts[2] || 'lessons'} />;
   else if (parts[0] === 'students') page = <Students />;
-  else if (parts[0] === 'homework') page = <HomeworkReview />;
+  else if (parts[0] === 'homework' && parts[1] === 'new') page = <AssignmentEditor presetStudentId={Number(params.get('student')) || undefined} />;
+  else if (parts[0] === 'homework' && parts[2] === 'edit') page = <AssignmentEditor id={Number(parts[1])} />;
+  else if (parts[0] === 'homework' && parts[2] === 'review' && parts[3]) page = <ReviewPage assignmentId={Number(parts[1])} homeworkId={Number(parts[3])} />;
+  else if (parts[0] === 'homework' && parts[1]) page = <AssignmentPage id={Number(parts[1])} />;
+  else if (parts[0] === 'homework') page = <AssignmentsList />;
   else if (parts[0] === 'finance') page = <Finance />;
   else if (parts[0] === 'password') page = <ChangePassword />;
   else page = <NotFound />;
@@ -111,6 +118,7 @@ function ClientApp({ path }) {
   let page;
   if (parts.length === 0) page = <ClientHome {...props} />;
   else if (parts[0] === 'schedule') page = <ClientSchedule {...props} />;
+  else if (parts[0] === 'homework' && parts[1]) page = <HomeworkPage id={Number(parts[1])} isParent={props.isParent} />;
   else if (parts[0] === 'homework') page = <ClientHomework {...props} />;
   else if (parts[0] === 'progress') page = <ClientProgress {...props} />;
   else if (parts[0] === 'payments') page = <ClientPayments {...props} />;
