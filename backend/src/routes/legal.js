@@ -15,7 +15,8 @@ async function ensureDefaults() {
   for (const kind of KINDS) {
     await query(
       `INSERT INTO legal_documents (kind, version, title, body)
-       SELECT $1, 1, $2, $3 WHERE NOT EXISTS (SELECT 1 FROM legal_documents WHERE kind = $1)`,
+       SELECT $1::varchar, 1, $2::varchar, $3::text
+        WHERE NOT EXISTS (SELECT 1 FROM legal_documents WHERE kind = $1::varchar)`,
       [kind, DEFAULTS[kind].title, DEFAULTS[kind].body]
     );
   }
@@ -159,7 +160,8 @@ protectedRouter.put(
     await ensureDefaults();
     const { rows } = await query(
       `INSERT INTO legal_documents (kind, version, title, body)
-       SELECT $1, COALESCE(MAX(version), 0) + 1, $2, $3 FROM legal_documents WHERE kind = $1
+       SELECT $1::varchar, COALESCE(MAX(version), 0) + 1, $2::varchar, $3::text
+         FROM legal_documents WHERE kind = $1::varchar
        RETURNING id, kind, version, title, published_at`,
       [kind, req.body.title, req.body.body]
     );
