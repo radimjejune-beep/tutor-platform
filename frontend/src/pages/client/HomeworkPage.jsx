@@ -65,7 +65,9 @@ function HomeworkView({ h, isParent, reload }) {
             </div>
           )}
 
-          {h.library_item_ids?.length > 0 && <AssignmentTasks ids={h.library_item_ids} />}
+          {h.library_item_ids?.length > 0 && (
+            <AssignmentTasks ids={h.library_item_ids} homework={h} canPlay={h.status !== 'checked'} />
+          )}
 
           {h.questions.length > 0 && (
             <section style={{ marginTop: 24 }}>

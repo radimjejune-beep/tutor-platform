@@ -6,6 +6,7 @@ import { useAuth } from '../auth';
 import { useLoad, Spinner, ErrorBox, Empty, Icon, Link, useToast } from '../ui';
 import LibraryItem from '../components/LibraryItem';
 import { TaskPicker } from './tutor/Library';
+import { ResultLine, byItem } from '../components/GameResults';
 import { relativeDay, dayMonth, time } from '../format';
 
 export function callService(url) {
@@ -20,21 +21,24 @@ export default function LessonRoom({ id }) {
   const { user } = useAuth();
   const isTutor = user.role === 'tutor';
   const toast = useToast();
-  const room = useLoad(() => api.lessonRoom(id), [id]);
+  const room = useLoad(() => Promise.all([api.lessonRoom(id), api.gameResults({ lesson_id: id }).catch(() => [])]), [id]);
   const [picking, setPicking] = useState(false);
   const [boardOpen, setBoardOpen] = useState(true);
 
-  // У ученика список задач обновляется каждые 15 секунд
+  // Задачи (у ученика) и результаты упражнений (у преподавателя) обновляются каждые 15 секунд
   useEffect(() => {
-    if (isTutor) return undefined;
     const t = setInterval(() => room.reload(), 15000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, isTutor]);
+  }, [id]);
 
   if (room.loading) return <Spinner />;
   if (room.error) return <ErrorBox error={room.error} onRetry={room.reload} />;
-  const l = room.data;
+  const [l, results] = room.data;
+  const resultsByItem = byItem(results);
+  const saveGame = (itemId) => async (answers, _r, duration_sec) => {
+    await api.saveGameResult(itemId, { student_id: l.student_id, lesson_id: l.id, answers, duration_sec });
+  };
   const ids = l.items.map((i) => i.id);
 
   const saveItems = async (next) => {
@@ -94,7 +98,7 @@ export default function LessonRoom({ id }) {
       <section style={{ marginTop: 24 }}>
         <div className="row-between" style={{ marginBottom: 12 }}>
           <h2 className="section-title">Задачи урока</h2>
-          {isTutor && <button className="btn btn-sm" onClick={() => setPicking(true)}><Icon name="library" /> Из задачника</button>}
+          {isTutor && <button className="btn btn-sm" onClick={() => setPicking(true)}><Icon name="library" /> Из библиотеки</button>}
         </div>
         {!l.items.length && (
           <div className="panel">
@@ -106,6 +110,8 @@ export default function LessonRoom({ id }) {
         <div className="stack" style={{ gap: 14 }}>
           {l.items.map((it, i) => (
             <LibraryItem key={it.id} item={it} index={i} showPrivate={isTutor}
+              onGameFinish={isTutor ? undefined : saveGame(it.id)}
+              gameExtra={<ResultLine results={resultsByItem[it.id]} who={isTutor ? `${l.student_name.split(' ')[0]}:` : 'Ваш'} />}
               actions={isTutor && (
                 <button className="icon-btn" aria-label="Убрать из урока" onClick={() => saveItems(ids.filter((x) => x !== it.id))}>
                   <Icon name="close" size={18} />

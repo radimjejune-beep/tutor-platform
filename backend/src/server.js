@@ -65,6 +65,7 @@ protectedApi.use('/files', require('./routes/files'));
 protectedApi.use('/booking', require('./routes/booking'));
 protectedApi.use('/library', require('./routes/library').router);
 protectedApi.use('/telegram', require('./routes/telegram'));
+protectedApi.use('/games', require('./routes/games'));
 protectedApi.use('/legal', require('./routes/legal').protectedRouter);
 protectedApi.use('/progress', require('./routes/progress'));
 app.use('/api', protectedApi);

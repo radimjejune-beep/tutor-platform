@@ -4,9 +4,13 @@ import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Field, Link, Modal, navigate, useToast, useSubmit } from '../../ui';
 import { FileList, FileUploadButton } from '../../components/Files';
 import LibraryItem, { ItemMeta, examLabel } from '../../components/LibraryItem';
+import GameEditor, { GameTypePicker, EMPTY_GAME, cleanGame } from '../../games/Editors';
+import { GAME_TYPES, gameSize } from '../../games/logic';
 import { relativeDay, dayMonth, time } from '../../format';
 
-const KINDS = { task: 'Задачник', theory: 'Теория' };
+const KINDS = { task: 'Задачник', game: 'Упражнения', theory: 'Теория' };
+const KIND_PATH = { task: 'tasks', game: 'games', theory: 'theory' };
+const NEW_LABEL = { task: 'Задача', game: 'Упражнение', theory: 'Теория' };
 const orNull = (v) => (v && String(v).trim() ? String(v).trim() : null);
 
 /* ============================================================
@@ -68,21 +72,21 @@ export function LibraryPage({ kind = 'task' }) {
       <div className="page-head">
         <div>
           <h1 className="page-title">Библиотека</h1>
-          <div className="lead">{kind === 'task' ? 'Задачник видите только вы. Ученик увидит задачу, когда вы выдадите её на уроке или в задании' : 'Теорию видят все ученики в разделе «Теория»'}</div>
+          <div className="lead">{kind === 'theory' ? 'Теорию видят все ученики в разделе «Теория»' : 'Видите только вы. Ученик увидит задачу или упражнение, когда вы выдадите их на уроке или в задании'}</div>
         </div>
-        <Link to={`/library/new?kind=${kind}`} className="btn"><Icon name="plus" /> {kind === 'task' ? 'Задача' : 'Теория'}</Link>
+        <Link to={`/library/new?kind=${kind}`} className="btn"><Icon name="plus" /> {NEW_LABEL[kind]}</Link>
       </div>
 
       <div className="tabs" role="tablist">
         {Object.entries(KINDS).map(([k, label]) => (
           <button key={k} role="tab" aria-selected={kind === k} className={kind === k ? 'active' : ''}
-            onClick={() => { setSelected(new Set()); navigate(`/library/${k === 'task' ? 'tasks' : 'theory'}`); }}>{label}</button>
+            onClick={() => { setSelected(new Set()); navigate(`/library/${KIND_PATH[k]}`); }}>{label}</button>
         ))}
       </div>
 
       {facets.data && <Filters f={f} setF={setF} facets={facets.data} />}
 
-      {kind === 'task' && selected.size > 0 && (
+      {kind !== 'theory' && selected.size > 0 && (
         <div className="select-bar">
           <span>Выбрано: {selected.size}</span>
           <div className="row wrap" style={{ gap: 6 }}>
@@ -97,21 +101,22 @@ export function LibraryPage({ kind = 'task' }) {
         {list.loading && <Spinner />}
         {list.error && <ErrorBox error={list.error} onRetry={list.reload} />}
         {list.data && !list.data.length && (
-          <Empty title={f.q || f.exam || f.tag ? 'Ничего не нашлось' : kind === 'task' ? 'Задачник пуст' : 'Теории пока нет'}
+          <Empty title={f.q || f.exam || f.tag ? 'Ничего не нашлось' : { task: 'Задачник пуст', game: 'Упражнений пока нет', theory: 'Теории пока нет' }[kind]}
             action={<Link to={`/library/new?kind=${kind}`} className="btn">Добавить</Link>}>
             {kind === 'task' && !f.q && 'Добавляйте задачи с пометками: номер задания ОГЭ/ЕГЭ, теги, заметка для себя.'}
+            {kind === 'game' && !f.q && 'Найди пару, собери предложение, вставь пропуск, распредели по группам — ученик проходит прямо в кабинете, оценка ставится сама.'}
           </Empty>
         )}
         {(list.data || []).map((i) => (
           <div key={i.id} className="assign-row" onClick={() => navigate(`/library/${i.id}`)}>
-            {kind === 'task' && (
+            {kind !== 'theory' && (
               <input type="checkbox" className="row-check" checked={selected.has(i.id)} aria-label="Выбрать"
                 onClick={(e) => e.stopPropagation()} onChange={() => toggle(i.id)} />
             )}
             <div className="list-main">
               <div className="list-title truncate">{i.title}</div>
               <div className="list-sub truncate">
-                {[examLabel(i), i.subject, ...(i.tags || []).map((t) => `#${t}`)].filter(Boolean).join(' · ')}
+                {[i.game && `${GAME_TYPES[i.game.type]?.label}, ${gameSize(i.game)}`, examLabel(i), i.subject, ...(i.tags || []).map((t) => `#${t}`)].filter(Boolean).join(' · ')}
               </div>
               {i.tutor_note && <div className="list-sub truncate" style={{ color: '#7a5717' }}><Icon name="note" size={13} /> {i.tutor_note}</div>}
             </div>
@@ -193,6 +198,7 @@ function EditorForm({ item, presetKind, facets, reload }) {
     tags: (item?.tags || []).join(', '),
     tutor_note: item?.tutor_note || '',
     links: (item?.links || []).join('\n'),
+    game: item?.game || null,
   });
   const [pending, setPending] = useState([]);
   const [preview, setPreview] = useState(false);
@@ -208,9 +214,11 @@ function EditorForm({ item, presetKind, facets, reload }) {
     tags: f.tags.split(',').map((t) => t.trim().replace(/^#/, '')).filter(Boolean),
     tutor_note: orNull(f.tutor_note),
     links: f.links.split(/\s+/).map((s) => s.trim()).filter(Boolean),
+    game: f.kind === 'game' && f.game ? cleanGame(f.game) : null,
   });
 
   const save = useSubmit(async () => {
+    if (f.kind === 'game' && !f.game) throw new Error('Выберите тип упражнения');
     if (isNew) {
       const created = await api.createLibraryItem(body());
       for (const file of pending) await api.uploadFile({ library_item_id: created.id }, file);
@@ -227,43 +235,63 @@ function EditorForm({ item, presetKind, facets, reload }) {
     if (!window.confirm(`Удалить «${item.title}»? Из уже выданных заданий задача тоже пропадёт.`)) return;
     await api.deleteLibraryItem(item.id);
     toast('Удалено');
-    navigate(`/library/${item.kind === 'task' ? 'tasks' : 'theory'}`);
+    navigate(`/library/${KIND_PATH[item.kind]}`);
   };
 
-  const back = `/library/${f.kind === 'task' ? 'tasks' : 'theory'}`;
+  const back = `/library/${KIND_PATH[f.kind]}`;
 
   return (
     <>
       <Link to={back} className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 10 }}><Icon name="back" /> Библиотека</Link>
       <div className="page-head">
-        <h1 className="page-title">{isNew ? (f.kind === 'task' ? 'Новая задача' : 'Новая теория') : f.title || 'Материал'}</h1>
+        <h1 className="page-title">{isNew ? { task: 'Новая задача', game: 'Новое упражнение', theory: 'Новая теория' }[f.kind] : f.title || 'Материал'}</h1>
         {!isNew && (
           <div className="row" style={{ gap: 6 }}>
-            <button className="btn btn-secondary btn-sm" onClick={() => setPreview(!preview)}>{preview ? 'Редактировать' : 'Как увидит ученик'}</button>
-            {f.kind === 'task' && <Link to={`/homework/new?items=${item.id}`} className="btn btn-secondary btn-sm">Выдать как ДЗ</Link>}
+            <button className="btn btn-secondary btn-sm" onClick={() => setPreview(!preview)}>{preview ? 'Редактировать' : f.kind === 'game' ? 'Попробовать' : 'Как увидит ученик'}</button>
+            {f.kind !== 'theory' && <Link to={`/homework/new?items=${item.id}`} className="btn btn-secondary btn-sm">Выдать как ДЗ</Link>}
           </div>
         )}
       </div>
 
       {preview && !isNew ? (
-        <LibraryItem item={{ ...item, ...body(), files: item.files }} />
+        <div style={{ maxWidth: 860 }}><LibraryItem item={{ ...item, ...body(), files: item.files }} /></div>
       ) : (
         <form className="assign-layout" onSubmit={save.submit}>
           <section className="panel form">
             {isNew && (
               <div className="row" style={{ gap: 6 }}>
                 {Object.entries(KINDS).map(([k, label]) => (
-                  <button type="button" key={k} className={`btn btn-sm ${f.kind === k ? '' : 'btn-secondary'}`} onClick={() => setF({ ...f, kind: k })}>{label}</button>
+                  <button type="button" key={k} className={`btn btn-sm ${f.kind === k ? '' : 'btn-secondary'}`} onClick={() => setF({ ...f, kind: k })}>{NEW_LABEL[k]}</button>
                 ))}
               </div>
             )}
             <Field label="Название">
               <input className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} required autoFocus={isNew}
-                placeholder={f.kind === 'task' ? 'Словообразование: -ness, -ment' : 'Present Perfect vs Past Simple'} />
+                placeholder={{ task: 'Словообразование: -ness, -ment', game: 'Legal English: термины', theory: 'Present Perfect vs Past Simple' }[f.kind]} />
             </Field>
-            <Field label={f.kind === 'task' ? 'Условие' : 'Текст'} hint={f.kind === 'task' ? 'Это увидит ученик' : 'Пустая строка — новый абзац'}>
-              <textarea className="textarea" style={{ minHeight: 220 }} value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} />
-            </Field>
+            {f.kind === 'game' && !f.game && (
+              <Field label="Тип упражнения">
+                <GameTypePicker onPick={(type) => setF({ ...f, game: EMPTY_GAME[type] })} />
+              </Field>
+            )}
+            {f.kind === 'game' && f.game && (
+              <div className="game-editor">
+                <div className="row-between" style={{ marginBottom: 12 }}>
+                  <span className="game-type">{GAME_TYPES[f.game.type].label}</span>
+                  {isNew && <button type="button" className="btn btn-quiet btn-sm" onClick={() => setF({ ...f, game: null })}>Другой тип</button>}
+                </div>
+                <GameEditor key={f.game.type} game={f.game} onChange={(game) => setF({ ...f, game })} />
+              </div>
+            )}
+            {f.kind === 'game' ? (
+              <Field label="Инструкция для ученика" hint="Необязательно">
+                <input className="input" value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} placeholder="Соедините термины с определениями" />
+              </Field>
+            ) : (
+              <Field label={f.kind === 'task' ? 'Условие' : 'Текст'} hint={f.kind === 'task' ? 'Это увидит ученик' : 'Пустая строка — новый абзац'}>
+                <textarea className="textarea" style={{ minHeight: 220 }} value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} />
+              </Field>
+            )}
             {f.kind === 'task' && (
               <Field label="Ответ или решение" hint="Видите только вы">
                 <textarea className="textarea" style={{ minHeight: 90 }} value={f.answer} onChange={(e) => setF({ ...f, answer: e.target.value })} />
@@ -325,7 +353,7 @@ function EditorForm({ item, presetKind, facets, reload }) {
    Выбор задач из задачника (для ДЗ и урока)
    ============================================================ */
 export function TaskPicker({ selected, onClose, onPick }) {
-  const [f, setF] = useFilters('task');
+  const [f, setF] = useFilters('task,game');
   const facets = useLoad(() => api.libraryFacets(), []);
   const list = useLoad(() => loadList(f), [f.subject, f.exam, f.exam_task, f.tag, f.q]);
   const [chosen, setChosen] = useState(new Set(selected));
@@ -337,7 +365,7 @@ export function TaskPicker({ selected, onClose, onPick }) {
   };
 
   return (
-    <Modal title="Задачи из задачника" onClose={onClose} wide>
+    <Modal title="Задачи и упражнения" onClose={onClose} wide>
       {facets.data && <Filters f={f} setF={setF} facets={facets.data} />}
       <div style={{ maxHeight: '50vh', overflowY: 'auto', marginTop: 8 }}>
         {list.loading && <Spinner />}
@@ -348,7 +376,7 @@ export function TaskPicker({ selected, onClose, onPick }) {
             <span className="list-main">
               <span className="list-title" style={{ display: 'block' }}>{i.title}</span>
               <span className="list-sub" style={{ display: 'block' }}>
-                {[examLabel(i), ...(i.tags || []).map((t) => `#${t}`)].filter(Boolean).join(' · ') || i.subject}
+                {[i.game && GAME_TYPES[i.game.type]?.label, examLabel(i), ...(i.tags || []).map((t) => `#${t}`)].filter(Boolean).join(' · ') || i.subject}
                 {i.tutor_note ? ` — ${i.tutor_note}` : ''}
               </span>
             </span>
@@ -380,14 +408,14 @@ export function PickedTasks({ ids, onChange, onAdd, emptyText = 'Задачи н
         <div key={it.id} className="list-item" style={{ padding: '10px 2px' }}>
           <div className="list-main">
             <div className="list-title truncate">{i + 1}. {it.title}</div>
-            <div className="list-sub truncate">{[examLabel(it), ...(it.tags || []).map((t) => `#${t}`)].filter(Boolean).join(' · ') || it.subject}</div>
+            <div className="list-sub truncate">{[it.game && GAME_TYPES[it.game.type]?.label, examLabel(it), ...(it.tags || []).map((t) => `#${t}`)].filter(Boolean).join(' · ') || it.subject}</div>
           </div>
           <button type="button" className="icon-btn" aria-label="Выше" onClick={() => move(i, -1)} disabled={i === 0}><Icon name="arrowUp" size={16} /></button>
           <button type="button" className="icon-btn" aria-label="Ниже" onClick={() => move(i, 1)} disabled={i === ids.length - 1}><Icon name="arrowDown" size={16} /></button>
           <button type="button" className="icon-btn" aria-label="Убрать" onClick={() => onChange(ids.filter((x) => x !== it.id))}><Icon name="close" size={16} /></button>
         </div>
       ))}
-      <button type="button" className="btn btn-secondary btn-sm" style={{ marginTop: 8 }} onClick={onAdd}><Icon name="library" /> Из задачника</button>
+      <button type="button" className="btn btn-secondary btn-sm" style={{ marginTop: 8 }} onClick={onAdd}><Icon name="library" /> Из библиотеки</button>
     </div>
   );
 }

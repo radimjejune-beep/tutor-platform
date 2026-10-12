@@ -186,7 +186,7 @@ router.get(
     const isTutor = req.user.role === 'tutor';
     const fields = isTutor
       ? 'i.*'
-      : 'i.id, i.kind, i.subject, i.title, i.body, i.exam, i.exam_task, i.links';
+      : 'i.id, i.kind, i.subject, i.title, i.body, i.exam, i.exam_task, i.links, i.game';
     const { rows: items } = await query(
       `SELECT ${fields} FROM lesson_items li JOIN library_items i ON i.id = li.item_id
         WHERE li.lesson_id = $1 ORDER BY li.position, li.item_id`,

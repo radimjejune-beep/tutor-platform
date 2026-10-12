@@ -130,6 +130,10 @@ export const api = {
   updateLibraryItem: (id, data) => request('PATCH', `/library/${id}`, data),
   deleteLibraryItem: (id) => request('DELETE', `/library/${id}`),
 
+  // Упражнения
+  saveGameResult: (itemId, data) => request('POST', `/games/${itemId}/results`, data),
+  gameResults: (params) => request('GET', `/games/results${qs(params)}`),
+
   // Комната урока
   lessonRoom: (id) => request('GET', `/lessons/${id}/room`),
   setLessonItems: (id, item_ids) => request('PUT', `/lessons/${id}/items`, { item_ids }),

@@ -7,6 +7,7 @@ import { FileList, FileUploadButton } from '../../components/Files';
 import { QuizEditor, QuizForm, cleanQuestions } from '../../components/Quiz';
 import LibraryItem from '../../components/LibraryItem';
 import { TaskPicker, PickedTasks } from './Library';
+import { ResultLine, byItem, GameResultsPanel, averageBest } from '../../components/GameResults';
 import { shortDate, fullDate, relativeDay, time, HW_STATUS, plural, todayISO } from '../../format';
 
 const orNull = (v) => (v && String(v).trim() ? String(v).trim() : null);
@@ -324,16 +325,29 @@ export function linkLabel(url) {
    Проверка работы ученика
    ============================================================ */
 export function ReviewPage({ assignmentId, homeworkId }) {
-  const data = useLoad(() => Promise.all([api.homeworkItem(homeworkId), api.assignment(assignmentId)]), [homeworkId]);
+  const data = useLoad(async () => {
+    const [hw, assignment, results] = await Promise.all([
+      api.homeworkItem(homeworkId),
+      api.assignment(assignmentId),
+      api.gameResults({ homework_id: homeworkId }).catch(() => []),
+    ]);
+    const items = await api.libraryBatch(hw.library_item_ids || []);
+    return [hw, assignment, items, results];
+  }, [homeworkId]);
   if (data.loading) return <Spinner />;
   if (data.error) return <ErrorBox error={data.error} onRetry={data.reload} />;
-  return <ReviewForm key={homeworkId} hw={data.data[0]} assignment={data.data[1]} reload={data.reload} />;
+  const [hw, assignment, items, results] = data.data;
+  return <ReviewForm key={homeworkId} hw={hw} assignment={assignment} items={items} results={results} reload={data.reload} />;
 }
 
-function ReviewForm({ hw, assignment, reload }) {
+function ReviewForm({ hw, assignment, items, results, reload }) {
   const toast = useToast();
   const [feedback, setFeedback] = useState(hw.tutor_feedback || '');
-  const [score, setScore] = useState(hw.score ?? hw.quiz_score ?? '');
+  const gamesAvg = averageBest(items, results);
+  // Подсказка оценки: тест и упражнения вместе
+  const auto = [hw.quiz_score, gamesAvg].filter((x) => x !== null && x !== undefined);
+  const suggested = auto.length ? Math.round(auto.reduce((a, b) => a + b, 0) / auto.length) : null;
+  const [score, setScore] = useState(hw.score ?? suggested ?? '');
 
   // Следующая работа на проверку в этом задании
   const next = assignment.submissions.find((s) => s.status === 'submitted' && s.id !== hw.id);
@@ -375,6 +389,8 @@ function ReviewForm({ hw, assignment, reload }) {
           <h2 className="section-title" style={{ margin: '22px 0 10px' }}>Файлы ученика</h2>
           <FileList files={hw.attachments} empty={<p className="muted" style={{ margin: 0 }}>Файлов нет</p>} />
 
+          <GameResultsPanel items={items} results={results} />
+
           {hw.questions.length > 0 && (
             <section style={{ marginTop: 26 }}>
               <div className="row-between" style={{ marginBottom: 12 }}>
@@ -392,7 +408,9 @@ function ReviewForm({ hw, assignment, reload }) {
 
         <aside className="panel work-card form">
           <h2 className="section-title">Оценка</h2>
-          <Field label="Баллы, %" hint={hw.quiz_score !== null ? `Тест проверился сам: ${hw.quiz_score}%. Можно изменить` : 'Необязательно'}>
+          <Field label="Баллы, %" hint={suggested !== null
+            ? `Посчитано автоматически${hw.quiz_score !== null ? `: тест ${hw.quiz_score}%` : ''}${gamesAvg !== null ? `${hw.quiz_score !== null ? ',' : ':'} упражнения ${gamesAvg}%` : ''}. Можно изменить`
+            : 'Необязательно'}>
             <input className="input" type="number" min={0} max={100} value={score} onChange={(e) => setScore(e.target.value)} style={{ maxWidth: 140 }} />
           </Field>
           <Field label="Комментарий ученику">
@@ -412,15 +430,30 @@ function ReviewForm({ hw, assignment, reload }) {
   );
 }
 
-// Задачи из задачника внутри задания
-export function AssignmentTasks({ ids, showPrivate }) {
-  const items = useLoad(() => api.libraryBatch(ids), [ids.join(',')]);
-  if (!items.data?.length) return null;
+// Задачи и упражнения из библиотеки внутри задания
+// homework { id, student_id, status } — ученик проходит упражнения, результат сохраняется в эту работу
+export function AssignmentTasks({ ids, showPrivate, homework, canPlay }) {
+  const data = useLoad(
+    () => Promise.all([api.libraryBatch(ids), homework ? api.gameResults({ homework_id: homework.id }).catch(() => []) : Promise.resolve([])]),
+    [ids.join(','), homework?.id]
+  );
+  if (!data.data?.[0]?.length) return null;
+  const [items, results] = data.data;
+  const map = byItem(results);
+  const hasGames = items.some((i) => i.kind === 'game');
+  const save = (itemId) => async (answers, _r, duration_sec) => {
+    await api.saveGameResult(itemId, { student_id: homework.student_id, homework_id: homework.id, answers, duration_sec });
+    data.reload();
+  };
   return (
     <section style={{ marginTop: 22 }}>
-      <h2 className="section-title" style={{ marginBottom: 12 }}>Задачи</h2>
+      <h2 className="section-title" style={{ marginBottom: 12 }}>{hasGames ? 'Задачи и упражнения' : 'Задачи'}</h2>
       <div className="stack" style={{ gap: 12 }}>
-        {items.data.map((it, i) => <LibraryItem key={it.id} item={it} index={i} showPrivate={showPrivate} />)}
+        {items.map((it, i) => (
+          <LibraryItem key={it.id} item={it} index={i} showPrivate={showPrivate}
+            onGameFinish={canPlay && homework ? save(it.id) : undefined}
+            gameExtra={homework ? <ResultLine results={map[it.id]} who={canPlay ? 'Ваш' : 'Лучший'} /> : null} />
+        ))}
       </div>
     </section>
   );
