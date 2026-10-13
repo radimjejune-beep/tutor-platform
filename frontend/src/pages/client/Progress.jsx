@@ -116,7 +116,7 @@ function MonthSummaries({ studentId }) {
         return (
           <div key={m.month} className="month-card">
             <div className="row-between">
-              <div className="serif" style={{ fontSize: 21 }}>{monthName(m.month)}</div>
+              <div className="serif" style={{ fontSize: 26 }}>{monthName(m.month)}</div>
               {m.report_id && <Link to={`/reports/${m.report_id}`} className="small">Отзыв преподавателя</Link>}
             </div>
             <div className="month-stats">

@@ -74,7 +74,10 @@ export function LibraryPage({ kind = 'task' }) {
           <h1 className="page-title">Библиотека</h1>
           <div className="lead">{kind === 'theory' ? 'Теорию видят все ученики в разделе «Теория»' : 'Видите только вы. Ученик увидит задачу или упражнение, когда вы выдадите их на уроке или в задании'}</div>
         </div>
-        <Link to={`/library/new?kind=${kind}`} className="btn"><Icon name="plus" /> {NEW_LABEL[kind]}</Link>
+        <div className="row" style={{ gap: 8 }}>
+          <ImportButton onDone={() => { list.reload(); facets.reload(); }} />
+          <Link to={`/library/new?kind=${kind}`} className="btn"><Icon name="plus" /> {NEW_LABEL[kind]}</Link>
+        </div>
       </div>
 
       <div className="tabs" role="tablist">
@@ -421,3 +424,44 @@ export function PickedTasks({ ids, onChange, onAdd, emptyText = 'Задачи н
 }
 
 export { ItemMeta };
+
+/* ============================================================
+   Импорт набора из файла .json (уроки по учебникам)
+   ============================================================ */
+export function ImportButton({ onDone }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+
+  const pick = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setBusy(true);
+    try {
+      let data;
+      try {
+        data = JSON.parse(await file.text());
+      } catch {
+        throw new Error('Это не файл импорта Lessonfold');
+      }
+      if (data?.format !== 'lessonfold-library') throw new Error('Это не файл импорта Lessonfold');
+      const n = data.items?.length || 0;
+      const u = (data.courses || []).reduce((sum, c) => sum + (c.units?.length || 0), 0);
+      if (!window.confirm(`Добавить «${data.title || file.name}»: материалов ${n}${u ? `, юнитов курса ${u}` : ''}?`)) return;
+      const r = await api.importLibrary(data);
+      toast(`Добавлено: ${r.created}${r.skipped ? `, уже было: ${r.skipped}` : ''}${r.units ? `, юнитов: ${r.units}` : ''}`);
+      onDone();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <label className="btn btn-secondary" style={{ cursor: busy ? 'default' : 'pointer' }}>
+      <input type="file" accept=".json,application/json" hidden onChange={pick} disabled={busy} />
+      {busy ? 'Загружаем…' : 'Импорт'}
+    </label>
+  );
+}

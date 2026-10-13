@@ -129,6 +129,7 @@ export const api = {
   createLibraryItem: (data) => request('POST', '/library', data),
   updateLibraryItem: (id, data) => request('PATCH', `/library/${id}`, data),
   deleteLibraryItem: (id) => request('DELETE', `/library/${id}`),
+  importLibrary: (data) => request('POST', '/library/import', data),
 
   // Упражнения
   saveGameResult: (itemId, data) => request('POST', `/games/${itemId}/results`, data),
@@ -138,6 +139,31 @@ export const api = {
   lessonRoom: (id) => request('GET', `/lessons/${id}/room`),
   setLessonItems: (id, item_ids) => request('PUT', `/lessons/${id}/items`, { item_ids }),
   sendLessonSummary: (id) => request('POST', `/lessons/${id}/send-summary`),
+  finishLesson: (id, data) => request('POST', `/lessons/${id}/finish`, data),
+
+  // Курсы по учебнику
+  courses: () => request('GET', '/courses'),
+  course: (id) => request('GET', `/courses/${id}`),
+  createCourse: (data) => request('POST', '/courses', data),
+  updateCourse: (id, data) => request('PATCH', `/courses/${id}`, data),
+  deleteCourse: (id) => request('DELETE', `/courses/${id}`),
+  createUnit: (courseId, data) => request('POST', `/courses/${courseId}/units`, data),
+  updateUnit: (id, data) => request('PATCH', `/courses/units/${id}`, data),
+  deleteUnit: (id) => request('DELETE', `/courses/units/${id}`),
+  orderUnits: (courseId, unit_ids) => request('PUT', `/courses/${courseId}/order`, { unit_ids }),
+  studentCourse: (studentId) => request('GET', `/courses/students/${studentId}`),
+  setStudentCourse: (studentId, data) => request('POST', `/courses/students/${studentId}`, data),
+  nextUnit: (studentId) => request('POST', `/courses/students/${studentId}/next`),
+  unitHomework: (unitId, data) => request('POST', `/courses/units/${unitId}/homework`, data),
+  unitToLesson: (unitId, lessonId) => request('POST', `/courses/units/${unitId}/lesson/${lessonId}`),
+
+  // Личный словарь
+  vocab: (student_id) => request('GET', `/vocab${qs({ student_id })}`),
+  vocabDue: (student_id, limit) => request('GET', `/vocab/due${qs({ student_id, limit })}`),
+  reviewWord: (id, known) => request('POST', `/vocab/${id}/review`, { known }),
+  addWords: (student_id, items) => request('POST', '/vocab', { student_id, items }),
+  updateWord: (id, data) => request('PATCH', `/vocab/${id}`, data),
+  deleteWord: (id) => request('DELETE', `/vocab/${id}`),
 
   // Telegram
   telegramStatus: () => request('GET', '/telegram/status'),

@@ -7,6 +7,7 @@ const tg = require('../services/telegram');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { syncLessonCharge } = require('../services/billing');
 const { stripPrivate, buildUpdate } = require('../utils');
+const { getUnit, startUnit, nextUnitId, assignUnitHomework } = require('../services/courses');
 
 const router = express.Router();
 const tutorOnly = requireRole('tutor');
@@ -155,6 +156,60 @@ router.patch(
   })
 );
 
+// ------------------------------------------------------------
+// Завершить урок одним действием: отметка, итог для родителей, ДЗ по юниту, следующий юнит
+// ------------------------------------------------------------
+const finishSchema = z
+  .object({
+    status: z.enum(['done', 'missed', 'cancelled_late']).default('done'),
+    topic: z.string().trim().max(255).nullable().optional(),
+    summary: z.string().max(5000).nullable().optional(),
+    private_notes: z.string().max(5000).nullable().optional(),
+    homework: z.boolean().default(false),
+    due_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+    next_unit: z.boolean().default(false),
+  })
+  .strict();
+
+router.post(
+  '/:id/finish',
+  tutorOnly,
+  validateBody(finishSchema),
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    const b = req.body;
+    const result = await transaction(async (client) => {
+      const { rows: cur } = await client.query(
+        `SELECT l.*, s.course_unit_id FROM lessons l JOIN students s ON s.id = l.student_id WHERE l.id = $1 FOR UPDATE OF l`,
+        [id]
+      );
+      const l = cur[0];
+      if (!l) return null;
+      const unitId = l.unit_id || l.course_unit_id || null;
+      const data = { status: b.status, unit_id: unitId };
+      for (const k of ['topic', 'summary', 'private_notes']) if (b[k] !== undefined) data[k] = b[k] || null;
+      const upd = buildUpdate('lessons', id, data);
+      const { rows: [updated] } = await client.query(upd.text, upd.values);
+      const lesson = await syncLessonCharge(client, updated);
+
+      let assignment = null;
+      let next = null;
+      const unit = unitId ? await getUnit(client, unitId) : null;
+      if (b.homework && unit) {
+        assignment = await assignUnitHomework(client, unit, l.student_id, { lessonId: id, dueOn: b.due_on || null });
+      }
+      if (b.next_unit && unit && l.course_unit_id === unit.id) {
+        const nextId = await nextUnitId(client, unit.id);
+        if (nextId) next = (await startUnit(client, l.student_id, nextId)).unit;
+      }
+      return { lesson, assignment, next_unit: next };
+    });
+    if (!result) return res.status(404).json({ error: 'Занятие не найдено' });
+    console.log(`✅ Урок #${id} завершён${result.assignment ? ', ДЗ выдано' : ''}${result.next_unit ? ', следующий юнит' : ''}`);
+    res.json(result);
+  })
+);
+
 // Удалить можно только несписанное занятие (иначе поменяйте статус на «отменено»)
 router.delete(
   '/:id',
@@ -199,8 +254,14 @@ router.get(
         )
       : { rows: [] };
 
+    const { rows: st } = await query('SELECT course_unit_id FROM students WHERE id = $1', [l.student_id]);
+    const unitId = l.unit_id || st[0]?.course_unit_id;
+    const unit = unitId ? await getUnit({ query }, unitId) : null;
+
     res.json({
       ...(isTutor ? l : stripPrivate(l, ['private_notes'])),
+      unit: unit && { id: unit.id, code: unit.code, title: unit.title, course_title: unit.course_title, goals: unit.goals,
+        item_count: unit.item_ids.length, homework_count: unit.homework_item_ids.length, vocab_count: unit.vocab.length },
       items: items.map((i) => ({ ...i, files: files.filter((f) => f.library_item_id === i.id) })),
     });
   })

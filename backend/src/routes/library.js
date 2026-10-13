@@ -2,7 +2,7 @@
 // Ученик видит условие задачи, только если она выдана ему на уроке или в домашнем задании.
 const express = require('express');
 const { z } = require('zod');
-const { query } = require('../db');
+const { query, transaction } = require('../db');
 const { requireRole, accessibleStudentIds } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { buildUpdate } = require('../utils');
@@ -187,6 +187,130 @@ router.delete(
     await query('UPDATE assignments SET library_item_ids = array_remove(library_item_ids, $1) WHERE $1 = ANY(library_item_ids)', [id]);
     console.log(`🗑️ Из библиотеки удалено: «${rows[0].title}»`);
     res.json({ ok: true });
+  })
+);
+
+// ------------------------------------------------------------
+// Импорт набора материалов из файла (например, все упражнения юнита учебника)
+// Формат: { "format": "lessonfold-library", "items": [ { key, kind, title, ... } ],
+//           "courses": [ { title, units: [ { code, title, goals, items: [key], homework: [key], vocab: [...] } ] } ] }
+// Повторный импорт не создаёт дубликаты: материалы совпадают по виду + названию + предмету,
+// курс — по названию, юнит — по коду (или названию) внутри курса
+// ------------------------------------------------------------
+const importItem = z
+  .object({ ...fields, key: z.string().trim().min(1).max(100) })
+  .partial()
+  .required({ kind: true, title: true })
+  .strict()
+  .refine((b) => b.kind !== 'game' || b.game, 'У упражнения нет содержимого');
+
+const keys = z.array(z.string().trim().min(1).max(100)).max(60).default([]);
+const importCourse = z
+  .object({
+    title: z.string().trim().min(1).max(255),
+    subject: z.string().trim().min(1).max(100).optional(),
+    level: z.string().trim().max(50).optional(),
+    description: z.string().max(5000).optional(),
+    units: z
+      .array(
+        z
+          .object({
+            code: z.string().trim().max(20).optional(),
+            title: z.string().trim().min(1).max(255),
+            goals: z.string().max(5000).optional(),
+            items: keys,
+            homework: keys,
+            vocab: z
+              .array(
+                z.object({ term: z.string().trim().min(1).max(200), translation: z.string().max(300).optional(), example: z.string().max(1000).optional() }).strict()
+              )
+              .max(300)
+              .default([]),
+          })
+          .strict()
+      )
+      .max(200),
+  })
+  .strict();
+
+router.post(
+  '/import',
+  tutorOnly,
+  express.json({ limit: '2mb' }),
+  validateBody(
+    z
+      .object({
+        format: z.literal('lessonfold-library'),
+        version: z.number().int().optional(),
+        title: z.string().max(255).optional(),
+        items: z.array(importItem).max(300).default([]),
+        courses: z.array(importCourse).max(10).default([]),
+      })
+      .strict()
+      .refine((b) => b.items.length || b.courses.length, 'В файле нет материалов')
+  ),
+  asyncHandler(async (req, res) => {
+    const result = await transaction(async (client) => {
+      let created = 0;
+      let skipped = 0;
+      const byKey = {};
+      for (const b of req.body.items) {
+        const subject = b.subject || 'Английский язык';
+        const { rows: dup } = await client.query(
+          'SELECT id FROM library_items WHERE kind = $1 AND title = $2 AND subject = $3 ORDER BY id LIMIT 1',
+          [b.kind, b.title, subject]
+        );
+        if (dup[0]) {
+          skipped++;
+          if (b.key) byKey[b.key] = dup[0].id;
+          continue;
+        }
+        const { rows } = await client.query(
+          `INSERT INTO library_items (kind, subject, title, body, answer, exam, exam_task, tags, tutor_note, links, game)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+          [b.kind, subject, b.title, b.body || null, b.answer || null, b.exam || null, b.exam_task || null,
+            [...new Set(b.tags || [])], b.tutor_note || null, b.links || [], b.kind === 'game' ? JSON.stringify(b.game) : null]
+        );
+        if (b.key) byKey[b.key] = rows[0].id;
+        created++;
+      }
+
+      let units = 0;
+      for (const c of req.body.courses) {
+        let { rows: course } = await client.query('SELECT id FROM courses WHERE title = $1 ORDER BY id LIMIT 1', [c.title]);
+        if (!course[0]) {
+          ({ rows: course } = await client.query(
+            `INSERT INTO courses (title, subject, level, description) VALUES ($1, COALESCE($2, 'Английский язык'), $3, $4) RETURNING id`,
+            [c.title, c.subject || null, c.level || null, c.description || null]
+          ));
+        }
+        const courseId = course[0].id;
+        for (const u of c.units) {
+          const resolve = (list) => [...new Set(list.map((k) => byKey[k]).filter(Boolean))];
+          const values = [u.goals || null, resolve(u.items), resolve(u.homework), JSON.stringify(u.vocab)];
+          const { rows: found } = await client.query(
+            `SELECT id FROM course_units WHERE course_id = $1 AND (($2::varchar IS NOT NULL AND code = $2::varchar) OR ($2::varchar IS NULL AND title = $3::varchar)) LIMIT 1`,
+            [courseId, u.code || null, u.title]
+          );
+          if (found[0]) {
+            await client.query(
+              'UPDATE course_units SET title = $2, goals = $3, item_ids = $4, homework_item_ids = $5, vocab = $6 WHERE id = $1',
+              [found[0].id, u.title, ...values]
+            );
+          } else {
+            await client.query(
+              `INSERT INTO course_units (course_id, position, code, title, goals, item_ids, homework_item_ids, vocab)
+               VALUES ($1, (SELECT COALESCE(MAX(position), -1) + 1 FROM course_units WHERE course_id = $1), $2, $3, $4, $5, $6, $7)`,
+              [courseId, u.code || null, u.title, ...values]
+            );
+          }
+          units++;
+        }
+      }
+      return { created, skipped, units };
+    });
+    console.log(`✅ Импорт «${req.body.title || 'без названия'}»: добавлено ${result.created}, уже было ${result.skipped}, юнитов ${result.units}`);
+    res.json(result);
   })
 );
 

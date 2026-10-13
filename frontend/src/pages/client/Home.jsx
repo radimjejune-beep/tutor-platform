@@ -4,7 +4,7 @@ import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Link, PassMarks, Bar } 
 import { CONTACT_URL } from '../../config';
 import { callService } from '../LessonRoom';
 import TelegramCard from '../../components/TelegramCard';
-import { time, dayMonth, relativeDay, rub, shortDate, monthName, lessonsWord, HW_STATUS } from '../../format';
+import { time, dayMonth, relativeDay, rub, shortDate, monthName, lessonsWord, HW_STATUS, plural } from '../../format';
 
 export default function ClientHome({ student, isParent }) {
   const dash = useLoad(() => Promise.all([api.dashboard(), api.finance(student.id)]), [student.id]);
@@ -24,9 +24,19 @@ export default function ClientHome({ student, isParent }) {
       <div className="page-head">
         <div>
           <h1 className="page-title">{isParent ? firstName : `Привет, ${firstName}`}</h1>
-          <div className="lead">{[s.student.level, s.student.textbook].filter(Boolean).join(', ') || 'Английский язык'}{s.student.goal ? `. ${s.student.goal}` : ''}</div>
+          <div className="lead">{[s.student.level, s.unit ? `${s.unit.course_title}, ${[s.unit.code, s.unit.title].filter(Boolean).join(' ')}` : s.student.textbook].filter(Boolean).join(', ') || 'Английский язык'}{s.student.goal ? `. ${s.student.goal}` : ''}</div>
         </div>
       </div>
+
+      {s.vocab?.due > 0 && (
+        <Link to="/words" className="words-strip">
+          <span>
+            <span className="meta-label">Словарь</span>
+            <span className="serif words-strip-title">{s.vocab.due} {plural(s.vocab.due, 'слово ждёт', 'слова ждут', 'слов ждут')} повторения</span>
+          </span>
+          <span className="btn btn-sm"><Icon name="play" /> Повторить</span>
+        </Link>
+      )}
 
       <div className="grid grid-main">
         {/* Следующее занятие */}

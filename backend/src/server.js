@@ -22,7 +22,9 @@ app.set('trust proxy', 1); // хостинг стоит за прокси — н
 app.use(helmet());
 // Обычные запросы — до 200 КБ; загрузка файлов (/api/files) разбирается отдельно, до 15 МБ
 const smallJson = express.json({ limit: '200kb' });
-app.use((req, res, next) => (req.path.startsWith('/api/files') ? next() : smallJson(req, res, next)));
+// Большие запросы разбираются в своих маршрутах: файлы (до 15 МБ) и импорт библиотеки (до 2 МБ)
+const BIG_BODY = ['/api/files', '/api/library/import'];
+app.use((req, res, next) => (BIG_BODY.some((p) => req.path.startsWith(p)) ? next() : smallJson(req, res, next)));
 
 // CORS: только адреса из FRONTEND_ORIGINS (через запятую)
 const origins = (process.env.FRONTEND_ORIGINS || 'http://localhost:5173')
@@ -68,6 +70,8 @@ protectedApi.use('/telegram', require('./routes/telegram'));
 protectedApi.use('/games', require('./routes/games'));
 protectedApi.use('/legal', require('./routes/legal').protectedRouter);
 protectedApi.use('/progress', require('./routes/progress'));
+protectedApi.use('/courses', require('./routes/courses'));
+protectedApi.use('/vocab', require('./routes/vocab'));
 app.use('/api', protectedApi);
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Не найдено' }));
@@ -82,7 +86,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Внутренняя ошибка сервера' });
 });
 
-const PORT = Number(process.env.PORT) || 3001;
+const PORT = Number(process.env['PORT']) || 3001;
 if (require.main === module) {
   app.listen(PORT, () => console.log(`✅ API запущен на порту ${PORT}`));
   require('./services/telegram').start();

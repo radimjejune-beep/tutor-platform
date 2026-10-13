@@ -75,7 +75,7 @@ export function AcceptDocuments({ docs, onDone }) {
   return (
     <div className="legal-page">
       <div className="legal-wrap">
-        <div className="brand-name" style={{ fontSize: 22 }}>{BRAND.name}</div>
+        <div className="brand-name" style={{ fontSize: 28 }}>{BRAND.name}</div>
         <div className="brand-rule" />
         <h1 className="page-title" style={{ marginTop: 26 }}>
           {docs.some((d) => d.version > 1) ? 'Документы обновились' : 'Перед началом'}

@@ -7,9 +7,9 @@ types.setTypeParser(1082, (value) => value);
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   // На хостинге с SSL можно включить DB_SSL=true
-  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+  ssl: process.env['DB_SSL'] === 'true' ? { rejectUnauthorized: false } : false,
   // Часовой пояс сессии: от него зависят «сегодня», «этот месяц» и дата занятия
-  options: `-c timezone=${process.env.APP_TIMEZONE || 'Europe/Moscow'}`,
+  options: `-c timezone=${process.env['APP_TIMEZONE'] || 'Europe/Moscow'}`,
 });
 
 pool.on('error', (err) => {

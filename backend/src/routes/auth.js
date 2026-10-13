@@ -42,7 +42,7 @@ router.post(
 
     await query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [user.id]);
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+      expiresIn: process.env['JWT_EXPIRES_IN'] || '7d',
     });
 
     console.log(`✅ Вход: ${login} (${user.role})`);

@@ -7,6 +7,7 @@ import {
   PaymentModal, AccountModal, ResetPasswordModal, TopicsModal, ReportModal,
 } from './modals';
 import LessonsByDay from '../../components/LessonsByDay';
+import { CourseTab, WordsTab } from './StudentCourse';
 import {
   CATEGORY, HW_STATUS, SKILLS, METHOD, rub, shortDate, fullDate, monthName, currentMonth, prevMonth,
   lessonsWord, relativeDay, time,
@@ -14,6 +15,8 @@ import {
 
 const TABS = [
   { key: 'lessons', label: 'Занятия' },
+  { key: 'course', label: 'Курс' },
+  { key: 'words', label: 'Словарь' },
   { key: 'homework', label: 'Задания' },
   { key: 'progress', label: 'Прогресс' },
   { key: 'reports', label: 'Отчёты' },
@@ -93,6 +96,8 @@ export default function StudentPage({ id, tab }) {
       </div>
 
       {tab === 'lessons' && <LessonsTab student={s} onChange={student.reload} />}
+      {tab === 'course' && <CourseTab student={s} onChange={student.reload} />}
+      {tab === 'words' && <WordsTab student={s} />}
       {tab === 'homework' && <HomeworkTab student={s} />}
       {tab === 'progress' && <ProgressTab student={s} />}
       {tab === 'reports' && <ReportsTab student={s} />}

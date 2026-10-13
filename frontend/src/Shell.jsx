@@ -11,6 +11,7 @@ export const TUTOR_NAV = [
   { to: '/students', label: 'Ученики', icon: 'users' },
   { to: '/homework', label: 'Задания', short: 'Задания', icon: 'book', countKey: 'homework' },
   { to: '/library', label: 'Библиотека', short: 'Библ.', icon: 'library' },
+  { to: '/courses', label: 'Курсы', icon: 'layers', hideMobile: true },
   { to: '/finance', label: 'Доход', icon: 'wallet', hideMobile: true },
   { to: '/settings', label: 'Настройки', short: 'Ещё', icon: 'settings' },
 ];
@@ -19,7 +20,8 @@ export const CLIENT_NAV = [
   { to: '/', label: 'Главная', icon: 'home' },
   { to: '/schedule', label: 'Расписание', short: 'Уроки', icon: 'calendar' },
   { to: '/homework', label: 'Задания', short: 'Задания', icon: 'book', countKey: 'homework' },
-  { to: '/theory', label: 'Теория', icon: 'library' },
+  { to: '/words', label: 'Словарь', icon: 'cards', countKey: 'words' },
+  { to: '/theory', label: 'Теория', icon: 'library', hideMobile: true },
   { to: '/progress', label: 'Прогресс', short: 'Успехи', icon: 'chart' },
   { to: '/payments', label: 'Оплата', icon: 'wallet' },
 ];

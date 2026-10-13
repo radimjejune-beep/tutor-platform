@@ -28,6 +28,7 @@ async function tutorDashboard() {
         AND l.status <> 'cancelled'
       ORDER BY l.starts_at`
   );
+  for (const l of today) Object.assign(l, await lessonBrief(l));
 
   // Прошедшие занятия, которые не отмечены (иначе они не спишутся)
   const { rows: unmarked } = await query(
@@ -105,6 +106,45 @@ async function tutorDashboard() {
   };
 }
 
+// Всё, что нужно знать перед уроком: юнит, прошлый урок, ДЗ, деньги, словарь
+async function lessonBrief(l) {
+  const { rows: unit } = await query(
+    `SELECT u.id, u.code, u.title, c.title AS course_title,
+            cardinality(u.item_ids) AS item_count, cardinality(u.homework_item_ids) AS homework_count
+       FROM students s JOIN course_units u ON u.id = COALESCE($2::int, s.course_unit_id) JOIN courses c ON c.id = u.course_id
+      WHERE s.id = $1`,
+    [l.student_id, l.unit_id ?? null]
+  );
+  const { rows: prev } = await query(
+    `SELECT id, starts_at, topic, summary, private_notes FROM lessons
+      WHERE student_id = $1 AND status = 'done' AND starts_at < $2 ORDER BY starts_at DESC LIMIT 1`,
+    [l.student_id, l.starts_at]
+  );
+  const { rows: homework } = await query(
+    `SELECT h.id, h.status, h.score, h.quiz_score, a.id AS assignment_id, a.title, a.due_on
+       FROM homework h JOIN assignments a ON a.id = h.assignment_id
+      WHERE h.student_id = $1 AND (h.status <> 'checked' OR h.created_at > NOW() - INTERVAL '10 days')
+      ORDER BY h.created_at DESC LIMIT 4`,
+    [l.student_id]
+  );
+  const { rows: vocab } = await query(
+    `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE due_on <= CURRENT_DATE)::int AS due,
+            COUNT(*) FILTER (WHERE source = 'mistake' AND box = 0)::int AS weak
+       FROM vocab_items WHERE student_id = $1`,
+    [l.student_id]
+  );
+  const { rows: items } = await query('SELECT COUNT(*)::int AS n FROM lesson_items WHERE lesson_id = $1', [l.id]);
+  const f = await studentFinance({ query }, l.student_id);
+  return {
+    unit: unit[0] || null,
+    previous: prev[0] || null,
+    homework,
+    vocab: vocab[0],
+    item_count: items[0].n,
+    finance: { balance: f.balance, lessons_remaining: f.subscriptions.length ? f.lessons_remaining : null },
+  };
+}
+
 // Ученик / родитель: по каждому ребёнку
 async function studentDashboard(studentId) {
   const { rows: st } = await query('SELECT id, full_name, level, goal, textbook, board_link, call_link FROM students WHERE id = $1', [
@@ -137,6 +177,15 @@ async function studentDashboard(studentId) {
     [studentId]
   );
   const f = await studentFinance({ query }, studentId);
+  const { rows: vocab } = await query(
+    `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE due_on <= CURRENT_DATE)::int AS due FROM vocab_items WHERE student_id = $1`,
+    [studentId]
+  );
+  const { rows: unit } = await query(
+    `SELECT u.code, u.title, c.title AS course_title FROM students s
+       JOIN course_units u ON u.id = s.course_unit_id JOIN courses c ON c.id = u.course_id WHERE s.id = $1`,
+    [studentId]
+  );
 
   const p = progress[0];
   return {
@@ -147,6 +196,8 @@ async function studentDashboard(studentId) {
     progress: { ...p, completion: p.total ? Math.round((p.done / p.total) * 100) : 0 },
     latest_report: report[0] || null,
     finance: { balance: f.balance, lessons_remaining: f.lessons_remaining },
+    vocab: vocab[0],
+    unit: unit[0] || null,
   };
 }
 

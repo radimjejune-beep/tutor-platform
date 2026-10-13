@@ -3,9 +3,9 @@
 const crypto = require('crypto');
 const { query } = require('../db');
 
-const TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
-const API = process.env.TELEGRAM_API_URL || 'https://api.telegram.org';
-const TZ = process.env.APP_TIMEZONE || 'Europe/Moscow';
+const TOKEN = process.env['TELEGRAM_BOT_TOKEN'] || '';
+const API = process.env['TELEGRAM_API_URL'] || 'https://api.telegram.org';
+const TZ = process.env['APP_TIMEZONE'] || 'Europe/Moscow';
 
 let botUsername = null;
 let running = false;

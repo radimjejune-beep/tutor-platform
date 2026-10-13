@@ -64,7 +64,7 @@ export default function Finance() {
         </div>
       </section>
 
-      <h2 className="serif" style={{ fontSize: 24, margin: '30px 0 14px' }}>{monthName(s.month)}</h2>
+      <h2 className="serif" style={{ fontSize: 30, margin: '36px 0 14px' }}>{monthName(s.month)}</h2>
       <div className="grid grid-3">
         <div className="panel">
           <div className="stat-label">Поступило</div>

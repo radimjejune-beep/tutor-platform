@@ -8,6 +8,7 @@ import LibraryItem from '../components/LibraryItem';
 import { TaskPicker } from './tutor/Library';
 import { ResultLine, byItem } from '../components/GameResults';
 import { relativeDay, dayMonth, time } from '../format';
+import FinishLessonModal, { unitLabel } from '../components/FinishLesson';
 
 export function callService(url) {
   if (!url) return null;
@@ -24,6 +25,7 @@ export default function LessonRoom({ id }) {
   const room = useLoad(() => Promise.all([api.lessonRoom(id), api.gameResults({ lesson_id: id }).catch(() => [])]), [id]);
   const [picking, setPicking] = useState(false);
   const [boardOpen, setBoardOpen] = useState(true);
+  const [finishing, setFinishing] = useState(false);
 
   // Задачи (у ученика) и результаты упражнений (у преподавателя) обновляются каждые 15 секунд
   useEffect(() => {
@@ -61,6 +63,7 @@ export default function LessonRoom({ id }) {
           <div className="muted small">{relativeDay(l.starts_at)}, {dayMonth(l.starts_at)}, {time(l.starts_at)}–{time(new Date(new Date(l.starts_at).getTime() + l.duration_min * 60000))}</div>
           <h1 className="page-title" style={{ marginTop: 4 }}>{isTutor ? l.student_name : l.topic || 'Урок'}</h1>
           {isTutor && l.topic && <div className="lead muted">{l.topic}</div>}
+          {!isTutor && l.unit && <div className="lead muted">{unitLabel(l.unit)}</div>}
         </div>
         <div className="row wrap" style={{ gap: 8 }}>
           {l.join_link ? (
@@ -77,6 +80,30 @@ export default function LessonRoom({ id }) {
           )}
         </div>
       </div>
+
+      {isTutor && (
+        <section className="unit-strip">
+          <div style={{ minWidth: 0 }}>
+            <div className="meta-label">{l.unit ? l.unit.course_title : 'Курс'}</div>
+            <div className="serif unit-strip-title">{l.unit ? unitLabel(l.unit) : 'Юнит не выбран'}</div>
+            {l.unit?.goals && <div className="small muted" style={{ marginTop: 4 }}>{l.unit.goals}</div>}
+            {!l.unit && <div className="small muted">Запишите ученика на курс в его карточке, и материалы юнита будут подставляться сами.</div>}
+          </div>
+          <div className="row wrap" style={{ gap: 8 }}>
+            {l.unit && l.unit.item_count > 0 && (
+              <button className="btn btn-secondary btn-sm" onClick={async () => {
+                try {
+                  const r = await api.unitToLesson(l.unit.id, l.id);
+                  toast(r.added ? `Добавлено: ${r.added}` : 'Материалы юнита уже в уроке');
+                  room.reload();
+                } catch (err) { toast(err.message, 'error'); }
+              }}><Icon name="layers" /> Материалы юнита</button>
+            )}
+            {!l.unit && <Link to={`/students/${l.student_id}/course`} className="btn btn-secondary btn-sm">Выбрать курс</Link>}
+            {l.status === 'scheduled' && <button className="btn btn-sm" onClick={() => setFinishing(true)}><Icon name="check" /> Завершить урок</button>}
+          </div>
+        </section>
+      )}
 
       {l.board_link && (
         <section className="panel" style={{ padding: 0, overflow: 'hidden', marginTop: 20 }}>
@@ -125,6 +152,11 @@ export default function LessonRoom({ id }) {
           </div>
         )}
       </section>
+
+      {finishing && (
+        <FinishLessonModal lesson={l} unit={l.unit} onClose={() => setFinishing(false)}
+          onDone={() => { setFinishing(false); room.reload(); }} />
+      )}
 
       {picking && (
         <TaskPicker selected={ids} onClose={() => setPicking(false)}

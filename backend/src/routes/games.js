@@ -5,6 +5,7 @@ const { query } = require('../db');
 const { requireRole, canAccessStudent, accessibleStudentIds } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { grade } = require('../services/games');
+const { addWords, wordsFromMistakes } = require('../services/vocab');
 const { visibleTaskIds } = require('./library');
 
 const router = express.Router();
@@ -53,8 +54,15 @@ router.post(
       [item.id, b.student_id, req.user.id, b.homework_id || null, b.lesson_id || null, g.correct, g.total, g.score,
         JSON.stringify(g.details), b.duration_sec ?? null]
     );
+    // Слова, в которых ошибся, сразу попадают в личный словарь на повторение
+    let vocabAdded = 0;
+    try {
+      vocabAdded = await addWords({ query }, b.student_id, wordsFromMistakes(item.game, g.details), 'mistake');
+    } catch (err) {
+      console.error('Словарь: не удалось добавить слова из ошибок:', err.message);
+    }
     console.log(`📝 Упражнение #${item.id}: ученик #${b.student_id}, ${g.correct}/${g.total}`);
-    res.status(201).json({ ...saved[0], details: g.details });
+    res.status(201).json({ ...saved[0], details: g.details, vocab_added: vocabAdded });
   })
 );
 

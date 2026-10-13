@@ -10,6 +10,8 @@ import Settings from './pages/tutor/Settings';
 import { LibraryPage, LibraryEditor } from './pages/tutor/Library';
 import LessonRoom from './pages/LessonRoom';
 import { TheoryList, TheoryView } from './pages/client/Theory';
+import { CoursesList, CourseEditor } from './pages/tutor/Courses';
+import Words from './pages/client/Words';
 
 import TutorDashboard from './pages/tutor/Dashboard';
 import TutorSchedule from './pages/tutor/Schedule';
@@ -85,6 +87,8 @@ function TutorApp({ path, params }) {
   else if (parts[0] === 'library' && /^\d+$/.test(parts[1] || '')) page = <LibraryEditor key={parts[1]} id={Number(parts[1])} />;
   else if (parts[0] === 'library') page = <LibraryPage key={parts[1] || 'tasks'} kind={{ theory: 'theory', games: 'game' }[parts[1]] || 'task'} />;
   else if (parts[0] === 'lesson' && parts[1]) page = <LessonRoom id={Number(parts[1])} />;
+  else if (parts[0] === 'courses' && parts[1]) page = <CourseEditor key={parts[1]} id={Number(parts[1])} />;
+  else if (parts[0] === 'courses') page = <CoursesList />;
   else if (parts[0] === 'password') page = <ChangePassword />;
   else page = <NotFound />;
 
@@ -111,10 +115,10 @@ function ClientCabinet({ path }) {
 
   useEffect(() => {
     if (!childId) return;
-    api
-      .homework({ student_id: childId, status: 'assigned' })
-      .then((list) => setCounts({ homework: list.length }))
-      .catch(() => {});
+    Promise.all([
+      api.homework({ student_id: childId, status: 'assigned' }).catch(() => []),
+      api.vocab(childId).catch(() => null),
+    ]).then(([list, vocab]) => setCounts({ homework: list.length, words: vocab?.stats.due || 0 }));
   }, [path, childId]);
 
   if (!students.length) {
@@ -140,6 +144,7 @@ function ClientCabinet({ path }) {
   else if (parts[0] === 'homework' && parts[1]) page = <HomeworkPage id={Number(parts[1])} isParent={props.isParent} />;
   else if (parts[0] === 'homework') page = <ClientHomework {...props} />;
   else if (parts[0] === 'progress') page = <ClientProgress {...props} />;
+  else if (parts[0] === 'words') page = <Words key={child.id} {...props} />;
   else if (parts[0] === 'theory' && parts[1]) page = <TheoryView id={Number(parts[1])} />;
   else if (parts[0] === 'theory') page = <TheoryList />;
   else if (parts[0] === 'lesson' && parts[1]) page = <LessonRoom id={Number(parts[1])} />;

@@ -29,7 +29,7 @@ export default function TelegramCard() {
 
   return (
     <section className="panel tg-card" style={{ marginTop: 20 }}>
-      <div className="assign-icon" style={{ background: '#2a9fd8' }}><Icon name="send" /></div>
+      <div className="assign-icon"><Icon name="send" /></div>
       <div className="list-main">
         <div className="list-title">{st.data.linked ? 'Итоги уроков приходят в Telegram' : 'Получайте итоги уроков в Telegram'}</div>
         <div className="list-sub">

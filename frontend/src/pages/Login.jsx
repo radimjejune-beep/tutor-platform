@@ -11,7 +11,7 @@ function AuthLayout({ children }) {
     <div className="auth">
       <div className="auth-art">
         <div>
-          <div className="brand-name" style={{ fontSize: 24 }}>{BRAND.name}</div>
+          <div className="brand-name" style={{ fontSize: 30 }}>{BRAND.name}</div>
           <div className="brand-rule" />
         </div>
         <div className="auth-quote">
