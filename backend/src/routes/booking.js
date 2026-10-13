@@ -4,9 +4,10 @@
 const express = require('express');
 const { z } = require('zod');
 const { query, transaction } = require('../db');
-const { requireRole, accessibleStudentIds, canAccessStudent } = require('../middleware/auth');
+const { requireRole, accessibleStudentIds, canAccessStudent, requireOwn } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { DEFAULTS, getBookingSettings, freeSlots } = require('../services/booking');
+const notify = require('../services/notify');
 
 const router = express.Router();
 const tutorOnly = requireRole('tutor');
@@ -21,9 +22,10 @@ router.get(
   '/settings',
   tutorOnly,
   asyncHandler(async (req, res) => {
-    const settings = await getBookingSettings();
+    const settings = await getBookingSettings(req.user.id);
     const { rows: windows } = await query(
-      "SELECT id, weekday, to_char(starts, 'HH24:MI') AS starts, to_char(ends, 'HH24:MI') AS ends FROM availability ORDER BY weekday, starts"
+      "SELECT id, weekday, to_char(starts, 'HH24:MI') AS starts, to_char(ends, 'HH24:MI') AS ends FROM availability WHERE tutor_id = $1 ORDER BY weekday, starts",
+      [req.user.id]
     );
     res.json({ ...settings, windows });
   })
@@ -51,13 +53,13 @@ router.put(
     const { windows, ...settings } = req.body;
     await transaction(async (client) => {
       await client.query(
-        `INSERT INTO settings (key, value) VALUES ('booking', $1)
+        `INSERT INTO settings (key, value) VALUES ($2, $1)
          ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-        [JSON.stringify({ ...DEFAULTS, ...settings })]
+        [JSON.stringify({ ...DEFAULTS, ...settings }), `booking:${req.user.id}`]
       );
-      await client.query('DELETE FROM availability');
+      await client.query('DELETE FROM availability WHERE tutor_id = $1', [req.user.id]);
       for (const w of windows) {
-        await client.query('INSERT INTO availability (weekday, starts, ends) VALUES ($1, $2, $3)', [w.weekday, w.starts, w.ends]);
+        await client.query('INSERT INTO availability (weekday, starts, ends, tutor_id) VALUES ($1, $2, $3, $4)', [w.weekday, w.starts, w.ends, req.user.id]);
       }
     });
     console.log(`📝 Настройки записи: ${settings.enabled ? 'включена' : 'выключена'}, окон ${windows.length}`);
@@ -69,7 +71,7 @@ router.put(
 router.get(
   '/info',
   asyncHandler(async (req, res) => {
-    const s = await getBookingSettings();
+    const s = await getBookingSettings(req.user.tid);
     res.json({ enabled: s.enabled, notice_hours: s.notice_hours });
   })
 );
@@ -85,7 +87,7 @@ router.get(
     if (!Number.isInteger(studentId) || !(await canAccessStudent(req.user, studentId))) {
       return res.status(404).json({ error: 'Ученик не найден' });
     }
-    const s = await getBookingSettings();
+    const s = await getBookingSettings(req.user.tid);
     if (!s.enabled && req.user.role !== 'tutor') return res.json({ enabled: false, slots: [] });
 
     const { rows } = await query('SELECT default_duration FROM students WHERE id = $1', [studentId]);
@@ -100,7 +102,7 @@ router.get(
       duration = l[0].duration_min;
       exceptLessonId = l[0].id;
     }
-    const slots = await freeSlots({ query }, { durationMin: duration, exceptLessonId });
+    const slots = await freeSlots({ query }, { tutorId: req.user.tid, durationMin: duration, exceptLessonId });
     res.json({ enabled: s.enabled, duration_min: duration, slots });
   })
 );
@@ -146,7 +148,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const b = req.body;
     if (!(await canAccessStudent(req.user, b.student_id))) return res.status(404).json({ error: 'Ученик не найден' });
-    const s = await getBookingSettings();
+    const s = await getBookingSettings(req.user.tid);
     if (!s.enabled) return res.status(409).json({ error: 'Самостоятельная запись сейчас выключена' });
 
     const result = await transaction(async (client) => {
@@ -183,6 +185,7 @@ router.post(
       }
 
       const ok = await freeSlots(client, {
+        tutorId: req.user.tid,
         durationMin: duration,
         exceptLessonId: b.lesson_id || null,
         exactStart: b.starts_at,
@@ -199,6 +202,13 @@ router.post(
 
     if (result.error) return res.status(result.status).json({ error: result.error });
     console.log(`📝 Запрос на ${b.kind === 'book' ? 'запись' : 'перенос'} (ученик #${b.student_id})`);
+    const { rows: who } = await query('SELECT full_name FROM students WHERE id = $1', [b.student_id]);
+    notify.toTutor(req.user.tid, {
+      kind: 'booking_request',
+      title: `${who[0]?.full_name}: ${b.kind === 'book' ? 'просит новое занятие' : 'просит перенести занятие'}`,
+      body: `${notify.when(b.starts_at)}${b.comment ? `. «${b.comment}»` : ''}`,
+      link: '/',
+    });
     res.status(201).json(result.request);
   })
 );
@@ -221,6 +231,7 @@ router.post(
 router.post(
   '/requests/:id/approve',
   tutorOnly,
+  requireOwn('booking_requests', 'id', 'Запрос не найден'),
   asyncHandler(async (req, res) => {
     const result = await transaction(async (client) => {
       const { rows } = await client.query(
@@ -232,11 +243,11 @@ router.post(
 
       // Время всё ещё свободно? (кроме самого переносимого занятия)
       const { rows: clash } = await client.query(
-        `SELECT 1 FROM lessons l
+        `SELECT 1 FROM lessons l JOIN students cs ON cs.id = l.student_id AND cs.tutor_id = $4
           WHERE l.status IN ('scheduled', 'done') AND ($3::int IS NULL OR l.id <> $3::int)
             AND l.starts_at < $1::timestamptz + make_interval(mins => $2::int)
             AND l.starts_at + make_interval(mins => l.duration_min) > $1::timestamptz`,
-        [r.starts_at, r.duration_min, r.lesson_id]
+        [r.starts_at, r.duration_min, r.lesson_id, req.user.id]
       );
       if (clash[0]) return { status: 409, error: 'На это время уже стоит другое занятие' };
 
@@ -260,6 +271,12 @@ router.post(
 
     if (result.error) return res.status(result.status).json({ error: result.error });
     console.log(`✅ Запрос #${req.params.id} подтверждён`);
+    notify.toStudent(result.lesson.student_id, {
+      kind: 'booking_approved',
+      title: 'Преподаватель подтвердил время',
+      body: `Занятие: ${notify.when(result.lesson.starts_at)}`,
+      link: '/schedule',
+    });
     res.json(result.lesson);
   })
 );
@@ -267,14 +284,21 @@ router.post(
 router.post(
   '/requests/:id/decline',
   tutorOnly,
+  requireOwn('booking_requests', 'id', 'Запрос не найден'),
   validateBody(z.object({ tutor_comment: z.string().trim().max(500).optional() }).strict()),
   asyncHandler(async (req, res) => {
     const { rows } = await query(
       `UPDATE booking_requests SET status = 'declined', decided_at = NOW(), tutor_comment = $2
-        WHERE id = $1 AND status = 'pending' RETURNING id`,
+        WHERE id = $1 AND status = 'pending' RETURNING id, student_id, starts_at`,
       [Number(req.params.id), req.body.tutor_comment || null]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Запрос не найден или уже рассмотрен' });
+    notify.toStudent(rows[0].student_id, {
+      kind: 'booking_declined',
+      title: 'Это время не подошло',
+      body: `${notify.when(rows[0].starts_at)}${req.body.tutor_comment ? `. ${req.body.tutor_comment}` : '. Выберите другое время'}`,
+      link: '/schedule',
+    });
     console.log(`⚠️ Запрос #${req.params.id} отклонён`);
     res.json({ ok: true });
   })
@@ -287,7 +311,7 @@ router.post(
   '/lessons/:id/cancel',
   clientOnly,
   asyncHandler(async (req, res) => {
-    const s = await getBookingSettings();
+    const s = await getBookingSettings(req.user.tid);
     const { rows } = await query(
       `SELECT id, student_id, status, starts_at - NOW() >= make_interval(hours => $2::int) AS in_time
          FROM lessons WHERE id = $1`,
@@ -308,6 +332,8 @@ router.post(
       );
     });
     console.log(`⚠️ Занятие #${l.id} отменено учеником заранее`);
+    const { rows: who } = await query('SELECT s.full_name, l.starts_at FROM lessons l JOIN students s ON s.id = l.student_id WHERE l.id = $1', [l.id]);
+    notify.toTutor(req.user.tid, { kind: 'lesson_cancelled_client', title: `${who[0].full_name} отменил(а) занятие`, body: notify.when(who[0].starts_at), link: '/schedule' });
     res.json({ ok: true });
   })
 );

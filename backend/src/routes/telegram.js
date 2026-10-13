@@ -49,8 +49,9 @@ router.get(
               COALESCE((SELECT string_agg(s.full_name, ', ') FROM students s
                          WHERE s.user_id = u.id OR s.id IN (SELECT student_id FROM parent_students WHERE parent_user_id = u.id)), '') AS students
          FROM users u LEFT JOIN telegram_links tl ON tl.user_id = u.id
-        WHERE u.role IN ('parent', 'student') AND u.is_active
-        ORDER BY tl.linked_at IS NULL, u.full_name`
+        WHERE u.role IN ('parent', 'student') AND u.is_active AND u.tutor_id = $1
+        ORDER BY tl.linked_at IS NULL, u.full_name`,
+      [req.user.id]
     );
     res.json({ enabled: tg.enabled() && Boolean(tg.username()), bot_username: tg.username(), users: rows });
   })

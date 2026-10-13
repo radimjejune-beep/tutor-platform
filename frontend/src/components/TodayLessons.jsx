@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Link, Icon, Badge, Empty } from '../ui';
 import FinishLessonModal, { unitLabel } from './FinishLesson';
+import { GroupFinishModal } from './GroupLesson';
 import { callService } from '../pages/LessonRoom';
 import { time, shortDate, rub, LESSON_STATUS, HW_STATUS, plural } from '../format';
 
@@ -19,14 +20,34 @@ export default function TodayLessons({ lessons, onChanged, onOpenLesson }) {
     );
   }
 
+  // Групповое занятие приходит строкой на каждого ученика: собираем в одну карточку
+  const rows = [];
+  const sessions = {};
+  for (const l of lessons) {
+    if (!l.group_id) { rows.push({ type: 'one', l }); continue; }
+    const key = `${l.group_id}|${l.starts_at}`;
+    if (!sessions[key]) { sessions[key] = { type: 'group', key, l, members: [] }; rows.push(sessions[key]); }
+    sessions[key].members.push(l);
+  }
+
   return (
     <div className="today">
-      {lessons.map((l) => (
-        <TodayCard key={l.id} l={l} current={current?.id === l.id} onFinish={() => setFinishing(l)} onOpen={() => onOpenLesson(l)} />
-      ))}
-      {finishing && (
-        <FinishLessonModal lesson={finishing} unit={finishing.unit} onClose={() => setFinishing(null)}
+      {rows.map((r) =>
+        r.type === 'one' ? (
+          <TodayCard key={r.l.id} l={r.l} current={current?.id === r.l.id} onFinish={() => setFinishing({ one: r.l })} onOpen={() => onOpenLesson(r.l)} />
+        ) : (
+          <GroupCard key={r.key} s={r} current={r.members.some((m) => m.id === current?.id)} onFinish={() => setFinishing({ group: r })} />
+        )
+      )}
+      {finishing?.one && (
+        <FinishLessonModal lesson={finishing.one} unit={finishing.one.unit} onClose={() => setFinishing(null)}
           onDone={() => { setFinishing(null); onChanged(); }} />
+      )}
+      {finishing?.group && (
+        <GroupFinishModal groupId={finishing.group.l.group_id}
+          session={{ starts_at: finishing.group.l.starts_at, topic: finishing.group.l.topic,
+            students: finishing.group.members.map((m) => ({ lesson_id: m.id, student_id: m.student_id, student_name: m.student_name, status: m.status })) }}
+          onClose={() => setFinishing(null)} onDone={() => { setFinishing(null); onChanged(); }} />
       )}
     </div>
   );
@@ -115,6 +136,53 @@ function TodayCard({ l, current, onFinish, onOpen }) {
           ) : (
             <button className="btn btn-quiet btn-sm" onClick={onOpen}>Изменить</button>
           )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function GroupCard({ s, current, onFinish }) {
+  const l = s.l;
+  const end = new Date(new Date(l.starts_at).getTime() + l.duration_min * 60000);
+  const scheduled = s.members.some((m) => m.status === 'scheduled');
+  return (
+    <article className={`today-card ${current ? 'current' : ''} ${scheduled ? '' : 'past'}`}>
+      <div className="today-time">
+        <span className="serif">{time(l.starts_at)}</span>
+        <span className="small muted">до {time(end)}</span>
+      </div>
+      <div className="today-body">
+        <div className="today-head">
+          <div style={{ minWidth: 0 }}>
+            <Link to={`/groups/${l.group_id}`} className="today-name serif">{l.group_name}</Link>
+            <div className="small muted">Группа · {s.members.length} {plural(s.members.length, 'ученик', 'ученика', 'учеников')}{l.topic ? ` · ${l.topic}` : ''}</div>
+          </div>
+        </div>
+        <dl className="brief">
+          {s.members.map((m) => {
+            const notes = [];
+            if (m.status !== 'scheduled') notes.push(LESSON_STATUS[m.status]?.label);
+            const open = (m.homework || []).filter((h) => h.status === 'assigned').length;
+            const toCheck = (m.homework || []).filter((h) => h.status === 'submitted').length;
+            if (toCheck) notes.push(`ДЗ на проверке: ${toCheck}`);
+            if (open) notes.push(`не сдано ДЗ: ${open}`);
+            if (m.vocab?.weak) notes.push(`${m.vocab.weak} слов из ошибок`);
+            if (m.finance?.balance < 0) notes.push(<span key="d" className="brief-warn">долг {rub(-m.finance.balance)}</span>);
+            return (
+              <div key={m.id}>
+                <dt><Link to={`/students/${m.student_id}`} style={{ color: 'var(--ink)' }}>{m.student_name}</Link></dt>
+                <dd>{notes.length ? notes.reduce((acc, n, i) => (i ? [...acc, ', ', n] : [n]), []) : <span className="muted">всё в порядке</span>}</dd>
+              </div>
+            );
+          })}
+        </dl>
+        <div className="today-actions">
+          {l.join_link && scheduled && (
+            <a className="btn btn-sm" href={l.join_link} target="_blank" rel="noreferrer"><Icon name="video" /> {callService(l.join_link)}</a>
+          )}
+          <Link to={`/lesson/${l.id}`} className="btn btn-secondary btn-sm">Комната урока</Link>
+          {scheduled && <button className="btn btn-secondary btn-sm" onClick={onFinish}><Icon name="check" /> Завершить</button>}
         </div>
       </div>
     </article>

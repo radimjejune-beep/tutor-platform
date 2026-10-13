@@ -3,14 +3,15 @@ import { useState } from 'react';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Field, Link, Modal, navigate, useToast, useSubmit } from '../../ui';
 import { FileList, FileUploadButton } from '../../components/Files';
+import HtmlLesson from '../../components/HtmlLesson';
 import LibraryItem, { ItemMeta, examLabel } from '../../components/LibraryItem';
 import GameEditor, { GameTypePicker, EMPTY_GAME, cleanGame } from '../../games/Editors';
 import { GAME_TYPES, gameSize } from '../../games/logic';
 import { relativeDay, dayMonth, time } from '../../format';
 
-const KINDS = { task: 'Задачник', game: 'Упражнения', theory: 'Теория' };
-const KIND_PATH = { task: 'tasks', game: 'games', theory: 'theory' };
-const NEW_LABEL = { task: 'Задача', game: 'Упражнение', theory: 'Теория' };
+const KINDS = { task: 'Задачник', game: 'Упражнения', html: 'Уроки', theory: 'Теория' };
+const KIND_PATH = { task: 'tasks', game: 'games', html: 'lessons', theory: 'theory' };
+const NEW_LABEL = { task: 'Задача', game: 'Упражнение', html: 'Урок', theory: 'Теория' };
 const orNull = (v) => (v && String(v).trim() ? String(v).trim() : null);
 
 /* ============================================================
@@ -104,9 +105,10 @@ export function LibraryPage({ kind = 'task' }) {
         {list.loading && <Spinner />}
         {list.error && <ErrorBox error={list.error} onRetry={list.reload} />}
         {list.data && !list.data.length && (
-          <Empty title={f.q || f.exam || f.tag ? 'Ничего не нашлось' : { task: 'Задачник пуст', game: 'Упражнений пока нет', theory: 'Теории пока нет' }[kind]}
+          <Empty title={f.q || f.exam || f.tag ? 'Ничего не нашлось' : { task: 'Задачник пуст', game: 'Упражнений пока нет', html: 'Уроков пока нет', theory: 'Теории пока нет' }[kind]}
             action={<Link to={`/library/new?kind=${kind}`} className="btn">Добавить</Link>}>
             {kind === 'task' && !f.q && 'Добавляйте задачи с пометками: номер задания ОГЭ/ЕГЭ, теги, заметка для себя.'}
+            {kind === 'html' && !f.q && 'Загрузите готовый HTML-урок (например, тренажёр слов). Его можно открыть на уроке и выдать как ДЗ, результат ученика сохранится сам.'}
             {kind === 'game' && !f.q && 'Найди пару, собери предложение, вставь пропуск, распредели по группам — ученик проходит прямо в кабинете, оценка ставится сама.'}
           </Empty>
         )}
@@ -119,7 +121,7 @@ export function LibraryPage({ kind = 'task' }) {
             <div className="list-main">
               <div className="list-title truncate">{i.title}</div>
               <div className="list-sub truncate">
-                {[i.game && `${GAME_TYPES[i.game.type]?.label}, ${gameSize(i.game)}`, examLabel(i), i.subject, ...(i.tags || []).map((t) => `#${t}`)].filter(Boolean).join(' · ')}
+                {[i.game && `${GAME_TYPES[i.game.type]?.label}, ${gameSize(i.game)}`, i.kind === 'html' && 'Интерактивный урок', examLabel(i), i.subject, ...(i.tags || []).map((t) => `#${t}`)].filter(Boolean).join(' · ')}
               </div>
               {i.tutor_note && <div className="list-sub truncate" style={{ color: '#7a5717' }}><Icon name="note" size={13} /> {i.tutor_note}</div>}
             </div>
@@ -202,6 +204,7 @@ function EditorForm({ item, presetKind, facets, reload }) {
     tutor_note: item?.tutor_note || '',
     links: (item?.links || []).join('\n'),
     game: item?.game || null,
+    html: item?.html || null,
   });
   const [pending, setPending] = useState([]);
   const [preview, setPreview] = useState(false);
@@ -218,10 +221,12 @@ function EditorForm({ item, presetKind, facets, reload }) {
     tutor_note: orNull(f.tutor_note),
     links: f.links.split(/\s+/).map((s) => s.trim()).filter(Boolean),
     game: f.kind === 'game' && f.game ? cleanGame(f.game) : null,
+    html: f.kind === 'html' ? f.html : null,
   });
 
   const save = useSubmit(async () => {
     if (f.kind === 'game' && !f.game) throw new Error('Выберите тип упражнения');
+    if (f.kind === 'html' && !f.html) throw new Error('Загрузите файл урока (.html)');
     if (isNew) {
       const created = await api.createLibraryItem(body());
       for (const file of pending) await api.uploadFile({ library_item_id: created.id }, file);
@@ -247,10 +252,10 @@ function EditorForm({ item, presetKind, facets, reload }) {
     <>
       <Link to={back} className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 10 }}><Icon name="back" /> Библиотека</Link>
       <div className="page-head">
-        <h1 className="page-title">{isNew ? { task: 'Новая задача', game: 'Новое упражнение', theory: 'Новая теория' }[f.kind] : f.title || 'Материал'}</h1>
+        <h1 className="page-title">{isNew ? { task: 'Новая задача', game: 'Новое упражнение', html: 'Новый урок', theory: 'Новая теория' }[f.kind] : f.title || 'Материал'}</h1>
         {!isNew && (
           <div className="row" style={{ gap: 6 }}>
-            <button className="btn btn-secondary btn-sm" onClick={() => setPreview(!preview)}>{preview ? 'Редактировать' : f.kind === 'game' ? 'Попробовать' : 'Как увидит ученик'}</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => setPreview(!preview)}>{preview ? 'Редактировать' : f.kind === 'game' || f.kind === 'html' ? 'Попробовать' : 'Как увидит ученик'}</button>
             {f.kind !== 'theory' && <Link to={`/homework/new?items=${item.id}`} className="btn btn-secondary btn-sm">Выдать как ДЗ</Link>}
           </div>
         )}
@@ -270,7 +275,7 @@ function EditorForm({ item, presetKind, facets, reload }) {
             )}
             <Field label="Название">
               <input className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} required autoFocus={isNew}
-                placeholder={{ task: 'Словообразование: -ness, -ment', game: 'Legal English: термины', theory: 'Present Perfect vs Past Simple' }[f.kind]} />
+                placeholder={{ task: 'Словообразование: -ness, -ment', game: 'Legal English: термины', html: 'Go Getter 2, 0.5: футбольный урок', theory: 'Present Perfect vs Past Simple' }[f.kind]} />
             </Field>
             {f.kind === 'game' && !f.game && (
               <Field label="Тип упражнения">
@@ -286,7 +291,8 @@ function EditorForm({ item, presetKind, facets, reload }) {
                 <GameEditor key={f.game.type} game={f.game} onChange={(game) => setF({ ...f, game })} />
               </div>
             )}
-            {f.kind === 'game' ? (
+            {f.kind === 'html' && <HtmlUpload f={f} setF={setF} />}
+            {f.kind === 'game' || f.kind === 'html' ? (
               <Field label="Инструкция для ученика" hint="Необязательно">
                 <input className="input" value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} placeholder="Соедините термины с определениями" />
               </Field>
@@ -356,7 +362,7 @@ function EditorForm({ item, presetKind, facets, reload }) {
    Выбор задач из задачника (для ДЗ и урока)
    ============================================================ */
 export function TaskPicker({ selected, onClose, onPick }) {
-  const [f, setF] = useFilters('task,game');
+  const [f, setF] = useFilters('task,game,html');
   const facets = useLoad(() => api.libraryFacets(), []);
   const list = useLoad(() => loadList(f), [f.subject, f.exam, f.exam_task, f.tag, f.q]);
   const [chosen, setChosen] = useState(new Set(selected));
@@ -463,5 +469,36 @@ export function ImportButton({ onDone }) {
       <input type="file" accept=".json,application/json" hidden onChange={pick} disabled={busy} />
       {busy ? 'Загружаем…' : 'Импорт'}
     </label>
+  );
+}
+
+// Загрузка готового HTML-урока: файл целиком сохраняется в библиотеке
+function HtmlUpload({ f, setF }) {
+  const [err, setErr] = useState('');
+  const [show, setShow] = useState(false);
+  const pick = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setErr('');
+    if (file.size > 3 * 1024 * 1024) return setErr('Файл больше 3 МБ. Уменьшите картинки внутри урока.');
+    const text = await file.text();
+    if (!/<(html|body|div|script|section|main)\b/i.test(text)) return setErr('Это не похоже на HTML-урок');
+    const title = (text.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1] || '').trim();
+    setF((cur) => ({ ...cur, html: text, title: cur.title || title || file.name.replace(/\.html?$/i, '') }));
+  };
+  return (
+    <Field label="Файл урока" hint="Готовая страница .html. Чтобы результат ученика сохранялся, урок вызывает Lessonfold.report">
+      <div className="row wrap" style={{ gap: 8 }}>
+        <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer' }}>
+          <input type="file" accept=".html,.htm,text/html" hidden onChange={pick} />
+          {f.html ? 'Заменить файл' : 'Выбрать файл'}
+        </label>
+        {f.html && <span className="small muted">Загружено: {Math.round(f.html.length / 1024)} КБ</span>}
+        {f.html && <button type="button" className="btn btn-quiet btn-sm" onClick={() => setShow(!show)}>{show ? 'Скрыть' : 'Посмотреть'}</button>}
+      </div>
+      {err && <div className="alert" style={{ marginTop: 8 }}>{err}</div>}
+      {show && f.html && <div style={{ marginTop: 10 }}><HtmlLesson html={f.html} /></div>}
+    </Field>
   );
 }

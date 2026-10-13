@@ -62,16 +62,16 @@ export function AssignmentsList() {
 /* ============================================================
    Создание и редактирование задания
    ============================================================ */
-export function AssignmentEditor({ id, presetStudentId, presetItems }) {
+export function AssignmentEditor({ id, presetStudentId, presetStudents, presetItems }) {
   const isNew = !id;
   const data = useLoad(() => Promise.all([api.students(), id ? api.assignment(id) : Promise.resolve(null)]), [id]);
   if (data.loading) return <Spinner />;
   if (data.error) return <ErrorBox error={data.error} onRetry={data.reload} />;
   const [students, assignment] = data.data;
-  return <EditorForm isNew={isNew} students={students} assignment={assignment} presetStudentId={presetStudentId} presetItems={presetItems} onFilesChanged={data.reload} />;
+  return <EditorForm isNew={isNew} students={students} assignment={assignment} presetStudentId={presetStudentId} presetStudents={presetStudents} presetItems={presetItems} onFilesChanged={data.reload} />;
 }
 
-function EditorForm({ isNew, students, assignment, presetStudentId, presetItems, onFilesChanged }) {
+function EditorForm({ isNew, students, assignment, presetStudentId, presetStudents, presetItems, onFilesChanged }) {
   const toast = useToast();
   const assignedIds = new Set((assignment?.submissions || []).map((s) => s.student_id));
   const [f, setF] = useState({
@@ -80,7 +80,9 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetItems,
     links: (assignment?.links || []).join('\n'),
     due_on: assignment?.due_on || '',
     questions: assignment?.questions || [],
-    students: new Set(presetStudentId ? [presetStudentId] : []),
+    students: new Set(presetStudents?.length ? presetStudents : presetStudentId ? [presetStudentId] : []),
+    vocab: assignment ? Boolean(assignment.vocab_practice) : false,
+    vocabCount: assignment?.vocab_practice?.count || 12,
     items: assignment?.library_item_ids || presetItems || [],
   });
   const [pendingFiles, setPendingFiles] = useState([]); // для нового задания — загрузим после создания
@@ -101,6 +103,7 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetItems,
       due_on: f.due_on || null,
       questions: showQuiz ? cleanQuestions(f.questions) : [],
       library_item_ids: f.items,
+      vocab_practice: f.vocab ? { count: Number(f.vocabCount) } : null,
     };
     if (isNew) {
       if (!f.students.size) throw new Error('Выберите хотя бы одного ученика');
@@ -178,6 +181,27 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetItems,
             {picking && (
               <TaskPicker selected={f.items} onClose={() => setPicking(false)}
                 onPick={(items) => { setPicking(false); setF({ ...f, items }); }} />
+            )}
+          </section>
+
+          <section className="panel">
+            <div className="panel-head">
+              <div>
+                <h2 className="section-title">Отработка слов</h2>
+                <div className="small muted">Упражнения на слова из словаря ученика: сначала забытые и ошибки, потом слова текущего юнита</div>
+              </div>
+            </div>
+            <label className="check">
+              <input type="checkbox" checked={f.vocab} onChange={(e) => setF({ ...f, vocab: e.target.checked })} />
+              <span>Добавить отработку слов</span>
+            </label>
+            {f.vocab && (
+              <div className="row" style={{ marginTop: 10, paddingLeft: 28 }}>
+                <span className="small muted">Сколько слов</span>
+                <select className="select" style={{ width: 110, height: 38 }} value={f.vocabCount} onChange={(e) => setF({ ...f, vocabCount: e.target.value })}>
+                  {[8, 12, 16, 20, 30].map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
             )}
           </section>
 
@@ -298,7 +322,7 @@ export function AssignmentPage({ id }) {
                 {s.status === 'checked' ? (
                   <Badge tone="green">{s.score !== null ? `${s.score}%` : 'Проверено'}</Badge>
                 ) : s.status === 'submitted' ? (
-                  <Badge tone="brass">{s.quiz_score !== null ? `Тест ${s.quiz_score}%` : 'Проверить'}</Badge>
+                  <Badge tone="brass">{s.quiz_score !== null ? `Тест ${s.quiz_score}%` : s.vocab_result ? `Слова ${s.vocab_result.correct}/${s.vocab_result.total}` : 'Проверить'}</Badge>
                 ) : null}
               </div>
             ))}
@@ -345,7 +369,8 @@ function ReviewForm({ hw, assignment, items, results, reload }) {
   const [feedback, setFeedback] = useState(hw.tutor_feedback || '');
   const gamesAvg = averageBest(items, results);
   // Подсказка оценки: тест и упражнения вместе
-  const auto = [hw.quiz_score, gamesAvg].filter((x) => x !== null && x !== undefined);
+  const vocabPct = hw.vocab_result?.total ? Math.round((hw.vocab_result.correct / hw.vocab_result.total) * 100) : null;
+  const auto = [hw.quiz_score, gamesAvg, vocabPct].filter((x) => x !== null && x !== undefined);
   const suggested = auto.length ? Math.round(auto.reduce((a, b) => a + b, 0) / auto.length) : null;
   const [score, setScore] = useState(hw.score ?? suggested ?? '');
 
@@ -391,6 +416,20 @@ function ReviewForm({ hw, assignment, items, results, reload }) {
 
           <GameResultsPanel items={items} results={results} />
 
+          {hw.vocab_practice && (
+            <section style={{ marginTop: 26 }}>
+              <div className="row-between">
+                <h2 className="section-title">Отработка слов</h2>
+                <span className="muted small">
+                  {hw.vocab_result ? `${hw.vocab_result.correct} из ${hw.vocab_result.total}, ${vocabPct}%` : 'Не пройдена'}
+                </span>
+              </div>
+              {hw.vocab_result && hw.vocab_result.correct < hw.vocab_result.total && (
+                <p className="small muted" style={{ margin: '6px 0 0' }}>Слова с ошибками уже вернулись в повторение. Их видно во вкладке «Словарь» ученика.</p>
+              )}
+            </section>
+          )}
+
           {hw.questions.length > 0 && (
             <section style={{ marginTop: 26 }}>
               <div className="row-between" style={{ marginBottom: 12 }}>
@@ -409,7 +448,7 @@ function ReviewForm({ hw, assignment, items, results, reload }) {
         <aside className="panel work-card form">
           <h2 className="section-title">Оценка</h2>
           <Field label="Баллы, %" hint={suggested !== null
-            ? `Посчитано автоматически${hw.quiz_score !== null ? `: тест ${hw.quiz_score}%` : ''}${gamesAvg !== null ? `${hw.quiz_score !== null ? ',' : ':'} упражнения ${gamesAvg}%` : ''}. Можно изменить`
+            ? `Посчитано автоматически${hw.quiz_score !== null ? `: тест ${hw.quiz_score}%` : ''}${gamesAvg !== null ? `${hw.quiz_score !== null ? ',' : ':'} упражнения ${gamesAvg}%` : ''}${vocabPct !== null ? `, слова ${vocabPct}%` : ''}. Можно изменить`
             : 'Необязательно'}>
             <input className="input" type="number" min={0} max={100} value={score} onChange={(e) => setScore(e.target.value)} style={{ maxWidth: 140 }} />
           </Field>

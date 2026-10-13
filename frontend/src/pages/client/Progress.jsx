@@ -1,6 +1,7 @@
 // pages/client/Progress.jsx — программа, навыки, отчёты
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Bar, Link, Badge } from '../../ui';
+import { relativeDay } from '../../format';
 import { SKILLS, shortDate, monthName, plural } from '../../format';
 
 export default function ClientProgress({ student }) {
@@ -20,7 +21,13 @@ export default function ClientProgress({ student }) {
 
   return (
     <>
-      <div className="page-head"><h1 className="page-title">Прогресс</h1></div>
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">Прогресс</h1>
+          <div className="lead">Всё, что уже получилось: слова, упражнения, задания и курс. Обновляется само после каждого урока и задания.</div>
+        </div>
+      </div>
+      <Achievements d={d} />
       <MonthSummaries studentId={student.id} />
       <div className="grid grid-main">
         <section className="panel">
@@ -134,6 +141,83 @@ function MonthSummaries({ studentId }) {
           </div>
         );
       })}
+    </section>
+  );
+}
+
+/* ============================================================
+   Достижения: словарь, упражнения, задания, курс
+   ============================================================ */
+function Achievements({ d }) {
+  const v = d.vocab || { total: 0, learned: 0, boxes: [0, 0, 0, 0, 0, 0] };
+  const g = d.games || { attempts: 0, avg_score: 0, perfect: 0, recent: [] };
+  const h = d.homework || { given: 0, done: 0, on_time: 0 };
+  const c = d.course;
+  const coursePct = c?.units_total ? Math.round((c.units_done / c.units_total) * 100) : 0;
+  const segs = [
+    { n: v.boxes[0], cls: 'b0', label: 'новые' },
+    { n: v.boxes[1] + v.boxes[2], cls: 'b1', label: 'учим' },
+    { n: v.boxes[3], cls: 'b3', label: 'почти' },
+    { n: v.boxes[4] + v.boxes[5], cls: 'b4', label: 'выучены' },
+  ];
+
+  return (
+    <section className="achv">
+      <div className="achv-tile">
+        <span className="meta-label">Словарь</span>
+        <div className="achv-num"><b className="serif">{v.learned}</b><span>из {v.total} {plural(v.total, 'слова', 'слов', 'слов')} выучено</span></div>
+        {v.total > 0 && (
+          <>
+            <div className="achv-stack" aria-hidden="true">
+              {segs.map((x) => x.n > 0 && <i key={x.cls} className={x.cls} style={{ flexGrow: x.n }} />)}
+            </div>
+            <div className="achv-legend">{segs.filter((x) => x.n).map((x) => <span key={x.cls}><i className={x.cls} />{x.label}: {x.n}</span>)}</div>
+          </>
+        )}
+        {v.due > 0 && <Link to="/words" className="small">Повторить сегодня: {v.due}</Link>}
+      </div>
+
+      <div className="achv-tile">
+        <span className="meta-label">Упражнения, 3 месяца</span>
+        <div className="achv-num"><b className="serif">{g.attempts ? `${g.avg_score}%` : '—'}</b><span>средний результат</span></div>
+        {g.attempts > 0 && <div className="small muted">Пройдено: {g.attempts}. Без ошибок: {g.perfect}</div>}
+      </div>
+
+      <div className="achv-tile">
+        <span className="meta-label">Задания, 3 месяца</span>
+        <div className="achv-num"><b className="serif">{h.given ? `${h.done}/${h.given}` : '—'}</b><span>сдано</span></div>
+        {h.done > 0 && <div className="small muted">Вовремя: {h.on_time} из {h.done}{h.avg_score ? `. Средняя оценка ${h.avg_score}%` : ''}</div>}
+      </div>
+
+      <div className="achv-tile">
+        <span className="meta-label">{c ? c.title : 'Курс'}</span>
+        {c ? (
+          <>
+            <div className="achv-num"><b className="serif">{coursePct}%</b><span>курса пройдено</span></div>
+            <Bar value={coursePct} />
+            {c.code && <div className="small muted" style={{ marginTop: 8 }}>Сейчас: {[c.code, c.unit_title].filter(Boolean).join(' ')}</div>}
+          </>
+        ) : (
+          <div className="small muted" style={{ marginTop: 10 }}>Курс по учебнику ещё не выбран</div>
+        )}
+      </div>
+
+      {g.recent?.length > 0 && (
+        <div className="achv-recent">
+          <span className="meta-label">Последние упражнения</span>
+          <div className="list">
+            {g.recent.slice(0, 6).map((r, i) => (
+              <div key={i} className="list-item" style={{ padding: '10px 2px' }}>
+                <div className="list-main">
+                  <div className="list-title truncate">{r.title}</div>
+                  <div className="list-sub">{relativeDay(r.created_at)}</div>
+                </div>
+                <Badge tone={r.score === 100 ? 'green' : r.score >= 70 ? '' : 'brass'}>{r.correct}/{r.total}</Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

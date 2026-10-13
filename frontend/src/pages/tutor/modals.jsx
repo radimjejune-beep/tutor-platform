@@ -23,9 +23,10 @@ function Actions({ onClose, busy, label, children }) {
 /* ============================================================
    Новое занятие (или серия)
    ============================================================ */
-export function NewLessonModal({ studentId, defaultStart, onClose, onSaved }) {
+export function NewLessonModal({ studentId, groupId: fixedGroup, defaultStart, onClose, onSaved }) {
   const toast = useToast();
   const students = useLoad(() => (studentId ? Promise.resolve([]) : api.students()), []);
+  const groups = useLoad(() => (studentId ? Promise.resolve([]) : api.groups().catch(() => [])), []);
   const start = defaultStart || (() => {
     const d = new Date();
     d.setDate(d.getDate() + 1);
@@ -34,7 +35,7 @@ export function NewLessonModal({ studentId, defaultStart, onClose, onSaved }) {
   })();
 
   const [f, setF] = useState({
-    student_id: studentId || '',
+    student_id: fixedGroup ? `g${fixedGroup}` : studentId || '',
     starts_at: toLocalInput(start),
     duration_min: '',
     price: '',
@@ -43,7 +44,10 @@ export function NewLessonModal({ studentId, defaultStart, onClose, onSaved }) {
   });
   const [conflicts, setConflicts] = useState(null);
 
-  const picked = (students.data || []).find((s) => s.id === Number(f.student_id));
+  const groupId = String(f.student_id).startsWith('g') ? Number(String(f.student_id).slice(1)) : null;
+  const picked = groupId
+    ? (groups.data || []).find((g) => g.id === groupId)
+    : (students.data || []).find((s) => s.id === Number(f.student_id));
 
   const { busy, error, submit } = useSubmit(async () => {
     const body = {
@@ -55,6 +59,13 @@ export function NewLessonModal({ studentId, defaultStart, onClose, onSaved }) {
       repeat_weeks: Number(f.repeat_weeks) || 1,
       force: Boolean(conflicts),
     };
+    if (groupId) {
+      const { student_id: _s, force: _f, ...rest } = body;
+      const r = await api.createGroupLessons(groupId, rest);
+      toast(r.sessions > 1 ? `Создано занятий группы: ${r.sessions}` : 'Занятие группы добавлено');
+      onSaved();
+      return;
+    }
     try {
       const created = await api.createLessons(body);
       toast(created.length > 1 ? `Создано ${lessonsWord(created.length)}` : 'Занятие добавлено');
@@ -71,13 +82,20 @@ export function NewLessonModal({ studentId, defaultStart, onClose, onSaved }) {
   return (
     <Modal title="Новое занятие" onClose={onClose}>
       <form className="form" onSubmit={submit}>
-        {!studentId && (
-          <Field label="Ученик">
+        {!studentId && !fixedGroup && (
+          <Field label="Ученик или группа">
             <select className="select" value={f.student_id} onChange={(e) => setF({ ...f, student_id: e.target.value })} required>
-              <option value="">Выберите ученика</option>
-              {(students.data || []).map((s) => (
-                <option key={s.id} value={s.id}>{s.full_name}</option>
-              ))}
+              <option value="">Выберите</option>
+              <optgroup label="Ученики">
+                {(students.data || []).map((s) => (
+                  <option key={s.id} value={s.id}>{s.full_name}</option>
+                ))}
+              </optgroup>
+              {groups.data?.length > 0 && (
+                <optgroup label="Группы">
+                  {groups.data.map((g) => <option key={`g${g.id}`} value={`g${g.id}`}>{g.name} ({g.members.length})</option>)}
+                </optgroup>
+              )}
             </select>
           </Field>
         )}
@@ -98,7 +116,7 @@ export function NewLessonModal({ studentId, defaultStart, onClose, onSaved }) {
             <input className="input" type="number" min={15} max={240} step={5} placeholder="60" value={f.duration_min}
               onChange={(e) => setF({ ...f, duration_min: e.target.value })} />
           </Field>
-          <Field label="Цена разового занятия" hint={picked ? `По умолчанию ${rub(picked.default_price)}` : 'Если нет абонемента'}>
+          <Field label={groupId ? 'Цена с одного ученика' : 'Цена разового занятия'} hint={picked ? `По умолчанию ${rub(picked.default_price)}` : 'Если нет абонемента'}>
             <input className="input" type="number" min={0} step={50} placeholder="1500" value={f.price}
               onChange={(e) => setF({ ...f, price: e.target.value })} />
           </Field>

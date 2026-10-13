@@ -51,6 +51,15 @@ export const api = {
   // Вход
   login: (login, password) => request('POST', '/auth/login', { login, password }),
   me: () => request('GET', '/auth/me'),
+  register: (data) => request('POST', '/auth/register', data),
+  registrationStatus: () => request('GET', '/auth/registration'),
+
+  // Сисадмин
+  adminTutors: () => request('GET', '/admin/tutors'),
+  adminCreateTutor: (data) => request('POST', '/admin/tutors', data),
+  adminSetTutorActive: (id, is_active) => request('PATCH', `/admin/tutors/${id}`, { is_active }),
+  adminResetTutor: (id) => request('POST', `/admin/tutors/${id}/reset-password`),
+  adminSetRegistration: (open) => request('PUT', '/admin/registration', { open }),
   changePassword: (current_password, new_password) =>
     request('POST', '/auth/change-password', { current_password, new_password }),
 
@@ -115,7 +124,7 @@ export const api = {
   monthSummaries: (studentId) => request('GET', `/progress/students/${studentId}/months`),
 
   // Документы
-  legalPublic: (kind) => request('GET', `/legal/public/${kind}`),
+  legalPublic: (kind, t) => request('GET', `/legal/public/${kind}${qs({ t })}`),
   legalPending: () => request('GET', '/legal/pending'),
   legalAccept: (document_ids) => request('POST', '/legal/accept', { document_ids }),
   legalAdmin: () => request('GET', '/legal/admin'),
@@ -140,6 +149,7 @@ export const api = {
   setLessonItems: (id, item_ids) => request('PUT', `/lessons/${id}/items`, { item_ids }),
   sendLessonSummary: (id) => request('POST', `/lessons/${id}/send-summary`),
   finishLesson: (id, data) => request('POST', `/lessons/${id}/finish`, data),
+  extendSchedule: (data) => request('POST', '/lessons/extend', data),
 
   // Курсы по учебнику
   courses: () => request('GET', '/courses'),
@@ -157,7 +167,27 @@ export const api = {
   unitHomework: (unitId, data) => request('POST', `/courses/units/${unitId}/homework`, data),
   unitToLesson: (unitId, lessonId) => request('POST', `/courses/units/${unitId}/lesson/${lessonId}`),
 
+  // Группы
+  groups: (status) => request('GET', `/groups${qs({ status })}`),
+  group: (id) => request('GET', `/groups/${id}`),
+  createGroup: (data) => request('POST', '/groups', data),
+  updateGroup: (id, data) => request('PATCH', `/groups/${id}`, data),
+  deleteGroup: (id) => request('DELETE', `/groups/${id}`),
+  addGroupMember: (id, student_id) => request('POST', `/groups/${id}/members`, { student_id }),
+  removeGroupMember: (id, sid) => request('DELETE', `/groups/${id}/members/${sid}`),
+  createGroupLessons: (id, data) => request('POST', `/groups/${id}/lessons`, data),
+  moveGroupLesson: (id, from, to) => request('POST', `/groups/${id}/lessons/move`, { from, to }),
+  cancelGroupLesson: (id, starts_at) => request('POST', `/groups/${id}/lessons/cancel`, { starts_at }),
+  finishGroupLesson: (id, data) => request('POST', `/groups/${id}/lessons/finish`, data),
+
+  // Уведомления
+  notifications: () => request('GET', '/notifications'),
+  unreadCount: () => request('GET', '/notifications/unread'),
+  markRead: (data) => request('POST', '/notifications/read', data),
+
   // Личный словарь
+  vocabPractice: (student_id, count) => request('GET', `/vocab/practice${qs({ student_id, count })}`),
+  savePractice: (data) => request('POST', '/vocab/practice', data),
   vocab: (student_id) => request('GET', `/vocab${qs({ student_id })}`),
   vocabDue: (student_id, limit) => request('GET', `/vocab/due${qs({ student_id, limit })}`),
   reviewWord: (id, known) => request('POST', `/vocab/${id}/review`, { known }),

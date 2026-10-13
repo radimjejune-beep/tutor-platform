@@ -1,7 +1,10 @@
 // Shell.jsx — каркас кабинета: боковое меню (компьютер) и нижнее меню (телефон)
 import { useAuth } from './auth';
 import { BRAND } from './config';
+import { useState } from 'react';
 import { Icon, Link } from './ui';
+import NotificationBell from './components/Notifications';
+import CommandPalette, { usePaletteHotkey } from './components/CommandPalette';
 
 const ROLE_LABEL = { tutor: 'Преподаватель', student: 'Ученик', parent: 'Родитель' };
 
@@ -27,10 +30,13 @@ export const CLIENT_NAV = [
 ];
 
 // Активный пункт: точное совпадение для главной, по началу пути для остальных
-const isActive = (path, to) => (to === '/' ? path === '/' : path === to || path.startsWith(`${to}/`));
+const isActive = (path, to) =>
+  to === '/' ? path === '/' : path === to || path.startsWith(`${to}/`) || (to === '/students' && path.startsWith('/groups'));
 
 export function Shell({ nav, path, counts = {}, children }) {
   const { user, logout } = useAuth();
+  const [palette, setPalette] = useState(false);
+  usePaletteHotkey(setPalette);
 
   return (
     <div className="shell">
@@ -38,6 +44,13 @@ export function Shell({ nav, path, counts = {}, children }) {
         <div className="brand">
           <div className="brand-name">{BRAND.name}</div>
           <div className="brand-rule" />
+        </div>
+
+        <div className="side-tools">
+          <button className="search-btn" onClick={() => setPalette(true)}>
+            <Icon name="search" size={16} /> <span>Поиск</span> <kbd>Ctrl K</kbd>
+          </button>
+          <NotificationBell path={path} />
         </div>
 
         <nav className="nav" aria-label="Разделы">
@@ -70,6 +83,8 @@ export function Shell({ nav, path, counts = {}, children }) {
         <header className="topbar">
           <div className="brand-name">{BRAND.name}</div>
           <div className="row" style={{ gap: 2 }}>
+            <button className="icon-btn" onClick={() => setPalette(true)} aria-label="Поиск"><Icon name="search" size={20} /></button>
+            <NotificationBell path={path} compact />
             <Link to="/password" className="icon-btn" aria-label="Сменить пароль">
               <Icon name="key" size={20} />
             </Link>
@@ -80,6 +95,7 @@ export function Shell({ nav, path, counts = {}, children }) {
         </header>
 
         <main className="content">{children}</main>
+        <CommandPalette open={palette} onClose={() => setPalette(false)} role={user.role} nav={nav} />
 
         <nav className="tabbar" aria-label="Разделы">
           {nav.filter((item) => !item.hideMobile).map((item) => (

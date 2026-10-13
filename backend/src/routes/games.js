@@ -10,6 +10,20 @@ const { visibleTaskIds } = require('./library');
 
 const router = express.Router();
 
+// Итог HTML-урока: { correct, total, details: [{ ok, prompt, expected, given, word: { term, translation, example } }] }
+const str = (v, max = 200) => (v === undefined || v === null ? null : String(v).slice(0, max));
+function htmlResult(a = {}) {
+  const total = Math.max(0, Math.min(1000, Math.round(Number(a.total) || 0)));
+  const correct = Math.max(0, Math.min(total, Math.round(Number(a.correct) || 0)));
+  const raw = Array.isArray(a.details) ? a.details.slice(0, 60) : [];
+  const details = raw.map((d) => ({ ok: Boolean(d?.ok), prompt: str(d?.prompt), expected: str(d?.expected), given: str(d?.given) }));
+  const words = raw
+    .filter((d) => d && !d.ok && d.word && d.word.term)
+    .slice(0, 20)
+    .map((d) => ({ term: str(d.word.term), translation: str(d.word.translation, 300), example: str(d.word.example, 1000) }));
+  return { correct, total, score: total ? Math.round((correct / total) * 100) : 0, details, words };
+}
+
 // ------------------------------------------------------------
 // Ученик (или родитель за ребёнка) прошёл упражнение
 // Ответы проверяются здесь, на сервере — оценка с телефона не принимается на веру
@@ -33,7 +47,7 @@ router.post(
     const b = req.body;
     if (!(await canAccessStudent(req.user, b.student_id))) return res.status(404).json({ error: 'Ученик не найден' });
 
-    const { rows } = await query("SELECT id, game FROM library_items WHERE id = $1 AND kind = 'game'", [itemId]);
+    const { rows } = await query("SELECT id, kind, game FROM library_items WHERE id = $1 AND kind IN ('game', 'html')", [itemId]);
     const item = rows[0];
     if (!item || !(await visibleTaskIds(req.user)).includes(item.id)) return res.status(404).json({ error: 'Упражнение не найдено' });
 
@@ -47,7 +61,9 @@ router.post(
       if (!l[0]) return res.status(400).json({ error: 'Урок не относится к ученику' });
     }
 
-    const g = grade(item.game, b.answers);
+    // Упражнение проверяет сервер. HTML-урок проверяет себя сам и присылает итог
+    const g = item.kind === 'game' ? grade(item.game, b.answers) : htmlResult(b.answers);
+    if (!g.total) return res.status(400).json({ error: 'В результате урока нет ни одного задания' });
     const { rows: saved } = await query(
       `INSERT INTO game_results (item_id, student_id, user_id, homework_id, lesson_id, correct, total, score, details, duration_sec)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, score, correct, total, created_at`,
@@ -57,7 +73,8 @@ router.post(
     // Слова, в которых ошибся, сразу попадают в личный словарь на повторение
     let vocabAdded = 0;
     try {
-      vocabAdded = await addWords({ query }, b.student_id, wordsFromMistakes(item.game, g.details), 'mistake');
+      const words = item.kind === 'game' ? wordsFromMistakes(item.game, g.details) : g.words;
+      vocabAdded = await addWords({ query }, b.student_id, words, 'mistake');
     } catch (err) {
       console.error('Словарь: не удалось добавить слова из ошибок:', err.message);
     }

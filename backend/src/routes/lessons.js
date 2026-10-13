@@ -2,17 +2,29 @@
 const express = require('express');
 const { z } = require('zod');
 const { query, transaction } = require('../db');
-const { requireRole, accessibleStudentIds, canAccessStudent } = require('../middleware/auth');
+const { requireRole, accessibleStudentIds, canAccessStudent, requireOwn } = require('../middleware/auth');
 const tg = require('../services/telegram');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { syncLessonCharge } = require('../services/billing');
 const { stripPrivate, buildUpdate } = require('../utils');
-const { getUnit, startUnit, nextUnitId, assignUnitHomework } = require('../services/courses');
+const { getUnit } = require('../services/courses');
+const { finishLesson, notifyFinished } = require('../services/finish');
+const notify = require('../services/notify');
 
 const router = express.Router();
 const tutorOnly = requireRole('tutor');
 
 const isoDateTime = z.string().datetime({ offset: true });
+
+// Все строки одного занятия: у группового — по одной на ученика
+async function sameSession(lessonId) {
+  const { rows } = await query(
+    `SELECT x.id FROM lessons l JOIN lessons x ON x.id = l.id OR (l.group_id IS NOT NULL AND x.group_id = l.group_id AND x.starts_at = l.starts_at)
+      WHERE l.id = $1`,
+    [lessonId]
+  );
+  return rows.length ? rows.map((r) => r.id) : [lessonId];
+}
 
 // ------------------------------------------------------------
 // Расписание за период. Репетитор видит всех, ученик/родитель — только своих
@@ -31,8 +43,9 @@ router.get(
     }
 
     const { rows } = await query(
-      `SELECT l.*, s.full_name AS student_name, s.board_link, COALESCE(l.call_link, s.call_link) AS join_link
-         FROM lessons l JOIN students s ON s.id = l.student_id
+      `SELECT l.*, s.full_name AS student_name, COALESCE(gr.board_link, s.board_link) AS board_link,
+              COALESCE(l.call_link, gr.call_link, s.call_link) AS join_link, gr.name AS group_name
+         FROM lessons l JOIN students s ON s.id = l.student_id LEFT JOIN groups gr ON gr.id = l.group_id
         WHERE l.starts_at >= $1 AND l.starts_at < $2
           AND ($3::int IS NULL OR l.student_id = $3)
           AND ($4::int[] IS NULL OR l.student_id = ANY($4))
@@ -67,7 +80,7 @@ router.post(
   validateBody(createSchema),
   asyncHandler(async (req, res) => {
     const b = req.body;
-    const { rows: st } = await query('SELECT * FROM students WHERE id = $1', [b.student_id]);
+    const { rows: st } = await query('SELECT * FROM students WHERE id = $1 AND tutor_id = $2', [b.student_id, req.user.id]);
     const student = st[0];
     if (!student) return res.status(404).json({ error: 'Ученик не найден' });
 
@@ -84,10 +97,10 @@ router.post(
         const { rows } = await query(
           `SELECT l.id, l.starts_at, s.full_name AS student_name
              FROM lessons l JOIN students s ON s.id = l.student_id
-            WHERE l.status IN ('scheduled', 'done')
+            WHERE l.status IN ('scheduled', 'done') AND s.tutor_id = $3
               AND l.starts_at < $2
               AND l.starts_at + (l.duration_min || ' minutes')::interval > $1`,
-          [slot.toISOString(), end.toISOString()]
+          [slot.toISOString(), end.toISOString(), req.user.id]
         );
         conflicts.push(...rows);
       }
@@ -110,7 +123,76 @@ router.post(
     });
 
     console.log(`✅ Занятий создано: ${created.length} (ученик: ${student.full_name})`);
+    notify.toStudent(b.student_id, created.length > 1
+      ? { kind: 'lesson_new', title: `Новое расписание: ${created.length} занятий`, body: `Первое: ${notify.when(created[0].starts_at)}`, link: '/schedule' }
+      : { kind: 'lesson_new', title: 'Новое занятие', body: notify.when(created[0].starts_at), link: '/schedule' });
     res.status(201).json(created);
+  })
+);
+
+// ------------------------------------------------------------
+// Продлить расписание: повторить последнюю неделю каждого ученика и группы ещё на N недель вперёд
+// preview: true — только посчитать, ничего не создавая
+// ------------------------------------------------------------
+router.post(
+  '/extend',
+  tutorOnly,
+  validateBody(z.object({ weeks: z.number().int().min(1).max(12).default(4), preview: z.boolean().default(false) }).strict()),
+  asyncHandler(async (req, res) => {
+    const { weeks, preview } = req.body;
+    // Последняя запланированная неделя у каждого ученика (индивидуально) и у каждой группы
+    const { rows: pattern } = await query(
+      `WITH last AS (
+         SELECT COALESCE('g' || group_id::text, 's' || student_id::text) AS owner, MAX(starts_at) AS last_at
+           FROM lessons WHERE status = 'scheduled' AND starts_at > NOW()
+            AND student_id IN (SELECT id FROM students WHERE tutor_id = $1)
+          GROUP BY 1
+       )
+       SELECT DISTINCT ON (l.student_id, l.starts_at) l.student_id, l.group_id, l.starts_at, l.duration_min, l.price, l.call_link,
+              s.full_name AS student_name, g.name AS group_name, last.last_at
+         FROM lessons l
+         JOIN last ON last.owner = COALESCE('g' || l.group_id::text, 's' || l.student_id::text)
+         JOIN students s ON s.id = l.student_id AND s.status = 'active' AND s.tutor_id = $1
+         LEFT JOIN groups g ON g.id = l.group_id
+        WHERE l.status = 'scheduled' AND l.starts_at > last.last_at - INTERVAL '7 days'
+        ORDER BY l.student_id, l.starts_at`,
+      [req.user.id]
+    );
+    const plan = [];
+    for (const p of pattern) {
+      for (let w = 1; w <= weeks; w++) {
+        plan.push({ ...p, starts_at: new Date(new Date(p.starts_at).getTime() + w * 7 * 864e5).toISOString() });
+      }
+    }
+    // Не создаём то, что пересекается с уже стоящими занятиями (кроме своих же строк группы в то же время)
+    const free = [];
+    for (const p of plan) {
+      const end = new Date(new Date(p.starts_at).getTime() + p.duration_min * 60000).toISOString();
+      const { rows } = await query(
+        `SELECT 1 FROM lessons
+          WHERE status IN ('scheduled', 'done') AND starts_at < $2 AND starts_at + make_interval(mins => duration_min) > $1
+            AND student_id IN (SELECT id FROM students WHERE tutor_id = $5)
+            AND NOT ($3::int IS NOT NULL AND group_id = $3::int AND starts_at = $1::timestamptz AND student_id <> $4)
+          LIMIT 1`,
+        [p.starts_at, end, p.group_id, p.student_id, req.user.id]
+      );
+      if (!rows[0]) free.push(p);
+    }
+    const owners = new Set(free.map((p) => (p.group_id ? `g${p.group_id}` : `s${p.student_id}`)));
+    const sessions = new Set(free.map((p) => `${p.group_id || 's' + p.student_id}|${p.starts_at}`)).size;
+    if (preview) {
+      return res.json({ sessions, owners: owners.size, skipped: plan.length - free.length });
+    }
+    await transaction(async (client) => {
+      for (const p of free) {
+        await client.query(
+          `INSERT INTO lessons (student_id, starts_at, duration_min, price, group_id, call_link) VALUES ($1, $2, $3, $4, $5, $6)`,
+          [p.student_id, p.starts_at, p.duration_min, p.price, p.group_id, p.call_link]
+        );
+      }
+    });
+    console.log(`✅ Расписание продлено: ${sessions} занятий на ${weeks} нед.`);
+    res.json({ sessions, owners: owners.size, skipped: plan.length - free.length });
   })
 );
 
@@ -135,13 +217,16 @@ const updateSchema = z
 router.patch(
   '/:id',
   tutorOnly,
+  requireOwn('lessons', 'id', 'Занятие не найдено'),
   validateBody(updateSchema),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
 
+    let prev = null;
     const lesson = await transaction(async (client) => {
       const { rows: cur } = await client.query('SELECT * FROM lessons WHERE id = $1 FOR UPDATE', [id]);
       if (!cur[0]) return null;
+      prev = cur[0];
 
       const upd = buildUpdate('lessons', id, req.body);
       let updated = cur[0];
@@ -152,6 +237,11 @@ router.patch(
 
     if (!lesson) return res.status(404).json({ error: 'Занятие не найдено' });
     console.log(`📝 Занятие #${id}: статус ${lesson.status}${lesson.charged ? ', списано' : ''}`);
+    if (lesson.status === 'scheduled' && new Date(prev.starts_at).getTime() !== new Date(lesson.starts_at).getTime()) {
+      notify.toStudent(lesson.student_id, { kind: 'lesson_moved', title: 'Занятие перенесено', body: `${notify.when(prev.starts_at)} → ${notify.when(lesson.starts_at)}`, link: '/schedule' });
+    } else if (lesson.status === 'cancelled' && prev.status === 'scheduled') {
+      notify.toStudent(lesson.student_id, { kind: 'lesson_cancelled', title: 'Занятие отменено', body: notify.when(lesson.starts_at), link: '/schedule' });
+    }
     res.json(lesson);
   })
 );
@@ -174,37 +264,14 @@ const finishSchema = z
 router.post(
   '/:id/finish',
   tutorOnly,
+  requireOwn('lessons', 'id', 'Занятие не найдено'),
   validateBody(finishSchema),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const b = req.body;
-    const result = await transaction(async (client) => {
-      const { rows: cur } = await client.query(
-        `SELECT l.*, s.course_unit_id FROM lessons l JOIN students s ON s.id = l.student_id WHERE l.id = $1 FOR UPDATE OF l`,
-        [id]
-      );
-      const l = cur[0];
-      if (!l) return null;
-      const unitId = l.unit_id || l.course_unit_id || null;
-      const data = { status: b.status, unit_id: unitId };
-      for (const k of ['topic', 'summary', 'private_notes']) if (b[k] !== undefined) data[k] = b[k] || null;
-      const upd = buildUpdate('lessons', id, data);
-      const { rows: [updated] } = await client.query(upd.text, upd.values);
-      const lesson = await syncLessonCharge(client, updated);
-
-      let assignment = null;
-      let next = null;
-      const unit = unitId ? await getUnit(client, unitId) : null;
-      if (b.homework && unit) {
-        assignment = await assignUnitHomework(client, unit, l.student_id, { lessonId: id, dueOn: b.due_on || null });
-      }
-      if (b.next_unit && unit && l.course_unit_id === unit.id) {
-        const nextId = await nextUnitId(client, unit.id);
-        if (nextId) next = (await startUnit(client, l.student_id, nextId)).unit;
-      }
-      return { lesson, assignment, next_unit: next };
-    });
+    const result = await transaction((client) => finishLesson(client, id, b));
     if (!result) return res.status(404).json({ error: 'Занятие не найдено' });
+    notifyFinished(result);
     console.log(`✅ Урок #${id} завершён${result.assignment ? ', ДЗ выдано' : ''}${result.next_unit ? ', следующий юнит' : ''}`);
     res.json(result);
   })
@@ -214,6 +281,7 @@ router.post(
 router.delete(
   '/:id',
   tutorOnly,
+  requireOwn('lessons', 'id', 'Занятие не найдено'),
   asyncHandler(async (req, res) => {
     const { rows } = await query('DELETE FROM lessons WHERE id = $1 AND NOT charged RETURNING id', [
       Number(req.params.id),
@@ -231,8 +299,9 @@ router.get(
   '/:id/room',
   asyncHandler(async (req, res) => {
     const { rows } = await query(
-      `SELECT l.*, s.full_name AS student_name, s.board_link, COALESCE(l.call_link, s.call_link) AS join_link
-         FROM lessons l JOIN students s ON s.id = l.student_id WHERE l.id = $1`,
+      `SELECT l.*, s.full_name AS student_name, COALESCE(gr.board_link, s.board_link) AS board_link,
+              COALESCE(l.call_link, gr.call_link, s.call_link) AS join_link, gr.name AS group_name
+         FROM lessons l JOIN students s ON s.id = l.student_id LEFT JOIN groups gr ON gr.id = l.group_id WHERE l.id = $1`,
       [Number(req.params.id)]
     );
     const l = rows[0];
@@ -241,7 +310,7 @@ router.get(
     const isTutor = req.user.role === 'tutor';
     const fields = isTutor
       ? 'i.*'
-      : 'i.id, i.kind, i.subject, i.title, i.body, i.exam, i.exam_task, i.links, i.game';
+      : 'i.id, i.kind, i.subject, i.title, i.body, i.exam, i.exam_task, i.links, i.game, i.html';
     const { rows: items } = await query(
       `SELECT ${fields} FROM lesson_items li JOIN library_items i ON i.id = li.item_id
         WHERE li.lesson_id = $1 ORDER BY li.position, li.item_id`,
@@ -271,18 +340,23 @@ router.get(
 router.put(
   '/:id/items',
   tutorOnly,
+  requireOwn('lessons', 'id', 'Занятие не найдено'),
   validateBody(z.object({ item_ids: z.array(z.number().int().positive()).max(60) }).strict()),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const ids = [...new Set(req.body.item_ids)];
+    // У группового занятия задачи общие: меняем их у всех учеников этого занятия
+    const lessonIds = await sameSession(id);
     await transaction(async (client) => {
-      await client.query('DELETE FROM lesson_items WHERE lesson_id = $1', [id]);
-      for (const [pos, itemId] of ids.entries()) {
-        await client.query(
-          `INSERT INTO lesson_items (lesson_id, item_id, position)
-           SELECT $1, $2, $3 WHERE EXISTS (SELECT 1 FROM library_items WHERE id = $2)`,
-          [id, itemId, pos]
-        );
+      for (const lid of lessonIds) {
+        await client.query('DELETE FROM lesson_items WHERE lesson_id = $1', [lid]);
+        for (const [pos, itemId] of ids.entries()) {
+          await client.query(
+            `INSERT INTO lesson_items (lesson_id, item_id, position)
+             SELECT $1, $2, $3 WHERE EXISTS (SELECT 1 FROM library_items WHERE id = $2)`,
+            [lid, itemId, pos]
+          );
+        }
       }
     });
     res.json({ ok: true, count: ids.length });
@@ -293,6 +367,7 @@ router.put(
 router.post(
   '/:id/send-summary',
   tutorOnly,
+  requireOwn('lessons', 'id', 'Занятие не найдено'),
   asyncHandler(async (req, res) => {
     const result = await tg.sendLessonSummary(Number(req.params.id));
     if (result.error) return res.status(409).json({ error: result.error });
@@ -301,3 +376,4 @@ router.post(
 );
 
 module.exports = router;
+module.exports.sameSession = sameSession;

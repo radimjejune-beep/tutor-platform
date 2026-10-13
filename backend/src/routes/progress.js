@@ -2,9 +2,10 @@
 const express = require('express');
 const { z } = require('zod');
 const { query } = require('../db');
-const { requireRole, requireStudentAccess, canAccessStudent } = require('../middleware/auth');
+const { requireRole, requireStudentAccess, canAccessStudent, requireOwn } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { buildUpdate } = require('../utils');
+const notify = require('../services/notify');
 
 const router = express.Router();
 const tutorOnly = requireRole('tutor');
@@ -68,9 +69,59 @@ router.get(
       [req.studentId]
     );
 
+    // Словарь: сколько слов на каждом уровне (0 — новое, 5 — выучено надолго)
+    const { rows: vocab } = await query(
+      `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE box >= 4)::int AS learned,
+              COUNT(*) FILTER (WHERE due_on <= CURRENT_DATE)::int AS due,
+              COALESCE(json_agg(box ORDER BY box) FILTER (WHERE TRUE), '[]') AS boxes
+         FROM vocab_items WHERE student_id = $1`,
+      [req.studentId]
+    );
+    const boxes = [0, 0, 0, 0, 0, 0];
+    for (const bx of vocab[0].boxes) boxes[bx]++;
+
+    // Упражнения: последние результаты и средний процент
+    const { rows: games } = await query(
+      `SELECT r.item_id, i.title, r.score, r.correct, r.total, r.created_at
+         FROM game_results r JOIN library_items i ON i.id = r.item_id
+        WHERE r.student_id = $1 ORDER BY r.created_at DESC LIMIT 12`,
+      [req.studentId]
+    );
+    const { rows: gameAvg } = await query(
+      `SELECT COUNT(*)::int AS attempts, COALESCE(ROUND(AVG(score)), 0)::int AS avg_score,
+              COUNT(*) FILTER (WHERE score = 100)::int AS perfect
+         FROM game_results WHERE student_id = $1 AND created_at > NOW() - INTERVAL '90 days'`,
+      [req.studentId]
+    );
+
+    // Домашние задания за 90 дней
+    const { rows: hw } = await query(
+      `SELECT COUNT(*)::int AS given,
+              COUNT(*) FILTER (WHERE h.status <> 'assigned')::int AS done,
+              COUNT(*) FILTER (WHERE h.status <> 'assigned' AND (a.due_on IS NULL OR h.submitted_at::date <= a.due_on))::int AS on_time,
+              COALESCE(ROUND(AVG(COALESCE(h.score, h.quiz_score)) FILTER (WHERE h.status = 'checked')), 0)::int AS avg_score
+         FROM homework h JOIN assignments a ON a.id = h.assignment_id
+        WHERE h.student_id = $1 AND h.created_at > NOW() - INTERVAL '90 days'`,
+      [req.studentId]
+    );
+
+    // Курс: сколько юнитов пройдено
+    const { rows: course } = await query(
+      `SELECT c.title, u.code, u.title AS unit_title,
+              (SELECT COUNT(*)::int FROM course_units x WHERE x.course_id = c.id) AS units_total,
+              (SELECT COUNT(*)::int FROM course_units x WHERE x.course_id = c.id AND (x.position, x.id) < (u.position, u.id)) AS units_done
+         FROM students s JOIN courses c ON c.id = s.course_id LEFT JOIN course_units u ON u.id = s.course_unit_id
+        WHERE s.id = $1`,
+      [req.studentId]
+    );
+
     const total = topics.length;
     const done = topics.filter((t) => t.status === 'done').length;
     res.json({
+      vocab: { total: vocab[0].total, learned: vocab[0].learned, due: vocab[0].due, boxes },
+      games: { ...gameAvg[0], recent: games },
+      homework: hw[0],
+      course: course[0] || null,
       topics,
       by_skill: bySkill,
       completion: total ? Math.round((done / total) * 100) : 0,
@@ -100,6 +151,7 @@ router.post(
   validateBody(topicsSchema),
   asyncHandler(async (req, res) => {
     const { student_id, section, items } = req.body;
+    if (!(await canAccessStudent(req.user, student_id))) return res.status(404).json({ error: 'Ученик не найден' });
     const { rows: maxRow } = await query(
       'SELECT COALESCE(MAX(sort_order), 0) AS m FROM progress_topics WHERE student_id = $1',
       [student_id]
@@ -135,6 +187,7 @@ const topicUpdateSchema = z
 router.patch(
   '/topics/:id',
   tutorOnly,
+  requireOwn('progress_topics', 'id', 'Тема не найдена'),
   validateBody(topicUpdateSchema),
   asyncHandler(async (req, res) => {
     const data = { ...req.body };
@@ -153,6 +206,7 @@ router.patch(
 router.delete(
   '/topics/:id',
   tutorOnly,
+  requireOwn('progress_topics', 'id', 'Тема не найдена'),
   asyncHandler(async (req, res) => {
     const { rows } = await query('DELETE FROM progress_topics WHERE id = $1 RETURNING id', [Number(req.params.id)]);
     if (!rows[0]) return res.status(404).json({ error: 'Тема не найдена' });
@@ -225,6 +279,7 @@ router.put(
   ),
   asyncHandler(async (req, res) => {
     const b = req.body;
+    if (!(await canAccessStudent(req.user, b.student_id))) return res.status(404).json({ error: 'Ученик не найден' });
     const { rows } = await query(
       `INSERT INTO monthly_reports (student_id, month, summary, strengths, to_improve, plan_next)
        VALUES ($1, ($2 || '-01')::date, $3, $4, $5, $6)
@@ -245,6 +300,7 @@ router.put(
 router.patch(
   '/reports/:id',
   tutorOnly,
+  requireOwn('monthly_reports', 'id', 'Отчёт не найден'),
   validateBody(z.object({ published: z.boolean(), ...reportFields }).partial().strict()),
   asyncHandler(async (req, res) => {
     const data = { ...req.body };
@@ -255,6 +311,9 @@ router.patch(
     const { rows } = await query(upd.text, upd.values);
     if (!rows[0]) return res.status(404).json({ error: 'Отчёт не найден' });
     console.log(`${rows[0].published ? '✅ Опубликован' : '📝 Скрыт'} отчёт #${rows[0].id}`);
+    if (req.body.published === true) {
+      notify.toStudent(rows[0].student_id, { kind: 'report', title: 'Готов отчёт за месяц', body: 'Что получилось, над чем работаем и план на следующий месяц', link: `/reports/${rows[0].id}` });
+    }
     res.json(rows[0]);
   })
 );

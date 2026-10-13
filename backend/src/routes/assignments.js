@@ -2,12 +2,28 @@
 const express = require('express');
 const { z } = require('zod');
 const { query, transaction } = require('../db');
-const { requireRole } = require('../middleware/auth');
+const { requireRole, requireOwn } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { questionsSchema, grade } = require('../services/quiz');
 const { buildUpdate } = require('../utils');
+const notify = require('../services/notify');
 
 const router = express.Router();
+
+// Только свои материалы библиотеки, в исходном порядке
+async function ownItems(db, ids, tutorId) {
+  const list = [...new Set(ids || [])];
+  if (!list.length) return [];
+  const { rows } = await db.query('SELECT id FROM library_items WHERE id = ANY($1::int[]) AND tutor_id = $2', [list, tutorId]);
+  const ok = new Set(rows.map((r) => r.id));
+  return list.filter((id) => ok.has(id));
+}
+
+// Ученику и родителям: новое задание
+function notifyHomework(studentId, homeworkId, a) {
+  const due = a.due_on ? `Сдать до ${a.due_on.split('-').reverse().slice(0, 2).join('.')}` : null;
+  notify.toStudent(studentId, { kind: 'homework_new', title: `Новое задание: ${a.title}`, body: due, link: `/homework/${homeworkId}` });
+}
 router.use(requireRole('tutor'));
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Дата в формате ГГГГ-ММ-ДД');
@@ -18,6 +34,7 @@ const fields = {
   due_on: isoDate.nullable(),
   questions: questionsSchema,
   library_item_ids: z.array(z.number().int().positive()).max(50),
+  vocab_practice: z.object({ count: z.number().int().min(4).max(30) }).strict().nullable(),
 };
 
 // Список метаданных файлов (без содержимого)
@@ -42,8 +59,10 @@ router.get(
          FROM assignments a
          LEFT JOIN homework h ON h.assignment_id = a.id
          LEFT JOIN students s ON s.id = h.student_id
+        WHERE a.tutor_id = $1
         GROUP BY a.id
-        ORDER BY COUNT(h.id) FILTER (WHERE h.status = 'submitted') > 0 DESC, a.created_at DESC`
+        ORDER BY COUNT(h.id) FILTER (WHERE h.status = 'submitted') > 0 DESC, a.created_at DESC`,
+      [req.user.id]
     );
     res.json(rows);
   })
@@ -57,7 +76,7 @@ const createSchema = z
     ...fields,
     student_ids: z.array(z.number().int().positive()).min(1, 'Выберите хотя бы одного ученика').max(100),
   })
-  .partial({ description: true, links: true, due_on: true, questions: true, library_item_ids: true })
+  .partial({ description: true, links: true, due_on: true, questions: true, library_item_ids: true, vocab_practice: true })
   .strict();
 
 router.post(
@@ -66,21 +85,24 @@ router.post(
   asyncHandler(async (req, res) => {
     const b = req.body;
     const result = await transaction(async (client) => {
-      const { rows: found } = await client.query('SELECT id FROM students WHERE id = ANY($1)', [b.student_ids]);
+      const { rows: found } = await client.query('SELECT id FROM students WHERE id = ANY($1) AND tutor_id = $2', [b.student_ids, req.user.id]);
       if (found.length !== new Set(b.student_ids).size) return { error: 'Некоторые ученики не найдены' };
 
       const { rows } = await client.query(
-        `INSERT INTO assignments (title, description, links, due_on, questions, library_item_ids)
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        `INSERT INTO assignments (title, description, links, due_on, questions, library_item_ids, vocab_practice, tutor_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
         [b.title, b.description || null, b.links || [], b.due_on || null, JSON.stringify(b.questions || []),
-          [...new Set(b.library_item_ids || [])]]
+          await ownItems(client, b.library_item_ids, req.user.id), b.vocab_practice ? JSON.stringify(b.vocab_practice) : null, req.user.id]
       );
+      const given = [];
       for (const sid of new Set(b.student_ids)) {
-        await client.query('INSERT INTO homework (assignment_id, student_id) VALUES ($1, $2)', [rows[0].id, sid]);
+        const { rows: hw } = await client.query('INSERT INTO homework (assignment_id, student_id) VALUES ($1, $2) RETURNING id', [rows[0].id, sid]);
+        given.push({ sid, hid: hw[0].id });
       }
-      return { assignment: rows[0] };
+      return { assignment: rows[0], given };
     });
     if (result.error) return res.status(400).json({ error: result.error });
+    for (const g of result.given) notifyHomework(g.sid, g.hid, result.assignment);
     console.log(`✅ Задание «${b.title}» выдано: ${b.student_ids.length} уч.`);
     res.status(201).json(result.assignment);
   })
@@ -91,6 +113,7 @@ router.post(
 // ------------------------------------------------------------
 router.get(
   '/:id',
+  requireOwn('assignments', 'id', 'Задание не найдено'),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const { rows } = await query('SELECT * FROM assignments WHERE id = $1', [id]);
@@ -98,7 +121,7 @@ router.get(
 
     const { rows: files } = await query(`SELECT ${FILE_META} FROM files WHERE assignment_id = $1 ORDER BY id`, [id]);
     const { rows: submissions } = await query(
-      `SELECT h.id, h.student_id, s.full_name AS student_name, h.status, h.submitted_at, h.score, h.quiz_score,
+      `SELECT h.id, h.student_id, s.full_name AS student_name, h.status, h.submitted_at, h.score, h.quiz_score, h.vocab_result,
               (SELECT COUNT(*)::int FROM files f WHERE f.homework_id = h.id) AS files_count
          FROM homework h JOIN students s ON s.id = h.student_id
         WHERE h.assignment_id = $1
@@ -120,12 +143,16 @@ const updateSchema = z
 
 router.patch(
   '/:id',
+  requireOwn('assignments', 'id', 'Задание не найдено'),
   validateBody(updateSchema),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const { add_student_ids, ...data } = req.body;
     if (data.questions) data.questions = JSON.stringify(data.questions);
+    if (data.library_item_ids) data.library_item_ids = await ownItems({ query }, data.library_item_ids, req.user.id);
+    if (data.vocab_practice !== undefined) data.vocab_practice = data.vocab_practice ? JSON.stringify(data.vocab_practice) : null;
 
+    const added = [];
     const updated = await transaction(async (client) => {
       const { rows: cur } = await client.query('SELECT id FROM assignments WHERE id = $1 FOR UPDATE', [id]);
       if (!cur[0]) return null;
@@ -135,11 +162,13 @@ router.patch(
       if (upd) ({ rows: [assignment] } = await client.query(upd.text, upd.values));
       else ({ rows: [assignment] } = await client.query('SELECT * FROM assignments WHERE id = $1', [id]));
 
-      for (const sid of new Set(add_student_ids || [])) {
-        await client.query(
-          'INSERT INTO homework (assignment_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      const { rows: ownIds } = await client.query('SELECT id FROM students WHERE id = ANY($1::int[]) AND tutor_id = $2', [add_student_ids || [], req.user.id]);
+      for (const sid of new Set(ownIds.map((r) => r.id))) {
+        const { rows: hw } = await client.query(
+          'INSERT INTO homework (assignment_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id',
           [id, sid]
         );
+        if (hw[0]) added.push({ sid, hid: hw[0].id });
       }
 
       if (data.questions) {
@@ -156,6 +185,7 @@ router.patch(
     });
 
     if (!updated) return res.status(404).json({ error: 'Задание не найдено' });
+    for (const g of added) notifyHomework(g.sid, g.hid, updated);
     console.log(`📝 Задание #${id} обновлено`);
     res.json(updated);
   })
@@ -163,6 +193,7 @@ router.patch(
 
 router.delete(
   '/:id',
+  requireOwn('assignments', 'id', 'Задание не найдено'),
   asyncHandler(async (req, res) => {
     const { rows } = await query('DELETE FROM assignments WHERE id = $1 RETURNING title', [Number(req.params.id)]);
     if (!rows[0]) return res.status(404).json({ error: 'Задание не найдено' });

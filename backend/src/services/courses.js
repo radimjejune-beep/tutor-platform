@@ -38,13 +38,18 @@ async function assignUnitHomework(db, unit, studentId, { lessonId = null, dueOn 
   const itemIds = unit.homework_item_ids?.length ? unit.homework_item_ids : unit.item_ids || [];
   const { rows: existing } = await db.query('SELECT id FROM library_items WHERE id = ANY($1::int[])', [itemIds]);
   const ids = itemIds.filter((id) => existing.some((r) => r.id === id));
-  const vocabNote = unit.vocab?.length ? '\nСлова юнита уже в вашем словаре: повторите их во вкладке «Словарь».' : '';
+  const vocabNote = unit.vocab?.length ? '\nВ конце отработайте слова юнита: упражнения появятся ниже.' : '';
   const { rows } = await db.query(
-    `INSERT INTO assignments (title, description, due_on, library_item_ids) VALUES ($1, $2, $3, $4) RETURNING *`,
-    [`${unitLabel(unit)}: домашнее задание`.slice(0, 255), `Пройдите упражнения ниже.${vocabNote}`, dueOn, ids]
+    `INSERT INTO assignments (title, description, due_on, library_item_ids, vocab_practice, tutor_id)
+     VALUES ($1, $2, $3, $4, $5, (SELECT tutor_id FROM students WHERE id = $6)) RETURNING *`,
+    [`${unitLabel(unit)}: домашнее задание`.slice(0, 255), `Пройдите упражнения ниже.${vocabNote}`, dueOn, ids,
+      unit.vocab?.length ? JSON.stringify({ count: 12 }) : null, studentId]
   );
-  await db.query('INSERT INTO homework (assignment_id, student_id, lesson_id) VALUES ($1, $2, $3)', [rows[0].id, studentId, lessonId]);
-  return rows[0];
+  const { rows: hw } = await db.query(
+    'INSERT INTO homework (assignment_id, student_id, lesson_id) VALUES ($1, $2, $3) RETURNING id',
+    [rows[0].id, studentId, lessonId]
+  );
+  return { ...rows[0], homework_id: hw[0].id };
 }
 
 module.exports = { getUnit, startUnit, nextUnitId, assignUnitHomework, unitLabel };

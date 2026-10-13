@@ -50,9 +50,9 @@ router.get(
                 WHERE h.student_id = s.id AND h.status = 'submitted') AS homework_to_check
          FROM students s
          LEFT JOIN users u ON u.id = s.user_id
-        WHERE ($1 = 'all' OR s.status = $1)
+        WHERE ($1 = 'all' OR s.status = $1) AND s.tutor_id = $2
         ORDER BY s.full_name`,
-      [status]
+      [status, req.user.id]
     );
     // Финансы считаем по каждому ученику (учеников у репетитора немного — это быстро)
     const result = [];
@@ -69,7 +69,7 @@ router.post(
   tutorOnly,
   validateBody(createSchema),
   asyncHandler(async (req, res) => {
-    const data = req.body;
+    const data = { ...req.body, tutor_id: req.user.id };
     const keys = Object.keys(data);
     const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
     const { rows } = await query(
@@ -146,7 +146,7 @@ const passwordField = z.string().min(6, 'Пароль — минимум 6 си�
 const studentLoginSchema = z.object({ login: loginField.optional(), password: passwordField.optional() }).strict();
 
 // Создать учётку (внутри транзакции). Возвращает { user, password } или { error }
-async function createAccount(client, { role, fullName, login, password }) {
+async function createAccount(client, { role, fullName, login, password, tutorId }) {
   const finalLogin = login || (await uniqueLogin(client, fullName));
   const { rows: exists } = await client.query('SELECT id FROM users WHERE login = $1', [finalLogin]);
   if (exists[0]) return { error: `Логин «${finalLogin}» уже занят` };
@@ -154,9 +154,9 @@ async function createAccount(client, { role, fullName, login, password }) {
   const finalPassword = password || generateTempPassword(8);
   const hash = await bcrypt.hash(finalPassword, 12);
   const { rows } = await client.query(
-    `INSERT INTO users (role, login, password_hash, full_name) VALUES ($1, $2, $3, $4)
+    `INSERT INTO users (role, login, password_hash, full_name, tutor_id) VALUES ($1, $2, $3, $4, $5)
      RETURNING id, role, login, full_name`,
-    [role, finalLogin, hash, fullName]
+    [role, finalLogin, hash, fullName, tutorId]
   );
   return { user: rows[0], password: finalPassword };
 }
@@ -173,6 +173,7 @@ router.post(
 
       const acc = await createAccount(client, {
         role: 'student',
+        tutorId: req.user.id,
         fullName: st[0].full_name,
         login: req.body.login,
         password: req.body.password,
@@ -215,14 +216,15 @@ router.post(
 
       if (req.body.parent_user_id) {
         const { rows } = await client.query(
-          "SELECT id, role, login, full_name FROM users WHERE id = $1 AND role = 'parent'",
-          [req.body.parent_user_id]
+          "SELECT id, role, login, full_name FROM users WHERE id = $1 AND role = 'parent' AND tutor_id = $2",
+          [req.body.parent_user_id, req.user.id]
         );
         if (!rows[0]) return { error: 'Родитель не найден' };
         parent = rows[0];
       } else {
         const acc = await createAccount(client, {
           role: 'parent',
+          tutorId: req.user.id,
           fullName: req.body.full_name,
           login: req.body.login,
           password: req.body.password,
@@ -256,8 +258,9 @@ router.get(
          FROM users u
          LEFT JOIN parent_students ps ON ps.parent_user_id = u.id
          LEFT JOIN students s ON s.id = ps.student_id
-        WHERE u.role = 'parent'
-        GROUP BY u.id ORDER BY u.full_name`
+        WHERE u.role = 'parent' AND u.tutor_id = $1
+        GROUP BY u.id ORDER BY u.full_name`,
+      [req.user.id]
     );
     res.json(rows);
   })

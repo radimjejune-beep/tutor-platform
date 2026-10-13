@@ -2,17 +2,18 @@
 const express = require('express');
 const { z } = require('zod');
 const { query } = require('../db');
-const { requireRole, accessibleStudentIds, canAccessStudent } = require('../middleware/auth');
+const { requireRole, accessibleStudentIds, canAccessStudent, requireOwn } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { grade, hideAnswers } = require('../services/quiz');
 const { buildUpdate } = require('../utils');
+const notify = require('../services/notify');
 
 const router = express.Router();
 const tutorOnly = requireRole('tutor');
 
 // Работа + поля задания
 const SELECT_HW = `
-  SELECT h.*, a.title, a.description, a.links, a.due_on, a.library_item_ids,
+  SELECT h.*, a.title, a.description, a.links, a.due_on, a.library_item_ids, a.vocab_practice,
          jsonb_array_length(a.questions) AS question_count,
          s.full_name AS student_name
     FROM homework h
@@ -118,6 +119,16 @@ router.post(
       [req.body.student_answer || null, answers ? JSON.stringify(answers) : null, g ? g.score : null, hw.id]
     );
     console.log(`📝 Работа #${hw.id} сдана${g ? `, тест ${g.score}%` : ''}`);
+    const { rows: info } = await query(
+      'SELECT s.full_name, a.title FROM homework h JOIN students s ON s.id = h.student_id JOIN assignments a ON a.id = h.assignment_id WHERE h.id = $1',
+      [hw.id]
+    );
+    notify.toTutor(req.user.tid, {
+      kind: 'homework_submitted',
+      title: `${info[0].full_name} сдал(а) работу`,
+      body: `${info[0].title}${g ? `. Тест: ${g.score}%` : ''}`,
+      link: `/homework/${hw.assignment_id}/review/${hw.id}`,
+    });
     res.json(rows[0]);
   })
 );
@@ -141,6 +152,7 @@ router.post(
 router.patch(
   '/:id',
   tutorOnly,
+  requireOwn('homework', 'id', 'Работа не найдена'),
   validateBody(
     z
       .object({
@@ -157,6 +169,16 @@ router.patch(
     const { rows } = await query(upd.text, upd.values);
     if (!rows[0]) return res.status(404).json({ error: 'Работа не найдена' });
     console.log(`📝 Работа #${rows[0].id}: ${rows[0].status}`);
+    if (req.body.status === 'checked' || (req.body.status === 'assigned' && req.body.tutor_feedback)) {
+      const { rows: a } = await query('SELECT title FROM assignments WHERE id = $1', [rows[0].assignment_id]);
+      const checked = req.body.status === 'checked';
+      notify.toStudent(rows[0].student_id, {
+        kind: checked ? 'homework_checked' : 'homework_returned',
+        title: checked ? `Работа проверена${rows[0].score !== null ? `: ${rows[0].score}%` : ''}` : 'Работу вернули на доработку',
+        body: [a[0]?.title, rows[0].tutor_feedback].filter(Boolean).join('. '),
+        link: `/homework/${rows[0].id}`,
+      });
+    }
     res.json(rows[0]);
   })
 );
@@ -165,6 +187,7 @@ router.patch(
 router.delete(
   '/:id',
   tutorOnly,
+  requireOwn('homework', 'id', 'Работа не найдена'),
   asyncHandler(async (req, res) => {
     const { rows } = await query('DELETE FROM homework WHERE id = $1 RETURNING assignment_id', [Number(req.params.id)]);
     if (!rows[0]) return res.status(404).json({ error: 'Работа не найдена' });

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Icon } from '../../ui';
 import { FlashSession, VocabList, VocabStats, wordsWord } from '../../components/Vocab';
+import VocabPractice from '../../components/VocabPractice';
 
 export default function Words({ student, isParent }) {
   const vocab = useLoad(() => api.vocab(student.id), [student.id]);
@@ -26,19 +27,26 @@ export default function Words({ student, isParent }) {
 
       {session ? (
         <section className="panel">
-          <FlashSession studentId={student.id} onDone={() => { setSession(false); vocab.reload(); }} />
+          {session === 'practice'
+            ? <VocabPractice studentId={student.id} count={12} onDone={() => { setSession(false); vocab.reload(); }} />
+            : <FlashSession studentId={student.id} onDone={() => { setSession(false); vocab.reload(); }} />}
         </section>
       ) : (
         <>
           <section className="panel words-hero">
             <VocabStats stats={stats} />
-            {stats.due > 0 ? (
-              <button className="btn" style={{ height: 48 }} onClick={() => setSession(true)}>
-                <Icon name="play" /> Повторить {wordsWord(stats.due)}
-              </button>
-            ) : (
-              <div className="muted small">{stats.total ? 'На сегодня всё повторено' : ''}</div>
-            )}
+            <div className="row wrap" style={{ gap: 8 }}>
+              {stats.total >= 4 && (
+                <button className="btn btn-secondary" style={{ height: 48 }} onClick={() => setSession('practice')}>Тренировка</button>
+              )}
+              {stats.due > 0 ? (
+                <button className="btn" style={{ height: 48 }} onClick={() => setSession('cards')}>
+                  <Icon name="play" /> Повторить {wordsWord(stats.due)}
+                </button>
+              ) : (
+                <div className="muted small">{stats.total ? 'На сегодня всё повторено' : ''}</div>
+              )}
+            </div>
           </section>
 
           <section className="panel">

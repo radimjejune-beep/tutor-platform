@@ -3,7 +3,7 @@
 const express = require('express');
 const { z } = require('zod');
 const { query } = require('../db');
-const { canAccessStudent } = require('../middleware/auth');
+const { canAccessStudent, owns } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { visibleTaskIds } = require('./library');
 
@@ -32,8 +32,15 @@ const uploadSchema = z
   );
 
 // Кто может прикрепить файл
+async function tutorOwnsTarget(user, f) {
+  if (f.assignment_id) return owns(user, 'assignments', f.assignment_id);
+  if (f.homework_id) return owns(user, 'homework', f.homework_id);
+  if (f.library_item_id) return owns(user, 'library_items', f.library_item_id);
+  return false;
+}
+
 async function canUpload(user, b) {
-  if (user.role === 'tutor') return true;
+  if (user.role === 'tutor') return tutorOwnsTarget(user, b);
   if (user.role !== 'student' || !b.homework_id) return false;
   const { rows } = await query('SELECT student_id, status FROM homework WHERE id = $1', [b.homework_id]);
   const hw = rows[0];
@@ -42,11 +49,14 @@ async function canUpload(user, b) {
 
 // Кто может открыть файл
 async function canRead(user, file) {
-  if (user.role === 'tutor') return true;
+  if (user.role === 'tutor') return tutorOwnsTarget(user, file);
   if (file.library_item_id) {
     const { rows } = await query('SELECT id, kind FROM library_items WHERE id = $1', [file.library_item_id]);
     if (!rows[0]) return false;
-    if (rows[0].kind === 'theory') return true;
+    if (rows[0].kind === 'theory') {
+      const { rows: t } = await query('SELECT 1 FROM library_items WHERE id = $1 AND tutor_id = $2', [rows[0].id, user.tid]);
+      return Boolean(t[0]);
+    }
     return (await visibleTaskIds(user)).includes(rows[0].id);
   }
   if (file.homework_id) {
@@ -108,13 +118,13 @@ router.delete(
   '/:id',
   asyncHandler(async (req, res) => {
     const { rows } = await query(
-      `SELECT f.id, f.uploaded_by, h.status
+      `SELECT f.id, f.uploaded_by, f.assignment_id, f.homework_id, f.library_item_id, h.status
          FROM files f LEFT JOIN homework h ON h.id = f.homework_id
         WHERE f.id = $1`,
       [Number(req.params.id)]
     );
     const f = rows[0];
-    const allowed = f && (req.user.role === 'tutor' || (f.uploaded_by === req.user.id && f.status !== 'checked'));
+    const allowed = f && (req.user.role === 'tutor' ? await tutorOwnsTarget(req.user, f) : f.uploaded_by === req.user.id && f.status !== 'checked');
     if (!allowed) return res.status(404).json({ error: 'Файл не найден' });
     await query('DELETE FROM files WHERE id = $1', [f.id]);
     console.log(`🗑️ Файл #${f.id} удалён`);

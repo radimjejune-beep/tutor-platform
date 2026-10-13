@@ -8,29 +8,41 @@ const DEFAULTS = require('../legal/defaults');
 
 const KINDS = ['offer', 'privacy', 'consent_adult', 'consent_parent'];
 
-// При первом обращении кладём черновики (версия 1)
-let seeded = false;
-async function ensureDefaults() {
-  if (seeded) return;
+// У каждого репетитора свои документы. При первом обращении кладём ему черновики (версия 1)
+const seeded = new Set();
+async function ensureDefaults(tutorId) {
+  if (seeded.has(tutorId)) return;
   for (const kind of KINDS) {
     await query(
-      `INSERT INTO legal_documents (kind, version, title, body)
-       SELECT $1::varchar, 1, $2::varchar, $3::text
-        WHERE NOT EXISTS (SELECT 1 FROM legal_documents WHERE kind = $1::varchar)`,
-      [kind, DEFAULTS[kind].title, DEFAULTS[kind].body]
+      `INSERT INTO legal_documents (kind, version, title, body, tutor_id)
+       SELECT $1::varchar, 1, $2::varchar, $3::text, $4::int
+        WHERE NOT EXISTS (SELECT 1 FROM legal_documents WHERE kind = $1::varchar AND tutor_id = $4::int)`,
+      [kind, DEFAULTS[kind].title, DEFAULTS[kind].body, tutorId]
     );
   }
-  seeded = true;
+  seeded.add(tutorId);
 }
 
-// Текущие (последние) версии
-async function currentDocs() {
-  await ensureDefaults();
+// Текущие (последние) версии документов репетитора
+async function currentDocs(tutorId) {
+  await ensureDefaults(tutorId);
   const { rows } = await query(
     `SELECT DISTINCT ON (kind) id, kind, version, title, body, published_at
-       FROM legal_documents ORDER BY kind, version DESC`
+       FROM legal_documents WHERE tutor_id = $1 ORDER BY kind, version DESC`,
+    [tutorId]
   );
   return rows;
+}
+
+// Открытая ссылка на документы: ?t=<логин репетитора>, без него — документы сисадмина
+async function publicTutorId(login) {
+  const { rows } = await query(
+    `SELECT id FROM users WHERE role = 'tutor' AND is_active
+        AND (($1::varchar IS NOT NULL AND login = $1::varchar) OR ($1::varchar IS NULL AND is_admin))
+      ORDER BY id LIMIT 1`,
+    [login ? String(login).toLowerCase().slice(0, 64) : null]
+  );
+  return rows[0]?.id ?? null;
 }
 
 // Какие документы должен принять пользователь
@@ -52,14 +64,17 @@ const publicRouter = express.Router();
 publicRouter.get(
   '/',
   asyncHandler(async (req, res) => {
-    res.json((await currentDocs()).filter((d) => d.kind !== 'consent_adult' && d.kind !== 'consent_parent'));
+    const tid = await publicTutorId(req.query.t);
+    if (!tid) return res.json([]);
+    res.json((await currentDocs(tid)).filter((d) => d.kind !== 'consent_adult' && d.kind !== 'consent_parent'));
   })
 );
 
 publicRouter.get(
   '/:kind',
   asyncHandler(async (req, res) => {
-    const doc = (await currentDocs()).find((d) => d.kind === req.params.kind);
+    const tid = await publicTutorId(req.query.t);
+    const doc = tid && (await currentDocs(tid)).find((d) => d.kind === req.params.kind);
     if (!doc) return res.status(404).json({ error: 'Документ не найден' });
     res.json(doc);
   })
@@ -76,7 +91,7 @@ protectedRouter.get(
   asyncHandler(async (req, res) => {
     const kinds = await requiredKinds(req.user);
     if (!kinds.length) return res.json([]);
-    const docs = (await currentDocs()).filter((d) => kinds.includes(d.kind));
+    const docs = (await currentDocs(req.user.tid)).filter((d) => kinds.includes(d.kind));
     const { rows: accepted } = await query('SELECT document_id FROM document_acceptances WHERE user_id = $1', [req.user.id]);
     const done = new Set(accepted.map((a) => a.document_id));
     res.json(docs.filter((d) => !done.has(d.id)));
@@ -88,7 +103,7 @@ protectedRouter.post(
   validateBody(z.object({ document_ids: z.array(z.number().int().positive()).min(1).max(10) }).strict()),
   asyncHandler(async (req, res) => {
     const kinds = await requiredKinds(req.user);
-    const docs = (await currentDocs()).filter((d) => kinds.includes(d.kind));
+    const docs = (await currentDocs(req.user.tid)).filter((d) => kinds.includes(d.kind));
     const allowed = new Map(docs.map((d) => [d.id, d]));
     const ids = req.body.document_ids.filter((id) => allowed.has(id));
     if (!ids.length) return res.status(400).json({ error: 'Нечего принимать' });
@@ -126,11 +141,13 @@ protectedRouter.get(
   '/admin',
   requireRole('tutor'),
   asyncHandler(async (req, res) => {
-    const docs = await currentDocs();
+    const docs = await currentDocs(req.user.id);
     const { rows: stats } = await query(
       `SELECT d.kind, d.version, COUNT(a.id)::int AS accepted
          FROM legal_documents d LEFT JOIN document_acceptances a ON a.document_id = d.id
-        GROUP BY d.kind, d.version`
+        WHERE d.tutor_id = $1
+        GROUP BY d.kind, d.version`,
+      [req.user.id]
     );
     res.json(
       docs.map((d) => ({
@@ -157,13 +174,13 @@ protectedRouter.put(
   asyncHandler(async (req, res) => {
     const { kind } = req.params;
     if (!KINDS.includes(kind)) return res.status(404).json({ error: 'Документ не найден' });
-    await ensureDefaults();
+    await ensureDefaults(req.user.id);
     const { rows } = await query(
-      `INSERT INTO legal_documents (kind, version, title, body)
-       SELECT $1::varchar, COALESCE(MAX(version), 0) + 1, $2::varchar, $3::text
-         FROM legal_documents WHERE kind = $1::varchar
+      `INSERT INTO legal_documents (kind, version, title, body, tutor_id)
+       SELECT $1::varchar, COALESCE(MAX(version), 0) + 1, $2::varchar, $3::text, $4::int
+         FROM legal_documents WHERE kind = $1::varchar AND tutor_id = $4::int
        RETURNING id, kind, version, title, published_at`,
-      [kind, req.body.title, req.body.body]
+      [kind, req.body.title, req.body.body, req.user.id]
     );
     console.log(`📝 Документ ${kind}: версия ${rows[0].version}`);
     res.json(rows[0]);

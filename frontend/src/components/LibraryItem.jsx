@@ -3,6 +3,7 @@
 import { Badge, Icon } from '../ui';
 import { FileList } from './Files';
 import GamePlayer from '../games/Players';
+import HtmlLesson from './HtmlLesson';
 import { GAME_TYPES, gameSize } from '../games/logic';
 
 export const examLabel = (i) => (i.exam ? `${i.exam}${i.exam_task ? `, задание ${i.exam_task}` : ''}` : null);
@@ -12,6 +13,7 @@ export function ItemMeta({ item, showTags }) {
   return (
     <div className="row wrap" style={{ gap: 6 }}>
       {item.kind === 'game' && item.game && <Badge tone="brass">{GAME_TYPES[item.game.type]?.label}, {gameSize(item.game)}</Badge>}
+      {item.kind === 'html' && <Badge tone="brass">Интерактивный урок</Badge>}
       {exam && <Badge tone="green">{exam}</Badge>}
       <Badge>{item.subject}</Badge>
       {showTags && (item.tags || []).map((t) => <Badge key={t} tone="brass">#{t}</Badge>)}
@@ -34,6 +36,12 @@ export default function LibraryItem({ item, index, showPrivate, actions, onGameF
       {item.kind === 'game' && item.game && (
         <div style={{ marginTop: 14 }}>
           <GamePlayer game={item.game} onFinish={onGameFinish} footer={gameExtra} />
+        </div>
+      )}
+      {item.kind === 'html' && item.html && (
+        <div style={{ marginTop: 14 }}>
+          <HtmlLesson html={item.html} onFinish={onGameFinish} />
+          {gameExtra}
         </div>
       )}
       {item.links?.length > 0 && (

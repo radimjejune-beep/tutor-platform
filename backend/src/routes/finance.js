@@ -2,7 +2,7 @@
 const express = require('express');
 const { z } = require('zod');
 const { query, transaction } = require('../db');
-const { requireRole, requireStudentAccess } = require('../middleware/auth');
+const { requireRole, requireStudentAccess, requireOwn, canAccessStudent } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { studentFinance, refreshSubscriptionStatus } = require('../services/billing');
 const { buildUpdate } = require('../utils');
@@ -57,7 +57,7 @@ router.post(
   validateBody(subscriptionSchema),
   asyncHandler(async (req, res) => {
     const b = req.body;
-    const { rows: st } = await query('SELECT id, full_name FROM students WHERE id = $1', [b.student_id]);
+    const { rows: st } = await query('SELECT id, full_name FROM students WHERE id = $1 AND tutor_id = $2', [b.student_id, req.user.id]);
     if (!st[0]) return res.status(404).json({ error: 'Ученик не найден' });
 
     const result = await transaction(async (client) => {
@@ -98,6 +98,7 @@ const subscriptionUpdateSchema = z
 router.patch(
   '/subscriptions/:id',
   tutorOnly,
+  requireOwn('subscriptions', 'id', 'Абонемент не найден'),
   validateBody(subscriptionUpdateSchema),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
@@ -134,6 +135,7 @@ router.post(
   validateBody(paymentSchema),
   asyncHandler(async (req, res) => {
     const p = req.body;
+    if (!(await canAccessStudent(req.user, p.student_id))) return res.status(404).json({ error: 'Ученик не найден' });
     // Абонемент (если указан) должен принадлежать этому ученику
     if (p.subscription_id) {
       const { rows } = await query('SELECT id FROM subscriptions WHERE id = $1 AND student_id = $2', [
@@ -156,6 +158,7 @@ router.post(
 router.patch(
   '/payments/:id',
   tutorOnly,
+  requireOwn('payments', 'id', 'Оплата не найдена'),
   validateBody(z.object({ receipt_url: paymentFields.receipt_url, comment: paymentFields.comment }).strict()),
   asyncHandler(async (req, res) => {
     const upd = buildUpdate('payments', Number(req.params.id), req.body);
@@ -169,6 +172,7 @@ router.patch(
 router.delete(
   '/payments/:id',
   tutorOnly,
+  requireOwn('payments', 'id', 'Оплата не найдена'),
   asyncHandler(async (req, res) => {
     const { rows } = await query('DELETE FROM payments WHERE id = $1 RETURNING id, amount', [Number(req.params.id)]);
     if (!rows[0]) return res.status(404).json({ error: 'Оплата не найдена' });
@@ -195,18 +199,18 @@ router.get(
        SELECT
          to_char(b.m_start, 'YYYY-MM') AS month,
          (SELECT COALESCE(SUM(amount), 0)::int FROM payments
-           WHERE paid_on >= b.m_start AND paid_on < b.m_start + INTERVAL '1 month') AS income,
+           WHERE student_id IN (SELECT id FROM students WHERE tutor_id = $2) AND paid_on >= b.m_start AND paid_on < b.m_start + INTERVAL '1 month') AS income,
          (SELECT COUNT(*)::int FROM payments
-           WHERE paid_on >= b.m_start AND paid_on < b.m_start + INTERVAL '1 month' AND receipt_url IS NULL) AS payments_without_receipt,
+           WHERE student_id IN (SELECT id FROM students WHERE tutor_id = $2) AND paid_on >= b.m_start AND paid_on < b.m_start + INTERVAL '1 month' AND receipt_url IS NULL) AS payments_without_receipt,
          (SELECT COUNT(*)::int FROM lessons
-           WHERE status = 'done' AND starts_at >= b.m_start AND starts_at < b.m_start + INTERVAL '1 month') AS lessons_done,
+           WHERE student_id IN (SELECT id FROM students WHERE tutor_id = $2) AND status = 'done' AND starts_at >= b.m_start AND starts_at < b.m_start + INTERVAL '1 month') AS lessons_done,
          (SELECT COALESCE(SUM(duration_min), 0)::int FROM lessons
-           WHERE status = 'done' AND starts_at >= b.m_start AND starts_at < b.m_start + INTERVAL '1 month') AS minutes_taught,
+           WHERE student_id IN (SELECT id FROM students WHERE tutor_id = $2) AND status = 'done' AND starts_at >= b.m_start AND starts_at < b.m_start + INTERVAL '1 month') AS minutes_taught,
          (SELECT COUNT(*)::int FROM lessons
-           WHERE status IN ('cancelled', 'cancelled_late', 'missed')
+           WHERE student_id IN (SELECT id FROM students WHERE tutor_id = $2) AND status IN ('cancelled', 'cancelled_late', 'missed')
              AND starts_at >= b.m_start AND starts_at < b.m_start + INTERVAL '1 month') AS lessons_cancelled
        FROM bounds b`,
-      [start]
+      [start, req.user.id]
     );
     const s = rows[0];
     // Средняя выручка за час: поступления / проведённые часы (ориентир для повышения цены)

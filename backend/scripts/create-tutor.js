@@ -17,8 +17,9 @@ const { generateTempPassword, normalizeLogin } = require('../src/utils');
     const password = generateTempPassword(12);
     const hash = await bcrypt.hash(password, 12);
     await pool.query(
-      `INSERT INTO users (role, login, password_hash, full_name, must_change_password)
-       VALUES ('tutor', $1, $2, $3, TRUE)`,
+      // Самый первый репетитор становится сисадмином
+      `INSERT INTO users (role, login, password_hash, full_name, must_change_password, is_admin)
+       VALUES ('tutor', $1, $2, $3, TRUE, NOT EXISTS (SELECT 1 FROM users WHERE role = 'tutor'))`,
       [login, hash, fullName]
     );
     console.log(`✅ Репетитор создан, логин: ${login}`);

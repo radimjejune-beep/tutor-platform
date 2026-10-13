@@ -3,7 +3,7 @@
 const express = require('express');
 const { z } = require('zod');
 const { query } = require('../db');
-const { requireRole, canAccessStudent, accessibleStudentIds } = require('../middleware/auth');
+const { requireRole, canAccessStudent, accessibleStudentIds, requireOwn } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { addWords, review } = require('../services/vocab');
 const { buildUpdate } = require('../utils');
@@ -66,6 +66,69 @@ router.get(
   })
 );
 
+// ------------------------------------------------------------
+// Отработка слов: набор слов для упражнений (сначала забытые и ошибки, потом слова текущего юнита)
+// ?student_id=&count=
+// ------------------------------------------------------------
+router.get(
+  '/practice',
+  asyncHandler(async (req, res) => {
+    const studentId = await resolveStudent(req);
+    if (!studentId) return res.status(404).json({ error: 'Ученик не найден' });
+    const count = Math.min(Math.max(Number(req.query.count) || 12, 4), 30);
+    const { rows } = await query(
+      `SELECT v.id, v.term, v.translation, v.example, v.box, v.source
+         FROM vocab_items v LEFT JOIN students s ON s.id = v.student_id
+        WHERE v.student_id = $1
+        ORDER BY (v.due_on <= CURRENT_DATE) DESC,
+                 (v.source = 'mistake' AND v.box = 0) DESC,
+                 (v.unit_id IS NOT NULL AND v.unit_id = s.course_unit_id) DESC,
+                 v.box, random()
+        LIMIT $2`,
+      [studentId, count]
+    );
+    // Для вариантов ответа нужны «чужие» переводы
+    const { rows: pool } = await query(
+      `SELECT term, translation FROM vocab_items WHERE student_id = $1 AND translation IS NOT NULL ORDER BY random() LIMIT 40`,
+      [studentId]
+    );
+    res.json({ words: rows, pool });
+  })
+);
+
+// Итог отработки: каждое слово сдвигается в повторении, результат сохраняется в ДЗ
+router.post(
+  '/practice',
+  validateBody(
+    z
+      .object({
+        student_id: z.number().int().positive(),
+        homework_id: z.number().int().positive().optional(),
+        results: z.array(z.object({ id: z.number().int().positive(), ok: z.boolean() }).strict()).min(1).max(60),
+      })
+      .strict()
+  ),
+  asyncHandler(async (req, res) => {
+    const b = req.body;
+    if (!(await canAccessStudent(req.user, b.student_id))) return res.status(404).json({ error: 'Ученик не найден' });
+    const seen = new Set();
+    let correct = 0;
+    for (const r of b.results) {
+      if (seen.has(r.id)) continue;
+      seen.add(r.id);
+      const { rows } = await query('SELECT 1 FROM vocab_items WHERE id = $1 AND student_id = $2', [r.id, b.student_id]);
+      if (!rows[0]) continue;
+      await review({ query }, r.id, r.ok);
+      if (r.ok) correct++;
+    }
+    const result = { correct, total: seen.size, at: new Date().toISOString() };
+    if (b.homework_id && req.user.role !== 'tutor') {
+      await query('UPDATE homework SET vocab_result = $1 WHERE id = $2 AND student_id = $3', [JSON.stringify(result), b.homework_id, b.student_id]);
+    }
+    res.json(result);
+  })
+);
+
 // Ответ на карточку: знаю / ещё учу
 router.post(
   '/:id/review',
@@ -94,7 +157,7 @@ router.post(
   tutorOnly,
   validateBody(z.object({ student_id: z.number().int().positive(), items: z.array(wordSchema).min(1).max(300) }).strict()),
   asyncHandler(async (req, res) => {
-    const { rows } = await query('SELECT id FROM students WHERE id = $1', [req.body.student_id]);
+    const { rows } = await query('SELECT id FROM students WHERE id = $1 AND tutor_id = $2', [req.body.student_id, req.user.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Ученик не найден' });
     const added = await addWords({ query }, req.body.student_id, req.body.items, 'tutor');
     res.status(201).json({ added, total: req.body.items.length });
@@ -104,6 +167,7 @@ router.post(
 router.patch(
   '/:id',
   tutorOnly,
+  requireOwn('vocab_items', 'id', 'Слово не найдено'),
   validateBody(
     z
       .object({
@@ -134,6 +198,7 @@ router.patch(
 router.delete(
   '/:id',
   tutorOnly,
+  requireOwn('vocab_items', 'id', 'Слово не найдено'),
   asyncHandler(async (req, res) => {
     const { rows } = await query('DELETE FROM vocab_items WHERE id = $1 RETURNING id', [Number(req.params.id)]);
     if (!rows[0]) return res.status(404).json({ error: 'Слово не найдено' });

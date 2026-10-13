@@ -1,5 +1,6 @@
 // pages/Login.jsx — вход и смена временного пароля
 import { useState } from 'react';
+import { useLoad } from '../ui';
 import { useAuth } from '../auth';
 import { api } from '../api';
 import { BRAND } from '../config';
@@ -32,6 +33,7 @@ export function Login() {
   const { login } = useAuth();
   const [form, setForm] = useState({ login: '', password: '' });
   const { busy, error, submit } = useSubmit(() => login(form.login.trim(), form.password));
+  const reg = useLoad(() => api.registrationStatus().catch(() => ({ open: false })), []);
 
   return (
     <AuthLayout>
@@ -68,8 +70,13 @@ export function Login() {
         </button>
       </form>
       <p className="muted small" style={{ marginTop: 22 }}>
-        Забыли пароль? Напишите преподавателю — он задаст новый.
+        Забыли пароль? Напишите преподавателю, он задаст новый.
       </p>
+      {reg.data?.open && (
+        <div className="register-cta">
+          <span>Вы репетитор?</span> <Link to="/register">Создать свой кабинет бесплатно</Link>
+        </div>
+      )}
       <p className="small" style={{ marginTop: 28, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         {LEGAL_LINKS.map((l) => <Link key={l.kind} to={`/legal/${l.kind}`} className="muted">{l.label}</Link>)}
       </p>
@@ -123,4 +130,46 @@ export function ChangePassword({ forced, onDone }) {
   );
 
   return forced ? <AuthLayout>{body}</AuthLayout> : <div className="panel" style={{ maxWidth: 460 }}>{body}</div>;
+}
+
+// Регистрация репетитора: свой кабинет, ученики и расписание. Пока бесплатно
+export function Register() {
+  const { register } = useAuth();
+  const [f, setF] = useState({ full_name: '', login: '', password: '', repeat: '', accept: false });
+  const { busy, error, submit, setError } = useSubmit(async () => {
+    if (f.password !== f.repeat) return setError('Пароли не совпадают');
+    await register({ full_name: f.full_name.trim(), login: f.login.trim().toLowerCase(), password: f.password, accept: f.accept });
+  });
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  return (
+    <AuthLayout>
+      <h1 className="page-title">Свой кабинет репетитора</h1>
+      <p className="muted" style={{ margin: '8px 0 28px' }}>
+        Расписание, оплаты, задания, курсы по учебникам и кабинеты для учеников и родителей. Сейчас бесплатно.
+      </p>
+      <form className="form" onSubmit={submit}>
+        <Field label="Имя и фамилия">
+          <input className="input" value={f.full_name} onChange={set('full_name')} autoComplete="name" required />
+        </Field>
+        <Field label="Логин" hint="Латиница, цифры и точка. Его вы будете вводить при входе">
+          <input className="input" value={f.login} onChange={set('login')} autoCapitalize="none" spellCheck="false" autoComplete="username" placeholder="anna.teacher" required />
+        </Field>
+        <div className="form-row">
+          <Field label="Пароль" hint="Минимум 8 символов">
+            <input className="input" type="password" value={f.password} onChange={set('password')} minLength={8} autoComplete="new-password" required />
+          </Field>
+          <Field label="Ещё раз">
+            <input className="input" type="password" value={f.repeat} onChange={set('repeat')} minLength={8} autoComplete="new-password" required />
+          </Field>
+        </div>
+        <label className="check" style={{ alignItems: 'flex-start' }}>
+          <input type="checkbox" checked={f.accept} onChange={(e) => setF({ ...f, accept: e.target.checked })} required style={{ marginTop: 3 }} />
+          <span className="small">Понимаю, что сервис работает в тестовом режиме. За данные своих учеников и их согласия на обработку отвечаю я сам.</span>
+        </label>
+        {error && <div className="alert">{error}</div>}
+        <button className="btn" disabled={busy || !f.accept} style={{ height: 48 }}>{busy ? 'Создаём…' : 'Создать кабинет'}</button>
+        <Link to="/" className="btn btn-quiet">У меня уже есть вход</Link>
+      </form>
+    </AuthLayout>
+  );
 }

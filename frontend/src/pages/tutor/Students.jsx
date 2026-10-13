@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, navigate } from '../../ui';
 import { StudentModal } from './modals';
+import { PeopleTabs } from './Groups';
 import { CATEGORY, rub, relativeDay, time } from '../../format';
 
 const FILTERS = [
@@ -28,6 +29,8 @@ export default function Students() {
         </div>
         <button className="btn" onClick={() => setAdding(true)}><Icon name="plus" /> Ученик</button>
       </div>
+
+      <PeopleTabs active="students" />
 
       <div className="row wrap" style={{ marginBottom: 16, justifyContent: 'space-between' }}>
         <div className="row" style={{ gap: 6 }}>

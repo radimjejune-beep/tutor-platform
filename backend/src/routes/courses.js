@@ -2,10 +2,11 @@
 const express = require('express');
 const { z } = require('zod');
 const { query, transaction } = require('../db');
-const { requireRole } = require('../middleware/auth');
+const { requireRole, requireOwn, owns } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { buildUpdate } = require('../utils');
 const { getUnit, startUnit, nextUnitId, assignUnitHomework } = require('../services/courses');
+const notify = require('../services/notify');
 
 const router = express.Router();
 router.use(requireRole('tutor'));
@@ -45,7 +46,8 @@ router.get(
       `SELECT c.*,
               (SELECT COUNT(*)::int FROM course_units u WHERE u.course_id = c.id) AS unit_count,
               (SELECT COUNT(*)::int FROM students s WHERE s.course_id = c.id AND s.status = 'active') AS student_count
-         FROM courses c ORDER BY c.title`
+         FROM courses c WHERE c.tutor_id = $1 ORDER BY c.title`,
+      [req.user.id]
     );
     res.json(rows);
   })
@@ -57,8 +59,8 @@ router.post(
   asyncHandler(async (req, res) => {
     const b = req.body;
     const { rows } = await query(
-      `INSERT INTO courses (title, subject, level, description) VALUES ($1, COALESCE($2, 'Английский язык'), $3, $4) RETURNING *`,
-      [b.title, b.subject || null, b.level || null, b.description || null]
+      `INSERT INTO courses (title, subject, level, description, tutor_id) VALUES ($1, COALESCE($2, 'Английский язык'), $3, $4, $5) RETURNING *`,
+      [b.title, b.subject || null, b.level || null, b.description || null, req.user.id]
     );
     res.status(201).json(rows[0]);
   })
@@ -67,6 +69,7 @@ router.post(
 // Курс целиком: юниты (с названиями материалов) и ученики на курсе
 router.get(
   '/:id',
+  requireOwn('courses', 'id', 'Курс не найден'),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const { rows } = await query('SELECT * FROM courses WHERE id = $1', [id]);
@@ -86,6 +89,7 @@ router.get(
 
 router.patch(
   '/:id',
+  requireOwn('courses', 'id', 'Курс не найден'),
   validateBody(z.object(courseFields).partial().strict()),
   asyncHandler(async (req, res) => {
     const upd = buildUpdate('courses', Number(req.params.id), req.body);
@@ -98,6 +102,7 @@ router.patch(
 
 router.delete(
   '/:id',
+  requireOwn('courses', 'id', 'Курс не найден'),
   asyncHandler(async (req, res) => {
     const { rows } = await query('DELETE FROM courses WHERE id = $1 RETURNING title', [Number(req.params.id)]);
     if (!rows[0]) return res.status(404).json({ error: 'Курс не найден' });
@@ -113,6 +118,7 @@ const jsonVocab = (data) => (data.vocab ? { ...data, vocab: JSON.stringify(data.
 
 router.post(
   '/:id/units',
+  requireOwn('courses', 'id', 'Курс не найден'),
   validateBody(z.object(unitFields).partial().required({ title: true }).strict()),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
@@ -131,6 +137,7 @@ router.post(
 
 router.patch(
   '/units/:uid',
+  requireOwn('course_units', 'uid', 'Юнит не найден'),
   validateBody(z.object(unitFields).partial().strict()),
   asyncHandler(async (req, res) => {
     const upd = buildUpdate('course_units', Number(req.params.uid), jsonVocab(req.body));
@@ -143,6 +150,7 @@ router.patch(
 
 router.delete(
   '/units/:uid',
+  requireOwn('course_units', 'uid', 'Юнит не найден'),
   asyncHandler(async (req, res) => {
     const { rows } = await query('DELETE FROM course_units WHERE id = $1 RETURNING id', [Number(req.params.uid)]);
     if (!rows[0]) return res.status(404).json({ error: 'Юнит не найден' });
@@ -153,6 +161,7 @@ router.delete(
 // Порядок юнитов
 router.put(
   '/:id/order',
+  requireOwn('courses', 'id', 'Курс не найден'),
   validateBody(z.object({ unit_ids: z.array(z.number().int().positive()).max(300) }).strict()),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
@@ -172,6 +181,7 @@ router.put(
 // Текущий курс и юнит ученика + список юнитов для выбора
 router.get(
   '/students/:sid',
+  requireOwn('students', 'sid', 'Ученик не найден'),
   asyncHandler(async (req, res) => {
     const sid = Number(req.params.sid);
     const { rows } = await query('SELECT id, course_id, course_unit_id FROM students WHERE id = $1', [sid]);
@@ -193,6 +203,7 @@ router.get(
 // Записать на курс / сменить юнит. unit_id не указан — первый юнит курса. course_id: null — снять с курса
 router.post(
   '/students/:sid',
+  requireOwn('students', 'sid', 'Ученик не найден'),
   validateBody(z.object({ course_id: z.number().int().positive().nullable(), unit_id: z.number().int().positive().optional() }).strict()),
   asyncHandler(async (req, res) => {
     const sid = Number(req.params.sid);
@@ -200,6 +211,7 @@ router.post(
     const { rows: st } = await query('SELECT id FROM students WHERE id = $1', [sid]);
     if (!st[0]) return res.status(404).json({ error: 'Ученик не найден' });
 
+    if (courseId !== null && !(await owns(req.user, 'courses', courseId))) return res.status(404).json({ error: 'Курс не найден' });
     if (courseId === null) {
       await query('UPDATE students SET course_id = NULL, course_unit_id = NULL WHERE id = $1', [sid]);
       return res.json({ ok: true });
@@ -217,6 +229,7 @@ router.post(
 // Перейти к следующему юниту
 router.post(
   '/students/:sid/next',
+  requireOwn('students', 'sid', 'Ученик не найден'),
   asyncHandler(async (req, res) => {
     const sid = Number(req.params.sid);
     const { rows } = await query('SELECT course_unit_id FROM students WHERE id = $1', [sid]);
@@ -231,6 +244,7 @@ router.post(
 // ДЗ по юниту одним нажатием
 router.post(
   '/units/:uid/homework',
+  requireOwn('course_units', 'uid', 'Юнит не найден'),
   validateBody(
     z.object({ student_id: z.number().int().positive(), lesson_id: z.number().int().positive().optional(), due_on: isoDate.nullable().optional() }).strict()
   ),
@@ -238,10 +252,10 @@ router.post(
     const unit = await getUnit({ query }, Number(req.params.uid));
     if (!unit) return res.status(404).json({ error: 'Юнит не найден' });
     const b = req.body;
-    const { rows: st } = await query('SELECT id FROM students WHERE id = $1', [b.student_id]);
-    if (!st[0]) return res.status(404).json({ error: 'Ученик не найден' });
+    if (!(await owns(req.user, 'students', b.student_id))) return res.status(404).json({ error: 'Ученик не найден' });
     const a = await transaction((client) => assignUnitHomework(client, unit, b.student_id, { lessonId: b.lesson_id, dueOn: b.due_on }));
     console.log(`✅ ДЗ по юниту «${unit.title}» выдано ученику #${b.student_id}`);
+    notify.toStudent(b.student_id, { kind: 'homework_new', title: `Новое задание: ${a.title}`, link: `/homework/${a.homework_id}` });
     res.status(201).json(a);
   })
 );
@@ -249,31 +263,43 @@ router.post(
 // Материалы юнита — в урок (добавляются к уже выбранным)
 router.post(
   '/units/:uid/lesson/:lessonId',
+  requireOwn('course_units', 'uid', 'Юнит не найден'),
+  requireOwn('lessons', 'lessonId', 'Занятие не найдено'),
   asyncHandler(async (req, res) => {
     const unit = await getUnit({ query }, Number(req.params.uid));
     if (!unit) return res.status(404).json({ error: 'Юнит не найден' });
     const lessonId = Number(req.params.lessonId);
+    const { sameSession } = require('./lessons');
+    const lessonIds = await sameSession(lessonId);
     const count = await transaction(async (client) => {
       const { rows: l } = await client.query('SELECT id FROM lessons WHERE id = $1', [lessonId]);
       if (!l[0]) return null;
       await client.query('UPDATE lessons SET unit_id = $2 WHERE id = $1', [lessonId, unit.id]);
-      const { rows: cur } = await client.query('SELECT COALESCE(MAX(position), -1) AS p FROM lesson_items WHERE lesson_id = $1', [lessonId]);
-      let pos = cur[0].p + 1;
-      let n = 0;
-      for (const itemId of unit.item_ids) {
-        const { rowCount } = await client.query(
-          `INSERT INTO lesson_items (lesson_id, item_id, position)
-           SELECT $1, $2, $3 WHERE EXISTS (SELECT 1 FROM library_items WHERE id = $2)
-           ON CONFLICT DO NOTHING`,
-          [lessonId, itemId, pos++]
-        );
-        n += rowCount;
-      }
-      return n;
+      // У группового занятия материалы общие: добавляем всем ученикам
+      const added = [];
+      for (const lid of lessonIds) added.push(await addUnitItems(client, lid, unit));
+      return Math.max(...added);
     });
     if (count === null) return res.status(404).json({ error: 'Занятие не найдено' });
     res.json({ added: count });
   })
 );
+
+// Материалы юнита в конец списка задач урока (без повторов). Возвращает, сколько добавлено
+async function addUnitItems(client, lessonId, unit) {
+  const { rows: cur } = await client.query('SELECT COALESCE(MAX(position), -1) AS p FROM lesson_items WHERE lesson_id = $1', [lessonId]);
+  let pos = cur[0].p + 1;
+  let n = 0;
+  for (const itemId of unit.item_ids) {
+    const { rowCount } = await client.query(
+      `INSERT INTO lesson_items (lesson_id, item_id, position)
+       SELECT $1, $2, $3 WHERE EXISTS (SELECT 1 FROM library_items WHERE id = $2)
+       ON CONFLICT DO NOTHING`,
+      [lessonId, itemId, pos++]
+    );
+    n += rowCount;
+  }
+  return n;
+}
 
 module.exports = router;

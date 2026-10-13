@@ -3,17 +3,22 @@
 const express = require('express');
 const { z } = require('zod');
 const { query, transaction } = require('../db');
-const { requireRole, accessibleStudentIds } = require('../middleware/auth');
+const { requireRole, accessibleStudentIds, requireOwn } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { buildUpdate } = require('../utils');
 const { gameSchema } = require('../services/games');
 
 const router = express.Router();
 const tutorOnly = requireRole('tutor');
+// HTML-урок целиком приходит в теле запроса, поэтому лимит больше обычного
+router.use(express.json({ limit: '3mb' }));
 
 const FILE_META = 'id, filename, mime, size_bytes, uploaded_by, created_at';
 // Поля, которые может видеть ученик (без ответа и заметок преподавателя)
-const PUBLIC_FIELDS = 'id, kind, subject, title, body, exam, exam_task, links, game';
+const PUBLIC_FIELDS = 'id, tutor_id, kind, subject, title, body, exam, exam_task, links, game, html';
+// Для списков: всё, кроме самого HTML-урока (он большой и в списке не нужен)
+const LIST_FIELDS = 'id, kind, subject, title, body, answer, exam, exam_task, tags, tutor_note, links, game, created_at, updated_at';
+const PUBLIC_LIST_FIELDS = 'id, kind, subject, title, body, exam, exam_task, links, game';
 
 // Какие задачи доступны ученику/родителю: из его уроков и его заданий
 async function visibleTaskIds(user) {
@@ -30,6 +35,7 @@ async function visibleTaskIds(user) {
 }
 
 async function canSeeItem(user, item) {
+  if (item.tutor_id !== user.tid) return false;
   if (user.role === 'tutor' || item.kind === 'theory') return true;
   const ids = await visibleTaskIds(user);
   return ids.includes(item.id);
@@ -54,11 +60,11 @@ router.get(
   asyncHandler(async (req, res) => {
     const isTutor = req.user.role === 'tutor';
     // kind можно передать списком: task,game
-    const kinds = String(req.query.kind || '').split(',').filter((k) => ['theory', 'task', 'game'].includes(k));
+    const kinds = String(req.query.kind || '').split(',').filter((k) => ['theory', 'task', 'game', 'html'].includes(k));
     const kind = isTutor ? (kinds.length ? kinds : null) : ['theory'];
     const examTask = Number(req.query.exam_task) || null;
     const { rows } = await query(
-      `SELECT ${isTutor ? '*' : PUBLIC_FIELDS + ', tags, updated_at'},
+      `SELECT ${isTutor ? LIST_FIELDS : PUBLIC_LIST_FIELDS + ', tags, updated_at'}, (html IS NOT NULL) AS has_html,
               (SELECT COUNT(*)::int FROM files f WHERE f.library_item_id = library_items.id) AS files_count
          FROM library_items
         WHERE ($1::text[] IS NULL OR kind = ANY($1::text[]))
@@ -68,8 +74,9 @@ router.get(
           AND ($5::text IS NULL OR $5::text = ANY(tags))
           AND ($6::text IS NULL OR title ILIKE '%' || $6::text || '%' OR body ILIKE '%' || $6::text || '%'
                OR tutor_note ILIKE '%' || $6::text || '%')
+          AND tutor_id = $7
         ORDER BY subject, exam NULLS LAST, exam_task NULLS LAST, title`,
-      [kind, req.query.subject || null, req.query.exam || null, examTask, req.query.tag || null, (req.query.q || '').trim() || null]
+      [kind, req.query.subject || null, req.query.exam || null, examTask, req.query.tag || null, (req.query.q || '').trim() || null, req.user.tid]
     );
     res.json(rows);
   })
@@ -79,9 +86,9 @@ router.get(
 router.get(
   '/facets',
   asyncHandler(async (req, res) => {
-    const kindFilter = req.user.role === 'tutor' ? '' : "WHERE kind = 'theory'";
-    const { rows: subjects } = await query(`SELECT DISTINCT subject FROM library_items ${kindFilter} ORDER BY 1`);
-    const { rows: tags } = await query(`SELECT DISTINCT unnest(tags) AS tag FROM library_items ${kindFilter} ORDER BY 1`);
+    const kindFilter = req.user.role === 'tutor' ? '' : "AND kind = 'theory'";
+    const { rows: subjects } = await query(`SELECT DISTINCT subject FROM library_items WHERE tutor_id = $1 ${kindFilter} ORDER BY 1`, [req.user.tid]);
+    const { rows: tags } = await query(`SELECT DISTINCT unnest(tags) AS tag FROM library_items WHERE tutor_id = $1 ${kindFilter} ORDER BY 1`, [req.user.tid]);
     res.json({ subjects: subjects.map((r) => r.subject), tags: tags.map((r) => r.tag) });
   })
 );
@@ -97,7 +104,7 @@ router.get(
       .slice(0, 100);
     if (!ids.length) return res.json([]);
     const isTutor = req.user.role === 'tutor';
-    let { rows } = await query(`SELECT ${isTutor ? '*' : PUBLIC_FIELDS} FROM library_items WHERE id = ANY($1)`, [ids]);
+    let { rows } = await query(`SELECT ${isTutor ? '*' : PUBLIC_FIELDS} FROM library_items WHERE id = ANY($1) AND tutor_id = $2`, [ids, req.user.tid]);
     if (!isTutor) {
       const visible = new Set(await visibleTaskIds(req.user));
       rows = rows.filter((r) => r.kind === 'theory' || visible.has(r.id));
@@ -123,7 +130,7 @@ router.get(
 // ------------------------------------------------------------
 const tag = z.string().trim().min(1).max(40);
 const fields = {
-  kind: z.enum(['theory', 'task', 'game']),
+  kind: z.enum(['theory', 'task', 'game', 'html']),
   subject: z.string().trim().min(1).max(100),
   title: z.string().trim().min(1, 'Название не может быть пустым').max(255),
   body: z.string().max(50000).nullable(),
@@ -134,6 +141,7 @@ const fields = {
   tutor_note: z.string().max(5000).nullable(),
   links: z.array(z.string().trim().url().max(1000)).max(10),
   game: gameSchema.nullable(),
+  html: z.string().max(3_000_000, 'Файл урока слишком большой (больше 3 МБ)').nullable(),
 };
 
 router.post(
@@ -146,14 +154,16 @@ router.post(
       .required({ kind: true, title: true })
       .strict()
       .refine((b) => b.kind !== 'game' || b.game, 'Заполните упражнение')
+      .refine((b) => b.kind !== 'html' || b.html, 'Загрузите файл урока')
   ),
   asyncHandler(async (req, res) => {
     const b = req.body;
     const { rows } = await query(
-      `INSERT INTO library_items (kind, subject, title, body, answer, exam, exam_task, tags, tutor_note, links, game)
-       VALUES ($1, COALESCE($2, 'Английский язык'), $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+      `INSERT INTO library_items (kind, subject, title, body, answer, exam, exam_task, tags, tutor_note, links, game, html, tutor_id)
+       VALUES ($1, COALESCE($2, 'Английский язык'), $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
       [b.kind, b.subject || null, b.title, b.body || null, b.answer || null, b.exam || null, b.exam_task || null,
-        [...new Set(b.tags || [])], b.tutor_note || null, b.links || [], b.kind === 'game' ? JSON.stringify(b.game) : null]
+        [...new Set(b.tags || [])], b.tutor_note || null, b.links || [], b.kind === 'game' ? JSON.stringify(b.game) : null,
+        b.kind === 'html' ? b.html : null, req.user.id]
     );
     console.log(`✅ В библиотеку добавлено: «${b.title}»`);
     res.status(201).json(rows[0]);
@@ -163,6 +173,7 @@ router.post(
 router.patch(
   '/:id',
   tutorOnly,
+  requireOwn('library_items', 'id', 'Материал не найден'),
   validateBody(z.object(fields).partial().strict()),
   asyncHandler(async (req, res) => {
     const data = { ...req.body };
@@ -179,12 +190,13 @@ router.patch(
 router.delete(
   '/:id',
   tutorOnly,
+  requireOwn('library_items', 'id', 'Материал не найден'),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const { rows } = await query('DELETE FROM library_items WHERE id = $1 RETURNING title', [id]);
     if (!rows[0]) return res.status(404).json({ error: 'Материал не найден' });
     // Убираем удалённую задачу из домашних заданий
-    await query('UPDATE assignments SET library_item_ids = array_remove(library_item_ids, $1) WHERE $1 = ANY(library_item_ids)', [id]);
+    await query('UPDATE assignments SET library_item_ids = array_remove(library_item_ids, $1) WHERE $1 = ANY(library_item_ids) AND tutor_id = $2', [id, req.user.id]);
     console.log(`🗑️ Из библиотеки удалено: «${rows[0].title}»`);
     res.json({ ok: true });
   })
@@ -202,7 +214,8 @@ const importItem = z
   .partial()
   .required({ kind: true, title: true })
   .strict()
-  .refine((b) => b.kind !== 'game' || b.game, 'У упражнения нет содержимого');
+  .refine((b) => b.kind !== 'game' || b.game, 'У упражнения нет содержимого')
+  .refine((b) => b.kind !== 'html' || b.html, 'У урока нет HTML');
 
 const keys = z.array(z.string().trim().min(1).max(100)).max(60).default([]);
 const importCourse = z
@@ -236,8 +249,7 @@ const importCourse = z
 router.post(
   '/import',
   tutorOnly,
-  express.json({ limit: '2mb' }),
-  validateBody(
+    validateBody(
     z
       .object({
         format: z.literal('lessonfold-library'),
@@ -257,8 +269,8 @@ router.post(
       for (const b of req.body.items) {
         const subject = b.subject || 'Английский язык';
         const { rows: dup } = await client.query(
-          'SELECT id FROM library_items WHERE kind = $1 AND title = $2 AND subject = $3 ORDER BY id LIMIT 1',
-          [b.kind, b.title, subject]
+          'SELECT id FROM library_items WHERE kind = $1 AND title = $2 AND subject = $3 AND tutor_id = $4 ORDER BY id LIMIT 1',
+          [b.kind, b.title, subject, req.user.id]
         );
         if (dup[0]) {
           skipped++;
@@ -266,10 +278,11 @@ router.post(
           continue;
         }
         const { rows } = await client.query(
-          `INSERT INTO library_items (kind, subject, title, body, answer, exam, exam_task, tags, tutor_note, links, game)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+          `INSERT INTO library_items (kind, subject, title, body, answer, exam, exam_task, tags, tutor_note, links, game, html, tutor_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
           [b.kind, subject, b.title, b.body || null, b.answer || null, b.exam || null, b.exam_task || null,
-            [...new Set(b.tags || [])], b.tutor_note || null, b.links || [], b.kind === 'game' ? JSON.stringify(b.game) : null]
+            [...new Set(b.tags || [])], b.tutor_note || null, b.links || [], b.kind === 'game' ? JSON.stringify(b.game) : null,
+            b.kind === 'html' ? b.html : null, req.user.id]
         );
         if (b.key) byKey[b.key] = rows[0].id;
         created++;
@@ -277,11 +290,11 @@ router.post(
 
       let units = 0;
       for (const c of req.body.courses) {
-        let { rows: course } = await client.query('SELECT id FROM courses WHERE title = $1 ORDER BY id LIMIT 1', [c.title]);
+        let { rows: course } = await client.query('SELECT id FROM courses WHERE title = $1 AND tutor_id = $2 ORDER BY id LIMIT 1', [c.title, req.user.id]);
         if (!course[0]) {
           ({ rows: course } = await client.query(
-            `INSERT INTO courses (title, subject, level, description) VALUES ($1, COALESCE($2, 'Английский язык'), $3, $4) RETURNING id`,
-            [c.title, c.subject || null, c.level || null, c.description || null]
+            `INSERT INTO courses (title, subject, level, description, tutor_id) VALUES ($1, COALESCE($2, 'Английский язык'), $3, $4, $5) RETURNING id`,
+            [c.title, c.subject || null, c.level || null, c.description || null, req.user.id]
           ));
         }
         const courseId = course[0].id;

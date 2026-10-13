@@ -4,6 +4,7 @@ import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Badge, Icon, Link, Field, useToast, useSubmit } from '../../ui';
 import { FileList, FileUploadButton } from '../../components/Files';
 import { QuizForm } from '../../components/Quiz';
+import VocabPractice from '../../components/VocabPractice';
 import { linkLabel, AssignmentTasks } from '../tutor/Assignments';
 import { shortDate, relativeDay, time, HW_STATUS, todayISO } from '../../format';
 
@@ -68,6 +69,8 @@ function HomeworkView({ h, isParent, reload }) {
           {h.library_item_ids?.length > 0 && (
             <AssignmentTasks ids={h.library_item_ids} homework={h} canPlay={h.status !== 'checked'} />
           )}
+
+          {h.vocab_practice && <PracticeBlock h={h} canEdit={canEdit} isParent={isParent} reload={reload} />}
 
           {h.questions.length > 0 && (
             <section style={{ marginTop: 24 }}>
@@ -155,5 +158,33 @@ function HomeworkView({ h, isParent, reload }) {
         </aside>
       </div>
     </>
+  );
+}
+
+// Отработка слов внутри задания
+function PracticeBlock({ h, canEdit, isParent, reload }) {
+  const [run, setRun] = useState(false);
+  const r = h.vocab_result;
+  return (
+    <section style={{ marginTop: 24 }}>
+      <div className="row-between" style={{ marginBottom: 12 }}>
+        <h2 className="section-title">Отработка слов</h2>
+        {r && <span className="muted small">{r.correct} из {r.total}</span>}
+      </div>
+      {run ? (
+        <div className="panel"><VocabPractice studentId={h.student_id} homeworkId={h.id} count={h.vocab_practice.count} onDone={() => { setRun(false); reload(); }} /></div>
+      ) : (
+        <div className="panel words-hero">
+          <div style={{ minWidth: 0 }}>
+            <div className="serif" style={{ fontSize: 26, fontWeight: 500 }}>{h.vocab_practice.count} слов из вашего словаря</div>
+            <div className="small muted">Выбрать перевод, написать слово, вставить в предложение, узнать на слух.</div>
+          </div>
+          {canEdit && !isParent && (
+            <button className="btn" onClick={() => setRun(true)}><Icon name="play" /> {r ? 'Пройти ещё раз' : 'Начать'}</button>
+          )}
+          {isParent && !r && <span className="small muted">Ещё не пройдено</span>}
+        </div>
+      )}
+    </section>
   );
 }

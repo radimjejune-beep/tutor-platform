@@ -228,6 +228,10 @@ const PATHS = {
   sound: 'M5 9.5h3l4-3.5v12l-4-3.5H5zM16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11',
   play: 'M8 5.5v13l10-6.5z',
   flag: 'M5 21V4M5 4h11l-2 4 2 4H5',
+  bell: 'M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0',
+  search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14ZM20 20l-4-4',
+  grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+  list: 'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01',
 };
 
 export function Icon({ name, size }) {

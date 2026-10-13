@@ -4,13 +4,15 @@ import { AuthProvider, useAuth } from './auth';
 import { api } from './api';
 import { Shell, TUTOR_NAV, CLIENT_NAV } from './Shell';
 import { ToastProvider, Spinner, useRoute, Empty, Link, useLoad } from './ui';
-import { Login, ChangePassword } from './pages/Login';
+import { Login, ChangePassword, Register } from './pages/Login';
+import AdminPage from './pages/tutor/Admin';
 import { LegalPage, AcceptDocuments } from './pages/Legal';
 import Settings from './pages/tutor/Settings';
 import { LibraryPage, LibraryEditor } from './pages/tutor/Library';
 import LessonRoom from './pages/LessonRoom';
 import { TheoryList, TheoryView } from './pages/client/Theory';
 import { CoursesList, CourseEditor } from './pages/tutor/Courses';
+import { GroupsList, GroupPage } from './pages/tutor/Groups';
 import Words from './pages/client/Words';
 
 import TutorDashboard from './pages/tutor/Dashboard';
@@ -45,9 +47,9 @@ function Root() {
   const params = new URLSearchParams(search || '');
 
   // Документы открываются и без входа
-  if (path.startsWith('/legal/')) return <LegalPage kind={path.split('/')[2]} />;
+  if (path.startsWith('/legal/')) return <LegalPage kind={path.split('/')[2]} tutor={params.get('t') || undefined} />;
   if (session === undefined) return <Spinner />;
-  if (!session) return <Login />;
+  if (!session) return path === '/register' ? <Register /> : <Login />;
   if (user.must_change_password) return <ChangePassword forced />;
   return user.role === 'tutor' ? <TutorApp path={path} params={params} /> : <ClientApp path={path} />;
 }
@@ -60,6 +62,7 @@ const NotFound = () => (
 
 /* ---------- Кабинет преподавателя ---------- */
 function TutorApp({ path, params }) {
+  const { user } = useAuth();
   const [counts, setCounts] = useState({});
   const parts = path.split('/').filter(Boolean);
 
@@ -76,7 +79,9 @@ function TutorApp({ path, params }) {
   else if (parts[0] === 'schedule') page = <TutorSchedule />;
   else if (parts[0] === 'students' && parts[1]) page = <StudentPage id={Number(parts[1])} tab={parts[2] || 'lessons'} />;
   else if (parts[0] === 'students') page = <Students />;
-  else if (parts[0] === 'homework' && parts[1] === 'new') page = <AssignmentEditor key={`new-${params.toString()}`} presetStudentId={Number(params.get('student')) || undefined} presetItems={(params.get('items') || '').split(',').map(Number).filter(Boolean)} />;
+  else if (parts[0] === 'groups' && parts[1]) page = <GroupPage key={parts[1]} id={Number(parts[1])} />;
+  else if (parts[0] === 'groups') page = <GroupsList />;
+  else if (parts[0] === 'homework' && parts[1] === 'new') page = <AssignmentEditor key={`new-${params.toString()}`} presetStudentId={Number(params.get('student')) || undefined} presetStudents={(params.get('students') || '').split(',').map(Number).filter(Boolean)} presetItems={(params.get('items') || '').split(',').map(Number).filter(Boolean)} />;
   else if (parts[0] === 'homework' && parts[2] === 'edit') page = <AssignmentEditor key={`edit-${parts[1]}`} id={Number(parts[1])} />;
   else if (parts[0] === 'homework' && parts[2] === 'review' && parts[3]) page = <ReviewPage assignmentId={Number(parts[1])} homeworkId={Number(parts[3])} />;
   else if (parts[0] === 'homework' && parts[1]) page = <AssignmentPage id={Number(parts[1])} />;
@@ -85,15 +90,16 @@ function TutorApp({ path, params }) {
   else if (parts[0] === 'settings') page = <Settings tab={parts[1] || 'booking'} />;
   else if (parts[0] === 'library' && parts[1] === 'new') page = <LibraryEditor key={`new-${params.get('kind')}`} presetKind={params.get('kind') || 'task'} />;
   else if (parts[0] === 'library' && /^\d+$/.test(parts[1] || '')) page = <LibraryEditor key={parts[1]} id={Number(parts[1])} />;
-  else if (parts[0] === 'library') page = <LibraryPage key={parts[1] || 'tasks'} kind={{ theory: 'theory', games: 'game' }[parts[1]] || 'task'} />;
+  else if (parts[0] === 'library') page = <LibraryPage key={parts[1] || 'tasks'} kind={{ theory: 'theory', games: 'game', lessons: 'html' }[parts[1]] || 'task'} />;
   else if (parts[0] === 'lesson' && parts[1]) page = <LessonRoom id={Number(parts[1])} />;
   else if (parts[0] === 'courses' && parts[1]) page = <CourseEditor key={parts[1]} id={Number(parts[1])} />;
   else if (parts[0] === 'courses') page = <CoursesList />;
+  else if (parts[0] === 'admin' && user.is_admin) page = <AdminPage />;
   else if (parts[0] === 'password') page = <ChangePassword />;
   else page = <NotFound />;
 
   return (
-    <Shell nav={TUTOR_NAV} path={path} counts={counts}>
+    <Shell nav={user.is_admin ? [...TUTOR_NAV, { to: '/admin', label: 'Учителя', icon: 'shield', hideMobile: true }] : TUTOR_NAV} path={path} counts={counts}>
       {page}
     </Shell>
   );

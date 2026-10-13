@@ -19,6 +19,20 @@ const loginLimiter = rateLimit({
   message: { error: 'Слишком много попыток входа, попробуйте через 15 минут' },
 });
 
+// Регистрация репетиторов: не больше 5 с одного адреса за час
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Слишком много регистраций с этого адреса, попробуйте позже' },
+});
+
+async function registrationOpen() {
+  const { rows } = await query("SELECT value FROM settings WHERE key = 'registration'");
+  return Boolean(rows[0]?.value?.open);
+}
+
 const loginSchema = z.object({
   login: z.string().trim().toLowerCase().min(1).max(64),
   password: z.string().min(1).max(100),
@@ -54,8 +68,50 @@ router.post(
         login: user.login,
         full_name: user.full_name,
         must_change_password: user.must_change_password,
+        is_admin: user.is_admin,
       },
     });
+  })
+);
+
+// ------------------------------------------------------------
+// Регистрация нового репетитора (пока бесплатно). Сисадмин может её закрыть
+// ------------------------------------------------------------
+router.get(
+  '/registration',
+  asyncHandler(async (req, res) => {
+    res.json({ open: await registrationOpen() });
+  })
+);
+
+router.post(
+  '/register',
+  registerLimiter,
+  validateBody(
+    z
+      .object({
+        full_name: z.string().trim().min(2, 'Укажите имя и фамилию').max(255),
+        login: z.string().trim().toLowerCase().regex(/^[a-z0-9._-]{3,64}$/, 'Логин: латиница, цифры, точка, от 3 символов'),
+        password: z.string().min(8, 'Пароль: минимум 8 символов').max(100),
+        accept: z.literal(true, { errorMap: () => ({ message: 'Нужно согласие с условиями' }) }),
+      })
+      .strict()
+  ),
+  asyncHandler(async (req, res) => {
+    if (!(await registrationOpen())) return res.status(403).json({ error: 'Регистрация сейчас закрыта' });
+    const b = req.body;
+    const { rows: exists } = await query('SELECT 1 FROM users WHERE login = $1', [b.login]);
+    if (exists[0]) return res.status(409).json({ error: `Логин «${b.login}» уже занят` });
+    const hash = await bcrypt.hash(b.password, 12);
+    const { rows } = await query(
+      `INSERT INTO users (role, login, password_hash, full_name, last_login_at)
+       VALUES ('tutor', $1, $2, $3, NOW()) RETURNING id, role, login, full_name, must_change_password, is_admin`,
+      [b.login, hash, b.full_name]
+    );
+    const user = rows[0];
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: process.env['JWT_EXPIRES_IN'] || '7d' });
+    console.log(`✅ Новый репетитор зарегистрировался: ${user.login}`);
+    res.status(201).json({ token, user });
   })
 );
 

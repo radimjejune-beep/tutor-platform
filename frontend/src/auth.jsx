@@ -32,6 +32,13 @@ export function AuthProvider({ children }) {
     await refresh();
   };
 
+  const register = async (data) => {
+    const { token } = await api.register(data);
+    setToken(token);
+    await refresh();
+    window.location.hash = '/';
+  };
+
   const logout = () => {
     setToken(null);
     setSession(null);
@@ -39,7 +46,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user: session?.user, students: session?.students || [], login, logout, refresh }}>
+    <AuthContext.Provider value={{ session, user: session?.user, students: session?.students || [], login, register, logout, refresh }}>
       {children}
     </AuthContext.Provider>
   );

@@ -23,8 +23,8 @@ export function LegalText({ body }) {
 }
 
 /* ---------- Отдельная страница документа (доступна без входа) ---------- */
-export function LegalPage({ kind }) {
-  const doc = useLoad(() => api.legalPublic(kind), [kind]);
+export function LegalPage({ kind, tutor }) {
+  const doc = useLoad(() => api.legalPublic(kind, tutor), [kind, tutor]);
   return (
     <div className="legal-page">
       <div className="legal-wrap">
