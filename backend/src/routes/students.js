@@ -17,6 +17,7 @@ const studentFields = {
   level: z.string().trim().max(50).nullable(),
   goal: z.string().trim().max(2000).nullable(),
   textbook: z.string().trim().max(255).nullable(),
+  subject: z.string().trim().max(100).nullable(),
   default_price: z.number().int().min(0).max(100000),
   default_duration: z.number().int().min(15).max(240),
   board_link: z.string().trim().url().max(1000).nullable(),

@@ -61,7 +61,7 @@ function CourseModal({ course, onClose, onSaved }) {
     <Modal title={course ? 'Курс' : 'Новый курс'} onClose={onClose}>
       <form className="form" onSubmit={save.submit}>
         <Field label="Название"><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Solutions Elementary 3rd ed." autoFocus /></Field>
-        <Field label="Уровень"><input className="input" value={level} onChange={(e) => setLevel(e.target.value)} placeholder="A1–A2" /></Field>
+        <Field label="Уровень"><input className="input" value={level} onChange={(e) => setLevel(e.target.value)} placeholder="A1–A2, 9 класс" /></Field>
         <Field label="Описание"><textarea className="textarea" value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
         {save.error && <div className="alert">{save.error}</div>}
         <div className="modal-actions">

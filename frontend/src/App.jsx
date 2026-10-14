@@ -33,6 +33,7 @@ import ClientProgress from './pages/client/Progress';
 import ClientPayments from './pages/client/Payments';
 import ReportView from './pages/client/ReportView';
 import HomeworkPage from './pages/client/HomeworkPage';
+import { subjectInfo } from './subjects';
 
 export default function App() {
   return (
@@ -169,7 +170,7 @@ function ClientCabinet({ path }) {
   else page = <NotFound />;
 
   return (
-    <Shell nav={CLIENT_NAV} path={path} counts={counts}>
+    <Shell nav={CLIENT_NAV.map((n) => (n.to === '/words' ? { ...n, label: subjectInfo(child.subject || user.subject).vocabTitle } : n))} path={path} counts={counts}>
       {students.length > 1 && (
         <div className="row wrap" style={{ marginBottom: 22 }} role="tablist" aria-label="Ребёнок">
           {students.map((s) => (

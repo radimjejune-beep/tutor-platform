@@ -9,7 +9,7 @@ const { validateBody, asyncHandler } = require('../middleware/validate');
 const placement = require('../services/placement');
 const notify = require('../services/notify');
 
-const PROFILE_DEFAULTS = { enabled: false, about: '', price_text: '', subjects: 'Английский язык', league_enabled: true };
+const PROFILE_DEFAULTS = { enabled: false, about: '', price_text: '', subjects: '', league_enabled: true };
 
 async function getProfile(tutorId) {
   const { rows } = await query('SELECT value FROM settings WHERE key = $1', [`profile:${tutorId}`]);
@@ -17,7 +17,7 @@ async function getProfile(tutorId) {
 }
 
 async function tutorByLogin(login) {
-  const { rows } = await query("SELECT id, login, full_name FROM users WHERE login = $1 AND role = 'tutor' AND is_active", [
+  const { rows } = await query("SELECT id, login, full_name, subject FROM users WHERE login = $1 AND role = 'tutor' AND is_active", [
     String(login || '').toLowerCase().slice(0, 64),
   ]);
   return rows[0] || null;
@@ -34,7 +34,9 @@ publicRouter.get(
     const t = await tutorByLogin(req.params.login);
     const p = t && (await getProfile(t.id));
     if (!t || !p.enabled) return res.status(404).json({ error: 'Страница не найдена' });
-    res.json({ login: t.login, full_name: t.full_name, about: p.about, price_text: p.price_text, subjects: p.subjects, test: placement.publicTest() });
+    // Тест уровня есть только для английского
+    const english = /англ/i.test(t.subject || '');
+    res.json({ login: t.login, full_name: t.full_name, about: p.about, price_text: p.price_text, subjects: p.subjects || t.subject, test: english ? placement.publicTest() : null });
   })
 );
 

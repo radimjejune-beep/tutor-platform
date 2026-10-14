@@ -3,17 +3,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import { Spinner, Empty, Icon, useToast } from '../ui';
-import { speak } from './Vocab';
+import { speak, canSpeak } from './Vocab';
+import { useSubject } from '../subjects';
 
 const shuffle = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-const clean = (s) => String(s || '').toLowerCase().replace(/\(.*?\)/g, '').replace(/[’`]/g, "'").replace(/[^a-z' /-]/g, ' ').replace(/\s+/g, ' ').trim();
+const clean = (s) => String(s || '').toLowerCase().replace(/\(.*?\)/g, '').replace(/[’`]/g, "'").replace(/[^\p{L}\p{N}' /-]/gu, ' ').replace(/\s+/g, ' ').trim();
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Предложение-пример с пропуском вместо слова
 function gapOf(w) {
   if (!w.example) return null;
   const term = w.term.replace(/\s*\(.*?\)/g, '');
-  const re = new RegExp(`\\b${escapeRe(term)}\\b`, 'i');
+  const re = new RegExp(`(?<![\\p{L}\\p{N}])${escapeRe(term)}(?![\\p{L}\\p{N}])`, 'iu');
   return re.test(w.example) ? w.example.replace(re, '_____') : null;
 }
 
@@ -25,7 +26,7 @@ function buildTasks(words, pool) {
     if (w.translation && pool.length >= 3) kinds.push('choose');
     if (w.translation) kinds.push('type');
     if (gapOf(w)) kinds.push('gap');
-    if (pool.length >= 3) kinds.push('listen');
+    if (pool.length >= 3 && canSpeak()) kinds.push('listen');
     const kind = kinds.length ? kinds[i % kinds.length] : 'type';
     const distract = others(w);
     if (kind === 'choose') return { w, kind, options: shuffle([w.translation, ...distract.map((d) => d.translation)]) };
@@ -35,15 +36,11 @@ function buildTasks(words, pool) {
   });
 }
 
-const PROMPT = {
-  choose: 'Выберите перевод',
-  type: 'Напишите по-английски',
-  gap: 'Вставьте слово в предложение',
-  listen: 'Послушайте и выберите слово',
-};
 
-export default function VocabPractice({ studentId, homeworkId, lessonId, count = 12, onDone }) {
+export default function VocabPractice({ studentId, subject, homeworkId, lessonId, count = 12, onDone }) {
   const toast = useToast();
+  const subj = useSubject(subject);
+  const PROMPT = subj.prompts;
   const [data, setData] = useState(null);
   const [step, setStep] = useState(0);
   const [results, setResults] = useState([]);
@@ -64,14 +61,14 @@ export default function VocabPractice({ studentId, homeworkId, lessonId, count =
   }, [t]);
 
   if (!data) return <Spinner />;
-  if (!tasks.length) return <Empty title="Слов для отработки пока нет">Они появятся после урока или упражнений. Можно сдавать работу без этой части.</Empty>;
+  if (!tasks.length) return <Empty title={subj.isLang ? 'Слов для отработки пока нет' : 'Терминов для отработки пока нет'}>Они появятся после урока или упражнений. Можно сдавать работу без этой части.</Empty>;
 
   if (final) {
     return (
       <div className="flash-done">
         <div className="serif flash-big">{final.correct} из {final.total}</div>
         <p className="muted">
-          {final.correct === final.total ? 'Все слова верно!' : 'Слова с ошибками вернутся в повторение уже завтра.'}
+          {final.correct === final.total ? 'Всё верно!' : 'Ошибки вернутся в повторение уже завтра.'}
           {homeworkId ? ' Результат сохранён в задании.' : ''}
           {lessonId ? ' Преподаватель увидит результат к началу урока.' : ''}
           {final.correct > 0 ? ` +${final.correct * 2} очков.` : ''}

@@ -4,6 +4,7 @@ import { api } from '../api';
 import { useLoad, Modal, Icon, Link } from '../ui';
 import VocabPractice from './VocabPractice';
 import { plural, time } from '../format';
+import { useSubject } from '../subjects';
 
 const daysWord = (n) => plural(n, 'день', 'дня', 'дней');
 const pointsWord = (n) => plural(n, 'очко', 'очка', 'очков');
@@ -52,7 +53,7 @@ export function MotivationCard({ studentId, compact }) {
               </li>
             ))}
           </ol>
-          <div className="small muted">Очки: карточка 1, верное слово 2, верный ответ в упражнении 1, сданное ДЗ 10 и ещё 5, если вовремя. Неделя начинается в понедельник.</div>
+          <div className="small muted">Очки: карточка 1, верный ответ в тренировке 2, верный ответ в упражнении 1, сданное ДЗ 10 и ещё 5, если вовремя. Неделя начинается в понедельник.</div>
         </div>
       )}
     </section>
@@ -68,6 +69,7 @@ export function warmupOpen(lesson) {
 }
 
 export function WarmupBanner({ lesson, studentId, onDone }) {
+  const subj = useSubject();
   const [open, setOpen] = useState(false);
   const [done, setDone] = useState(null);
   if (!warmupOpen(lesson) && !done) return null;
@@ -76,8 +78,8 @@ export function WarmupBanner({ lesson, studentId, onDone }) {
       <div className="warmup">
         <div style={{ minWidth: 0 }}>
           <span className="meta-label">Перед уроком в {time(lesson.starts_at)}</span>
-          <span className="serif warmup-title">{done ? `Разминка: ${done.correct} из ${done.total}` : 'Разминка, 8 слов, 3 минуты'}</span>
-          {!done && <span className="small muted">Слова, в которых были ошибки. Преподаватель увидит, с чего начать.</span>}
+          <span className="serif warmup-title">{done ? `Разминка: ${done.correct} из ${done.total}` : subj.isLang ? 'Разминка, 8 слов, 3 минуты' : 'Разминка, 8 терминов, 3 минуты'}</span>
+          {!done && <span className="small muted">{subj.isLang ? 'Слова' : 'Термины'}, в которых были ошибки. Преподаватель увидит, с чего начать.</span>}
         </div>
         {!done && <button className="btn" onClick={() => setOpen(true)}><Icon name="play" /> Начать</button>}
       </div>

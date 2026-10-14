@@ -4,10 +4,12 @@ import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Icon } from '../../ui';
 import { FlashSession, VocabList, VocabStats, wordsWord } from '../../components/Vocab';
 import VocabPractice from '../../components/VocabPractice';
+import { useSubject } from '../../subjects';
 
 export default function Words({ student, isParent }) {
   const vocab = useLoad(() => api.vocab(student.id), [student.id]);
   const [session, setSession] = useState(false);
+  const subj = useSubject(student.subject);
 
   if (vocab.loading) return <Spinner />;
   if (vocab.error) return <ErrorBox error={vocab.error} onRetry={vocab.reload} />;
@@ -17,9 +19,9 @@ export default function Words({ student, isParent }) {
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Словарь</h1>
+          <h1 className="page-title">{subj.vocabTitle}</h1>
           <div className="lead">
-            {isParent ? `Слова, которые учит ${student.full_name.split(' ')[0]}: из уроков и из упражнений с ошибками.` : 'Слова из уроков и из упражнений, где были ошибки.'}
+            {isParent ? `${subj.isLang ? 'Слова' : 'Термины'}, которые учит ${student.full_name.split(' ')[0]}: из уроков и из упражнений с ошибками.` : `${subj.isLang ? 'Слова' : 'Термины'} из уроков и из упражнений, где были ошибки.`}
             {' '}Повторяйте понемногу каждый день.
           </div>
         </div>
@@ -28,8 +30,8 @@ export default function Words({ student, isParent }) {
       {session ? (
         <section className="panel">
           {session === 'practice'
-            ? <VocabPractice studentId={student.id} count={12} onDone={() => { setSession(false); vocab.reload(); }} />
-            : <FlashSession studentId={student.id} onDone={() => { setSession(false); vocab.reload(); }} />}
+            ? <VocabPractice studentId={student.id} subject={student.subject} count={12} onDone={() => { setSession(false); vocab.reload(); }} />
+            : <FlashSession studentId={student.id} subject={student.subject} onDone={() => { setSession(false); vocab.reload(); }} />}
         </section>
       ) : (
         <>
@@ -41,7 +43,7 @@ export default function Words({ student, isParent }) {
               )}
               {stats.due > 0 ? (
                 <button className="btn" style={{ height: 48 }} onClick={() => setSession('cards')}>
-                  <Icon name="play" /> Повторить {wordsWord(stats.due)}
+                  <Icon name="play" /> Повторить {wordsWord(stats.due, subj.item)}
                 </button>
               ) : (
                 <div className="muted small">{stats.total ? 'На сегодня всё повторено' : ''}</div>
@@ -53,7 +55,7 @@ export default function Words({ student, isParent }) {
             {items.length ? (
               <VocabList items={items} onChanged={vocab.reload} />
             ) : (
-              <Empty title="Словарь пока пуст">Слова появятся после урока или первого упражнения.</Empty>
+              <Empty title="Пока пусто">Появятся после урока или первого упражнения.</Empty>
             )}
           </section>
         </>

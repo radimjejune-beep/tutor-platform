@@ -6,6 +6,7 @@ import { api } from '../api';
 import { BRAND } from '../config';
 import { Field, useSubmit, Link } from '../ui';
 import { LEGAL_LINKS } from './Legal';
+import SubjectInput from '../components/SubjectInput';
 
 function AuthLayout({ children }) {
   return (
@@ -135,10 +136,10 @@ export function ChangePassword({ forced, onDone }) {
 // Регистрация репетитора: свой кабинет, ученики и расписание. Пока бесплатно
 export function Register() {
   const { register } = useAuth();
-  const [f, setF] = useState({ full_name: '', login: '', password: '', repeat: '', accept: false });
+  const [f, setF] = useState({ full_name: '', subject: '', login: '', password: '', repeat: '', accept: false });
   const { busy, error, submit, setError } = useSubmit(async () => {
     if (f.password !== f.repeat) return setError('Пароли не совпадают');
-    await register({ full_name: f.full_name.trim(), login: f.login.trim().toLowerCase(), password: f.password, accept: f.accept });
+    await register({ full_name: f.full_name.trim(), login: f.login.trim().toLowerCase(), password: f.password, subject: f.subject.trim(), accept: f.accept });
   });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   return (
@@ -150,6 +151,9 @@ export function Register() {
       <form className="form" onSubmit={submit}>
         <Field label="Имя и фамилия">
           <input className="input" value={f.full_name} onChange={set('full_name')} autoComplete="name" required />
+        </Field>
+        <Field label="Предмет" hint="Основной. Можно поменять в настройках, у каждого ученика можно указать свой">
+          <SubjectInput value={f.subject} onChange={(v) => setF({ ...f, subject: v })} required />
         </Field>
         <Field label="Логин" hint="Латиница, цифры и точка. Его вы будете вводить при входе">
           <input className="input" value={f.login} onChange={set('login')} autoCapitalize="none" spellCheck="false" autoComplete="username" placeholder="anna.teacher" required />

@@ -4,6 +4,9 @@ import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Badge, Icon, Field, Link, navigate, useToast, useSubmit } from '../../ui';
 import { fullDate, plural } from '../../format';
 import PageSettings from './PageSettings';
+import SubjectInput from '../../components/SubjectInput';
+import { subjectInfo } from '../../subjects';
+import { useAuth } from '../../auth';
 
 const DAYS = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
 
@@ -12,12 +15,13 @@ export default function Settings({ tab }) {
     <>
       <div className="page-head"><h1 className="page-title">Настройки</h1></div>
       <div className="tabs" role="tablist">
+        <button role="tab" aria-selected={tab === 'subject'} className={tab === 'subject' ? 'active' : ''} onClick={() => navigate('/settings/subject')}>Предмет</button>
         <button role="tab" aria-selected={tab === 'booking'} className={tab === 'booking' ? 'active' : ''} onClick={() => navigate('/settings/booking')}>Запись учеников</button>
         <button role="tab" aria-selected={tab === 'page'} className={tab === 'page' ? 'active' : ''} onClick={() => navigate('/settings/page')}>Страница записи</button>
         <button role="tab" aria-selected={tab === 'documents'} className={tab === 'documents' ? 'active' : ''} onClick={() => navigate('/settings/documents')}>Документы</button>
         <button role="tab" aria-selected={tab === 'telegram'} className={tab === 'telegram' ? 'active' : ''} onClick={() => navigate('/settings/telegram')}>Telegram</button>
       </div>
-      {tab === 'page' ? <PageSettings /> : tab === 'documents' ? <DocumentsTab /> : tab === 'telegram' ? <TelegramTab /> : <BookingTab />}
+      {tab === 'subject' ? <SubjectTab /> : tab === 'page' ? <PageSettings /> : tab === 'documents' ? <DocumentsTab /> : tab === 'telegram' ? <TelegramTab /> : <BookingTab />}
     </>
   );
 }
@@ -291,5 +295,32 @@ function TelegramTab() {
         ))}
       </div>
     </section>
+  );
+}
+
+// Основной предмет: от него зависят словарь или термины, тест уровня и подсказки
+function SubjectTab() {
+  const { user, refresh } = useAuth();
+  const toast = useToast();
+  const [subject, setSubject] = useState(user.subject || '');
+  const info = subjectInfo(subject);
+  const save = useSubmit(async () => {
+    await api.setSubject(subject.trim());
+    await refresh();
+    toast('Предмет сохранён');
+  });
+  return (
+    <form className="panel form" style={{ maxWidth: 640 }} onSubmit={save.submit}>
+      <Field label="Основной предмет" hint="Если ведёте несколько предметов, у ученика в карточке можно указать свой">
+        <SubjectInput value={subject} onChange={setSubject} required />
+      </Field>
+      <div className="note">
+        {info.isLang
+          ? `Раздел «Словарь»: слово и перевод, карточки${info.speech ? ', озвучка' : ''}, тренировки.${info.english ? ' На странице записи есть тест уровня A1–B2.' : ''}`
+          : 'Раздел «Термины»: термин и определение, карточки и тренировки. Подойдёт для формул, дат, правил и понятий.'}
+      </div>
+      {save.error && <div className="alert">{save.error}</div>}
+      <div><button className="btn" disabled={save.busy}>{save.busy ? 'Сохраняем…' : 'Сохранить'}</button></div>
+    </form>
   );
 }

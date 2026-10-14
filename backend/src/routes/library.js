@@ -163,8 +163,8 @@ router.post(
     const b = req.body;
     const { rows } = await query(
       `INSERT INTO library_items (kind, subject, title, body, answer, exam, exam_task, tags, tutor_note, links, game, html, tutor_id)
-       VALUES ($1, COALESCE($2, 'Английский язык'), $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
-      [b.kind, b.subject || null, b.title, b.body || null, b.answer || null, b.exam || null, b.exam_task || null,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
+      [b.kind, b.subject || req.user.subject, b.title, b.body || null, b.answer || null, b.exam || null, b.exam_task || null,
         [...new Set(b.tags || [])], b.tutor_note || null, b.links || [], b.kind === 'game' ? JSON.stringify(b.game) : null,
         b.kind === 'html' ? b.html : null, req.user.id]
     );
@@ -270,7 +270,7 @@ router.post(
       let skipped = 0;
       const byKey = {};
       for (const b of req.body.items) {
-        const subject = b.subject || 'Английский язык';
+        const subject = b.subject || req.user.subject;
         const { rows: dup } = await client.query(
           'SELECT id FROM library_items WHERE kind = $1 AND title = $2 AND subject = $3 AND tutor_id = $4 ORDER BY id LIMIT 1',
           [b.kind, b.title, subject, req.user.id]
@@ -296,8 +296,8 @@ router.post(
         let { rows: course } = await client.query('SELECT id FROM courses WHERE title = $1 AND tutor_id = $2 ORDER BY id LIMIT 1', [c.title, req.user.id]);
         if (!course[0]) {
           ({ rows: course } = await client.query(
-            `INSERT INTO courses (title, subject, level, description, tutor_id) VALUES ($1, COALESCE($2, 'Английский язык'), $3, $4, $5) RETURNING id`,
-            [c.title, c.subject || null, c.level || null, c.description || null, req.user.id]
+            `INSERT INTO courses (title, subject, level, description, tutor_id) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+            [c.title, c.subject || req.user.subject, c.level || null, c.description || null, req.user.id]
           ));
         }
         const courseId = course[0].id;

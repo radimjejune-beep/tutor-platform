@@ -93,6 +93,7 @@ router.post(
         full_name: z.string().trim().min(2, 'Укажите имя и фамилию').max(255),
         login: z.string().trim().toLowerCase().regex(/^[a-z0-9._-]{3,64}$/, 'Логин: латиница, цифры, точка, от 3 символов'),
         password: z.string().min(8, 'Пароль: минимум 8 символов').max(100),
+        subject: z.string().trim().min(2, 'Укажите предмет').max(100),
         accept: z.literal(true, { errorMap: () => ({ message: 'Нужно согласие с условиями' }) }),
       })
       .strict()
@@ -104,14 +105,26 @@ router.post(
     if (exists[0]) return res.status(409).json({ error: `Логин «${b.login}» уже занят` });
     const hash = await bcrypt.hash(b.password, 12);
     const { rows } = await query(
-      `INSERT INTO users (role, login, password_hash, full_name, last_login_at)
-       VALUES ('tutor', $1, $2, $3, NOW()) RETURNING id, role, login, full_name, must_change_password, is_admin`,
-      [b.login, hash, b.full_name]
+      `INSERT INTO users (role, login, password_hash, full_name, subject, last_login_at)
+       VALUES ('tutor', $1, $2, $3, $4, NOW()) RETURNING id, role, login, full_name, must_change_password, is_admin, subject`,
+      [b.login, hash, b.full_name, b.subject]
     );
     const user = rows[0];
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: process.env['JWT_EXPIRES_IN'] || '7d' });
     console.log(`✅ Новый репетитор зарегистрировался: ${user.login}`);
     res.status(201).json({ token, user });
+  })
+);
+
+// Основной предмет репетитора (меняется в настройках)
+router.put(
+  '/subject',
+  authenticate,
+  validateBody(z.object({ subject: z.string().trim().min(2, 'Укажите предмет').max(100) }).strict()),
+  asyncHandler(async (req, res) => {
+    if (req.user.role !== 'tutor') return res.status(403).json({ error: 'Только для преподавателя' });
+    await query('UPDATE users SET subject = $1 WHERE id = $2', [req.body.subject, req.user.id]);
+    res.json({ subject: req.body.subject });
   })
 );
 
@@ -123,12 +136,12 @@ router.get(
     let students = [];
     if (req.user.role === 'student') {
       ({ rows: students } = await query(
-        'SELECT id, full_name, level, board_link, call_link, category FROM students WHERE user_id = $1',
+        'SELECT id, full_name, level, board_link, call_link, category, subject FROM students WHERE user_id = $1',
         [req.user.id]
       ));
     } else if (req.user.role === 'parent') {
       ({ rows: students } = await query(
-        `SELECT s.id, s.full_name, s.level, s.board_link, s.call_link, s.category
+        `SELECT s.id, s.full_name, s.level, s.board_link, s.call_link, s.category, s.subject
            FROM students s JOIN parent_students ps ON ps.student_id = s.id
           WHERE ps.parent_user_id = $1 AND s.status <> 'archived'
           ORDER BY s.full_name`,

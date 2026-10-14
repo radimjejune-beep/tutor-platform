@@ -1,5 +1,6 @@
 // pages/client/Home.jsx — главная ученика / родителя
 import { api } from '../../api';
+import { useSubject } from '../../subjects';
 import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Link, PassMarks, Bar } from '../../ui';
 import { CONTACT_URL } from '../../config';
 import { callService } from '../LessonRoom';
@@ -8,6 +9,7 @@ import { MotivationCard, WarmupBanner } from '../../components/Motivation';
 import { time, dayMonth, relativeDay, rub, shortDate, monthName, lessonsWord, HW_STATUS, plural } from '../../format';
 
 export default function ClientHome({ student, isParent }) {
+  const subj = useSubject(student.subject);
   const dash = useLoad(() => Promise.all([api.dashboard(), api.finance(student.id)]), [student.id]);
 
   if (dash.loading) return <Spinner />;
@@ -25,7 +27,7 @@ export default function ClientHome({ student, isParent }) {
       <div className="page-head">
         <div>
           <h1 className="page-title">{isParent ? firstName : `Привет, ${firstName}`}</h1>
-          <div className="lead">{[s.student.level, s.unit ? `${s.unit.course_title}, ${[s.unit.code, s.unit.title].filter(Boolean).join(' ')}` : s.student.textbook].filter(Boolean).join(', ') || 'Английский язык'}{s.student.goal ? `. ${s.student.goal}` : ''}</div>
+          <div className="lead">{[s.student.level, s.unit ? `${s.unit.course_title}, ${[s.unit.code, s.unit.title].filter(Boolean).join(' ')}` : s.student.textbook].filter(Boolean).join(', ') || subj.subject}{s.student.goal ? `. ${s.student.goal}` : ''}</div>
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 // pages/tutor/Library.jsx — библиотека преподавателя: теория и задачник
 import { useState } from 'react';
 import { api } from '../../api';
+import { useAuth } from '../../auth';
 import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Field, Link, Modal, navigate, useToast, useSubmit } from '../../ui';
 import { FileList, FileUploadButton } from '../../components/Files';
 import HtmlLesson from '../../components/HtmlLesson';
@@ -221,11 +222,12 @@ export function LibraryEditor({ id, presetKind }) {
 }
 
 function EditorForm({ item, presetKind, facets, reload }) {
+  const { user } = useAuth();
   const toast = useToast();
   const isNew = !item;
   const [f, setF] = useState({
     kind: item?.kind || presetKind || 'task',
-    subject: item?.subject || facets.subjects[0] || 'Английский язык',
+    subject: item?.subject || user.subject || facets.subjects[0] || '',
     title: item?.title || '',
     body: item?.body || '',
     answer: item?.answer || '',
@@ -242,7 +244,7 @@ function EditorForm({ item, presetKind, facets, reload }) {
 
   const body = () => ({
     kind: f.kind,
-    subject: f.subject.trim() || 'Английский язык',
+    subject: f.subject.trim() || user.subject,
     title: f.title.trim(),
     body: orNull(f.body),
     answer: f.kind === 'task' ? orNull(f.answer) : null,
@@ -307,7 +309,7 @@ function EditorForm({ item, presetKind, facets, reload }) {
             )}
             <Field label="Название">
               <input className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} required autoFocus={isNew}
-                placeholder={{ task: 'Словообразование: -ness, -ment', game: 'Legal English: термины', html: 'Go Getter 2, 0.5: футбольный урок', theory: 'Present Perfect vs Past Simple' }[f.kind]} />
+                placeholder={{ task: 'Задача 13 ОГЭ: вариант 4', game: 'Термины: найди пару', html: 'Интерактивный урок по теме', theory: 'Правило или конспект темы' }[f.kind]} />
             </Field>
             {f.kind === 'game' && !f.game && (
               <Field label="Тип упражнения">

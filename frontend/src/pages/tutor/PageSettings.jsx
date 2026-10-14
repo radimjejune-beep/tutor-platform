@@ -25,9 +25,9 @@ function Form({ p }) {
         <h2 className="section-title">Страница записи</h2>
         <label className="check">
           <input type="checkbox" checked={f.enabled} onChange={(e) => setF({ ...f, enabled: e.target.checked })} />
-          <span>Включить страницу: новые ученики проходят тест уровня и оставляют заявку</span>
+          <span>Включить страницу: новые ученики оставляют заявку (для английского ещё и проходят тест уровня)</span>
         </label>
-        <Field label="Предметы"><input className="input" value={f.subjects} onChange={set('subjects')} placeholder="Английский язык, ОГЭ, ЕГЭ" /></Field>
+        <Field label="Предметы"><input className="input" value={f.subjects} onChange={set('subjects')} placeholder="Математика, ОГЭ, ЕГЭ" /></Field>
         <Field label="О себе" hint="Опыт, подход, кому подойдёт. Видят все, у кого есть ссылка">
           <textarea className="textarea" style={{ minHeight: 140 }} value={f.about} onChange={set('about')}
             placeholder="Преподаю английский 5 лет. Готовлю к ОГЭ и ЕГЭ, занимаюсь с детьми с 8 лет. Уроки онлайн, в игровом формате для младших." />

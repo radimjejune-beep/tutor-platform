@@ -3,28 +3,38 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import { Modal, Field, useSubmit, useToast, Icon, Empty, Spinner } from '../ui';
 import { shortDate, todayISO, plural } from '../format';
+import { useSubject } from '../subjects';
 
-// Озвучка британским голосом, если он есть в системе
+// Озвучка голосом языка предмета (для неязыковых предметов выключена)
 let voice = null;
+let speechLang = 'en-GB';
 function pickVoice() {
   const vs = window.speechSynthesis?.getVoices() || [];
-  voice = vs.find((v) => v.lang === 'en-GB') || vs.find((v) => v.lang?.startsWith('en')) || null;
+  if (!speechLang) { voice = null; return; }
+  const base = speechLang.slice(0, 2);
+  voice = vs.find((v) => v.lang === speechLang) || vs.find((v) => v.lang?.startsWith(base)) || null;
 }
+export function setSpeechLang(lang) {
+  if (lang === speechLang) return;
+  speechLang = lang;
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) pickVoice();
+}
+export const canSpeak = () => Boolean(speechLang) && typeof window !== 'undefined' && 'speechSynthesis' in window;
 if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
   pickVoice();
   window.speechSynthesis.onvoiceschanged = pickVoice;
 }
 export function speak(text) {
-  if (!('speechSynthesis' in window) || !text) return;
+  if (!canSpeak() || !text) return;
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text.replace(/\(.*?\)/g, ''));
-  u.lang = 'en-GB';
+  u.lang = speechLang;
   if (voice) u.voice = voice;
   u.rate = 0.9;
   window.speechSynthesis.speak(u);
 }
 
-export const wordsWord = (n) => `${n} ${plural(n, 'слово', 'слова', 'слов')}`;
+export const wordsWord = (n, forms = ['слово', 'слова', 'слов']) => `${n} ${plural(n, ...forms)}`;
 const SOURCE = { tutor: 'от преподавателя', unit: 'из юнита', mistake: 'из ошибок' };
 
 // Коробка 0–5 точками: сколько раз подряд вспомнил
@@ -40,11 +50,12 @@ export function BoxDots({ box }) {
 // Сессия повторения: карточка → перевернуть → «знаю» / «ещё учу»
 // «Ещё учу» возвращает карточку в конец сессии, пока не вспомнит
 // ------------------------------------------------------------
-export function FlashSession({ studentId, onDone }) {
+export function FlashSession({ studentId, subject, onDone }) {
   const [deck, setDeck] = useState(null);
   const [i, setI] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [dir, setDir] = useState('en'); // en: слово → перевод, ru: перевод → слово
+  const subj = useSubject(subject);
   const [stats, setStats] = useState({ known: 0, again: 0 });
   const toast = useToast();
 
@@ -59,7 +70,7 @@ export function FlashSession({ studentId, onDone }) {
   }, [w, dir]);
 
   if (!deck) return <Spinner />;
-  if (!deck.length) return <Empty title="На сегодня всё повторено">Новые слова появятся завтра или после следующего задания.</Empty>;
+  if (!deck.length) return <Empty title="На сегодня всё повторено">Новые появятся завтра или после следующего задания.</Empty>;
 
   if (i >= deck.length) {
     return (
@@ -97,8 +108,8 @@ export function FlashSession({ studentId, onDone }) {
       <div className="row-between">
         <span className="meta-label">{Math.min(i + 1, deck.length)} / {deck.length}</span>
         <div className="seg seg-quiet">
-          <button className={dir === 'en' ? 'on' : ''} onClick={() => { setDir('en'); setFlipped(false); }}>EN → RU</button>
-          <button className={dir === 'ru' ? 'on' : ''} onClick={() => { setDir('ru'); setFlipped(false); }}>RU → EN</button>
+          <button className={dir === 'en' ? 'on' : ''} onClick={() => { setDir('en'); setFlipped(false); }}>{subj.dirs[0]}</button>
+          <button className={dir === 'ru' ? 'on' : ''} onClick={() => { setDir('ru'); setFlipped(false); }}>{subj.dirs[1]}</button>
         </div>
       </div>
       <div className="bar" style={{ marginTop: 10 }}><span style={{ width: `${(i / deck.length) * 100}%` }} /></div>
@@ -117,7 +128,7 @@ export function FlashSession({ studentId, onDone }) {
       </button>
 
       <div className="flash-actions">
-        <button className="btn btn-quiet btn-sm" onClick={() => speak(`${w.term}. ${w.example || ''}`)}><Icon name="sound" /> Послушать</button>
+        {canSpeak() ? <button className="btn btn-quiet btn-sm" onClick={() => speak(`${w.term}. ${w.example || ''}`)}><Icon name="sound" /> Послушать</button> : <span />}
         <div className="row" style={{ gap: 8 }}>
           <button className="btn btn-secondary" onClick={() => answer(false)}>Ещё учу</button>
           <button className="btn" onClick={() => answer(true)}>Знаю</button>
@@ -163,7 +174,7 @@ export function VocabList({ items, tutor, onChanged }) {
           {shown.map((w) => (
             <tr key={w.id}>
               <td>
-                <button className="icon-btn" aria-label="Послушать" onClick={() => speak(w.term)}><Icon name="sound" size={16} /></button>
+                {canSpeak() && <button className="icon-btn" aria-label="Послушать" onClick={() => speak(w.term)}><Icon name="sound" size={16} /></button>}
               </td>
               <td className="vocab-term">
                 <span className="serif">{w.term}</span>
@@ -218,24 +229,25 @@ export function parseWordLines(text) {
     .filter((w) => w.term);
 }
 
-export function AddWordsModal({ studentId, onClose, onSaved }) {
+export function AddWordsModal({ studentId, subject, onClose, onSaved }) {
   const toast = useToast();
+  const subj = useSubject(subject);
   const [text, setText] = useState('');
   const words = parseWordLines(text);
   const save = useSubmit(async () => {
-    if (!words.length) throw new Error('Добавьте хотя бы одно слово');
+    if (!words.length) throw new Error('Добавьте хотя бы одну строку');
     const r = await api.addWords(studentId, words);
-    toast(r.added === r.total ? `Добавлено: ${r.added}` : `Добавлено: ${r.added}, остальные уже были в словаре`);
+    toast(r.added === r.total ? `Добавлено: ${r.added}` : `Добавлено: ${r.added}, остальные уже были`);
     onSaved();
   });
   return (
-    <Modal title="Добавить слова" onClose={onClose} wide>
+    <Modal title={subj.isLang ? 'Добавить слова' : 'Добавить термины'} onClose={onClose} wide>
       <form className="form" onSubmit={save.submit}>
-        <Field label="По одному на строку" hint="Слово — перевод — пример. Перевод и пример можно не писать">
+        <Field label="По одному на строку" hint={subj.addHint}>
           <textarea className="textarea" style={{ minHeight: 200, fontFamily: 'inherit' }} value={text} onChange={(e) => setText(e.target.value)}
-            placeholder={'keen on — увлекаться — She is very keen on music.\nproud of — гордиться\nget on well with — ладить с'} autoFocus />
+            placeholder={subj.isLang ? 'keen on — увлекаться — She is very keen on music.\nproud of — гордиться\nget on well with — ладить с' : 'Гипотенуза — сторона против прямого угла\nДискриминант — b² − 4ac\nВалентность — число связей атома'} autoFocus />
         </Field>
-        {words.length > 0 && <div className="small muted">Будет добавлено: {wordsWord(words.length)}</div>}
+        {words.length > 0 && <div className="small muted">Будет добавлено: {wordsWord(words.length, subj.item)}</div>}
         {save.error && <div className="alert">{save.error}</div>}
         <div className="modal-actions">
           <button type="button" className="btn btn-secondary" onClick={onClose}>Отмена</button>

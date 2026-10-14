@@ -1,5 +1,8 @@
 // pages/tutor/modals.jsx — формы преподавателя в модальных окнах
 import { useState } from 'react';
+import SubjectInput from '../../components/SubjectInput';
+import { subjectInfo } from '../../subjects';
+import { useAuth } from '../../auth';
 import { api } from '../../api';
 import { Modal, Field, useSubmit, useToast, useLoad, Badge, Icon } from '../../ui';
 import {
@@ -277,6 +280,8 @@ export function LessonModal({ lesson, onClose, onSaved }) {
    Ученик: создать / изменить карточку
    ============================================================ */
 export function StudentModal({ student, onClose, onSaved }) {
+  const { user } = useAuth();
+  const subj = subjectInfo(student?.subject || user.subject);
   const toast = useToast();
   const [f, setF] = useState({
     full_name: student?.full_name || '',
@@ -284,6 +289,7 @@ export function StudentModal({ student, onClose, onSaved }) {
     level: student?.level || '',
     goal: student?.goal || '',
     textbook: student?.textbook || '',
+    subject: student?.subject || '',
     default_price: student?.default_price ?? 1500,
     default_duration: student?.default_duration ?? 60,
     board_link: student?.board_link || '',
@@ -300,6 +306,7 @@ export function StudentModal({ student, onClose, onSaved }) {
       level: orNull(f.level),
       goal: orNull(f.goal),
       textbook: orNull(f.textbook),
+      subject: orNull(f.subject) && f.subject.trim() !== user.subject ? f.subject.trim() : null,
       default_price: Number(f.default_price) || 0,
       default_duration: Number(f.default_duration) || 60,
       board_link: orNull(f.board_link),
@@ -331,14 +338,17 @@ export function StudentModal({ student, onClose, onSaved }) {
         </div>
         <div className="form-row">
           <Field label="Уровень">
-            <input className="input" value={f.level} placeholder="A2" onChange={(e) => setF({ ...f, level: e.target.value })} />
+            <input className="input" value={f.level} placeholder={subj.placeholders.level} onChange={(e) => setF({ ...f, level: e.target.value })} />
           </Field>
           <Field label="Учебник">
-            <input className="input" value={f.textbook} placeholder="Speakout A1" onChange={(e) => setF({ ...f, textbook: e.target.value })} />
+            <input className="input" value={f.textbook} placeholder={subj.placeholders.textbook} onChange={(e) => setF({ ...f, textbook: e.target.value })} />
           </Field>
         </div>
+        <Field label="Предмет" hint={`Если пусто: ${user.subject}`}>
+          <SubjectInput value={f.subject} onChange={(v) => setF({ ...f, subject: v })} placeholder={user.subject} />
+        </Field>
         <Field label="Цель" hint="Видят ученик и родитель">
-          <input className="input" value={f.goal} placeholder="Экзамен по юридическому английскому" onChange={(e) => setF({ ...f, goal: e.target.value })} />
+          <input className="input" value={f.goal} placeholder={subj.placeholders.goal} onChange={(e) => setF({ ...f, goal: e.target.value })} />
         </Field>
         <div className="form-row">
           <Field label="Цена разового занятия, ₽">
@@ -652,7 +662,7 @@ export function TopicsModal({ studentId, onClose, onSaved }) {
       <form className="form" onSubmit={submit}>
         <div className="form-row">
           <Field label="Раздел">
-            <input className="input" value={f.section} placeholder="Speakout A1, Unit 3" onChange={(e) => setF({ ...f, section: e.target.value })} />
+            <input className="input" value={f.section} placeholder="Раздел учебника или программы" onChange={(e) => setF({ ...f, section: e.target.value })} />
           </Field>
           <Field label="Навык">
             <select className="select" value={f.skill} onChange={(e) => setF({ ...f, skill: e.target.value })}>

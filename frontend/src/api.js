@@ -132,6 +132,7 @@ export const api = {
 
   // Библиотека
   library: (params) => request('GET', `/library${qs(params || {})}`),
+  setSubject: (subject) => request('PUT', '/auth/subject', { subject }),
   libraryFacets: () => request('GET', '/library/facets'),
   libraryItem: (id) => request('GET', `/library/${id}`),
   libraryBatch: (ids) => (ids?.length ? request('GET', `/library/batch${qs({ ids: ids.join(',') })}`) : Promise.resolve([])),

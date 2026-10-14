@@ -1,5 +1,7 @@
 // pages/tutor/StudentPage.jsx — карточка ученика с вкладками
 import { useState } from 'react';
+import { subjectInfo } from '../../subjects';
+import { useAuth } from '../../auth';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Link, navigate, PassMarks, Bar, useToast } from '../../ui';
 import {
@@ -27,6 +29,7 @@ const TABS = [
 export default function StudentPage({ id, tab }) {
   const student = useLoad(() => api.student(id), [id]);
   const [editing, setEditing] = useState(false);
+  const { user } = useAuth();
 
   if (student.loading) return <Spinner />;
   if (student.error) return <ErrorBox error={student.error} onRetry={student.reload} />;
@@ -90,7 +93,7 @@ export default function StudentPage({ id, tab }) {
         {TABS.map((t) => (
           <button key={t.key} role="tab" aria-selected={tab === t.key} className={tab === t.key ? 'active' : ''}
             onClick={() => navigate(`/students/${id}/${t.key}`)}>
-            {t.label}
+            {t.key === 'words' ? subjectInfo(s.subject || user.subject).vocabTitle : t.label}
           </button>
         ))}
       </div>

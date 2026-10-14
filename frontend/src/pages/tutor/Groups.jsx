@@ -84,7 +84,7 @@ function GroupModal({ group, onClose, onSaved }) {
       <form className="form" onSubmit={save.submit}>
         <div className="form-row">
           <Field label="Название"><input className="input" value={f.name} onChange={set('name')} placeholder="Мини-группа, 3 класс" required autoFocus /></Field>
-          <Field label="Уровень"><input className="input" value={f.level} onChange={set('level')} placeholder="A1" /></Field>
+          <Field label="Уровень"><input className="input" value={f.level} onChange={set('level')} placeholder="Уровень или класс" /></Field>
         </div>
         <div className="form-row">
           <Field label="Цена с ученика за занятие"><input className="input" type="number" min={0} step={50} value={f.default_price} onChange={set('default_price')} placeholder="900" /></Field>

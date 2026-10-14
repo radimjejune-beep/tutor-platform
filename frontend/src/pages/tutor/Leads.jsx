@@ -35,7 +35,7 @@ export default function Leads() {
       <div className="page-head">
         <div>
           <h1 className="page-title">Заявки</h1>
-          <div className="lead">С вашей страницы записи: тест уровня и контакты новых учеников.</div>
+          <div className="lead">С вашей страницы записи: контакты новых учеников и результат теста, если он был.</div>
         </div>
         <Link to="/settings/page" className="btn btn-secondary"><Icon name="settings" /> Страница записи</Link>
       </div>

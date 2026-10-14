@@ -44,14 +44,20 @@ export default function Join({ login }) {
             <h1 className="join-title">{t.full_name}</h1>
             {t.about && <p className="join-about">{t.about}</p>}
             {t.price_text && <p className="join-price">{t.price_text}</p>}
-            <div className="join-steps">
-              <div><b>1</b><span>Тест уровня, 20 вопросов, 5–7 минут. Можно пропустить</span></div>
-              <div><b>2</b><span>Имя и контакт, чтобы договориться о пробном занятии</span></div>
-            </div>
-            <div className="row wrap" style={{ gap: 10 }}>
-              <button className="btn" style={{ height: 48 }} onClick={() => setStep('test')}>Пройти тест уровня</button>
-              <button className="btn btn-secondary" style={{ height: 48 }} onClick={() => setStep('form')}>Сразу оставить заявку</button>
-            </div>
+            {test?.length ? (
+              <>
+                <div className="join-steps">
+                  <div><b>1</b><span>Тест уровня, {test.length} вопросов, 5–7 минут. Можно пропустить</span></div>
+                  <div><b>2</b><span>Имя и контакт, чтобы договориться о пробном занятии</span></div>
+                </div>
+                <div className="row wrap" style={{ gap: 10 }}>
+                  <button className="btn" style={{ height: 48 }} onClick={() => setStep('test')}>Пройти тест уровня</button>
+                  <button className="btn btn-secondary" style={{ height: 48 }} onClick={() => setStep('form')}>Сразу оставить заявку</button>
+                </div>
+              </>
+            ) : (
+              <button className="btn" style={{ height: 48, marginTop: 8 }} onClick={() => setStep('form')}>Записаться на пробное занятие</button>
+            )}
           </>
         )}
 

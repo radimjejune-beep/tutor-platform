@@ -59,8 +59,8 @@ router.post(
   asyncHandler(async (req, res) => {
     const b = req.body;
     const { rows } = await query(
-      `INSERT INTO courses (title, subject, level, description, tutor_id) VALUES ($1, COALESCE($2, 'Английский язык'), $3, $4, $5) RETURNING *`,
-      [b.title, b.subject || null, b.level || null, b.description || null, req.user.id]
+      `INSERT INTO courses (title, subject, level, description, tutor_id) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [b.title, b.subject || req.user.subject, b.level || null, b.description || null, req.user.id]
     );
     res.status(201).json(rows[0]);
   })

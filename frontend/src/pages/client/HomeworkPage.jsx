@@ -7,6 +7,7 @@ import { QuizForm } from '../../components/Quiz';
 import VocabPractice from '../../components/VocabPractice';
 import { linkLabel, AssignmentTasks } from '../tutor/Assignments';
 import { shortDate, relativeDay, time, HW_STATUS, todayISO } from '../../format';
+import { useSubject } from '../../subjects';
 
 export default function HomeworkPage({ id, isParent }) {
   const hw = useLoad(() => api.homeworkItem(id), [id]);
@@ -165,10 +166,11 @@ function HomeworkView({ h, isParent, reload }) {
 function PracticeBlock({ h, canEdit, isParent, reload }) {
   const [run, setRun] = useState(false);
   const r = h.vocab_result;
+  const subj = useSubject();
   return (
     <section style={{ marginTop: 24 }}>
       <div className="row-between" style={{ marginBottom: 12 }}>
-        <h2 className="section-title">Отработка слов</h2>
+        <h2 className="section-title">{subj.isLang ? 'Отработка слов' : 'Отработка терминов'}</h2>
         {r && <span className="muted small">{r.correct} из {r.total}</span>}
       </div>
       {run ? (
@@ -176,8 +178,8 @@ function PracticeBlock({ h, canEdit, isParent, reload }) {
       ) : (
         <div className="panel words-hero">
           <div style={{ minWidth: 0 }}>
-            <div className="serif" style={{ fontSize: 26, fontWeight: 500 }}>{h.vocab_practice.count} слов из вашего словаря</div>
-            <div className="small muted">Выбрать перевод, написать слово, вставить в предложение, узнать на слух.</div>
+            <div className="serif" style={{ fontSize: 26, fontWeight: 500 }}>{h.vocab_practice.count} {subj.isLang ? 'слов из вашего словаря' : 'терминов из вашего списка'}</div>
+            <div className="small muted">{subj.isLang ? 'Выбрать перевод, написать слово, вставить в предложение, узнать на слух.' : 'Выбрать определение, написать термин, вставить в предложение.'}</div>
           </div>
           {canEdit && !isParent && (
             <button className="btn" onClick={() => setRun(true)}><Icon name="play" /> {r ? 'Пройти ещё раз' : 'Начать'}</button>
