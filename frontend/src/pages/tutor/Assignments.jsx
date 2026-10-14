@@ -1,6 +1,8 @@
 // pages/tutor/Assignments.jsx — задания в стиле Google Classroom:
 // список → редактор → страница задания → проверка работы ученика
 import { useState } from 'react';
+import Materials, { UploadArea, Comments } from '../../components/Materials';
+import { SheetContext } from '../../games/Sheet';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Link, Field, navigate, useToast, useSubmit } from '../../ui';
 import { FileList, FileUploadButton } from '../../components/Files';
@@ -138,10 +140,10 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
               <textarea className="textarea" style={{ minHeight: 140 }} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })}
                 placeholder="Что сделать и как сдать: например, сфотографировать страницу тетради" />
             </Field>
-            <Field label="Ссылки" hint="Холст, Wordwall, видео — каждая с новой строки">
+            <Field label="Ссылки" hint="Каждая с новой строки. YouTube откроется прямо в задании">
               <textarea className="textarea" style={{ minHeight: 64 }} value={f.links} onChange={(e) => setF({ ...f, links: e.target.value })} />
             </Field>
-            <Field label="Материалы" hint="PDF, фото страниц, аудио — до 10 МБ каждый">
+            <Field label="Материалы" hint="Аудирование, фото страниц, PDF, видео">
               {isNew ? (
                 <>
                   {pendingFiles.length > 0 && (
@@ -157,13 +159,13 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
                       ))}
                     </div>
                   )}
-                  <FileUploadButton upload={async (file) => file} onUploaded={(file) => setPendingFiles((p) => [...p, file])} />
+                  <UploadArea upload={async (file) => file} onUploaded={(file) => setPendingFiles((p) => [...p, file])} />
                 </>
               ) : (
                 <>
-                  <FileList files={assignment.files} canDelete={() => true} onDeleted={onFilesChanged} />
+                  <Materials files={assignment.files} canDelete={() => true} onDeleted={onFilesChanged} />
                   <div style={{ marginTop: assignment.files.length ? 10 : 0 }}>
-                    <FileUploadButton upload={(file) => api.uploadFile({ assignment_id: assignment.id }, file)} onUploaded={onFilesChanged} />
+                    <UploadArea upload={(file) => api.uploadFile({ assignment_id: assignment.id }, file)} onUploaded={onFilesChanged} />
                   </div>
                 </>
               )}
@@ -287,12 +289,7 @@ export function AssignmentPage({ id }) {
           </div>
 
           {d.description && <p className="instructions" style={{ marginTop: 0 }}>{d.description}</p>}
-          {d.links.length > 0 && (
-            <div className="row wrap" style={{ gap: 8, margin: '14px 0' }}>
-              {d.links.map((url) => <a key={url} className="btn btn-secondary btn-sm" href={url} target="_blank" rel="noreferrer">{linkLabel(url)}</a>)}
-            </div>
-          )}
-          {d.files.length > 0 && <div style={{ margin: '18px 0' }}><FileList files={d.files} /></div>}
+          {(d.files.length > 0 || d.links.length > 0) && <div style={{ margin: '18px 0' }}><Materials files={d.files} links={d.links} /></div>}
 
           {d.library_item_ids?.length > 0 && <AssignmentTasks ids={d.library_item_ids} showPrivate />}
 
@@ -412,7 +409,7 @@ function ReviewForm({ hw, assignment, items, results, reload }) {
           {hw.student_answer ? <p className="instructions" style={{ marginTop: 0 }}>{hw.student_answer}</p> : <p className="muted" style={{ marginTop: 0 }}>Без текста</p>}
 
           <h2 className="section-title" style={{ margin: '22px 0 10px' }}>Файлы ученика</h2>
-          <FileList files={hw.attachments} empty={<p className="muted" style={{ margin: 0 }}>Файлов нет</p>} />
+          {hw.attachments.length ? <Materials files={hw.attachments} /> : <p className="muted" style={{ margin: 0 }}>Файлов нет</p>}
 
           <GameResultsPanel items={items} results={results} />
 
@@ -463,6 +460,7 @@ function ReviewForm({ hw, assignment, items, results, reload }) {
             <button type="button" className="btn btn-secondary" disabled={sendBack.busy} onClick={sendBack.submit}>Вернуть на доработку</button>
           )}
           {next && <div className="small muted">Следующая работа: {next.student_name}</div>}
+          <Comments homeworkId={hw.id} />
         </aside>
       </div>
     </>
@@ -487,13 +485,15 @@ export function AssignmentTasks({ ids, showPrivate, homework, canPlay }) {
   return (
     <section style={{ marginTop: 22 }}>
       <h2 className="section-title" style={{ marginBottom: 12 }}>{hasGames ? 'Задачи и упражнения' : 'Задачи'}</h2>
-      <div className="stack" style={{ gap: 12 }}>
-        {items.map((it, i) => (
-          <LibraryItem key={it.id} item={it} index={i} showPrivate={showPrivate}
-            onGameFinish={canPlay && homework ? save(it.id) : undefined}
-            gameExtra={homework ? <ResultLine results={map[it.id]} who={canPlay ? 'Ваш' : 'Лучший'} /> : null} />
-        ))}
-      </div>
+      <SheetContext.Provider value={{ homeworkId: canPlay && homework ? homework.id : null }}>
+        <div className="stack" style={{ gap: 12 }}>
+          {items.map((it, i) => (
+            <LibraryItem key={it.id} item={it} index={i} showPrivate={showPrivate}
+              onGameFinish={canPlay && homework ? save(it.id) : undefined}
+              gameExtra={homework ? <ResultLine results={map[it.id]} who={canPlay ? 'Ваш' : 'Лучший'} /> : null} />
+          ))}
+        </div>
+      </SheetContext.Provider>
     </section>
   );
 }

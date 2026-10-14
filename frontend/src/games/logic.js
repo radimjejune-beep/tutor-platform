@@ -5,6 +5,7 @@ export const GAME_TYPES = {
   order: { label: 'Собери предложение', hint: 'Слова перемешаны — нужно поставить их по порядку' },
   gaps: { label: 'Вставь пропуск', hint: 'Текст с пропусками: вписать или выбрать слово' },
   groups: { label: 'Распредели по группам', hint: 'Разложить слова по категориям' },
+  sheet: { label: 'Лист с заданиями', hint: 'Из фото учебника или тетради: поля для ответов, выбор, аудио, ответ голосом' },
 };
 
 export function shuffle(arr) {
@@ -83,10 +84,48 @@ export function grade(game, answers = {}) {
         details.push({ ok: cg === gi, given: cg === null ? null : game.groups[cg]?.name ?? null, expected: grp.name, prompt: item });
       });
     });
+  } else if (game.type === 'sheet') {
+    return gradeSheet(game, answers);
   }
   const total = details.length;
   const correct = details.filter((d) => d.ok).length;
   return { correct, total, score: total ? Math.round((correct / total) * 100) : 0, details };
+}
+
+// Лист: то же, что на сервере (развёрнутые и устные ответы проверяет преподаватель)
+export const alts = (a) => String(a || '').split('|').map((x) => x.trim()).filter(Boolean);
+export function gradeSheet(game, answers = {}) {
+  const given = answers.b || {};
+  const details = [];
+  game.blocks.forEach((b, i) => {
+    const a = given[i];
+    if (b.t === 'gaps') {
+      parseGaps(b.text).gaps.forEach((opts, k) => {
+        const g = Array.isArray(a) ? a[k] : '';
+        details.push({ block: i, k, ok: opts.some((o) => normalize(o) === normalize(g)), given: g || null, expected: opts.join(' / ') });
+      });
+    } else if (b.t === 'page') {
+      b.fields.forEach((f, k) => {
+        const opts = alts(f.a);
+        const g = Array.isArray(a) ? a[k] : '';
+        if (!opts.length) return details.push({ block: i, k, ok: null, manual: true });
+        details.push({ block: i, k, ok: opts.some((o) => normalize(o) === normalize(g)), given: g || null, expected: opts.join(' / ') });
+      });
+    } else if (b.t === 'choice') {
+      const j = a === undefined || a === null || a === '' ? null : Number(a);
+      details.push({ block: i, ok: j === b.correct, given: j === null ? null : b.options[j], expected: b.options[b.correct] });
+    } else if (b.t === 'open' || b.t === 'voice') {
+      details.push({ block: i, ok: null, manual: true });
+    }
+  });
+  const auto = details.filter((d) => !d.manual);
+  const correct = auto.filter((d) => d.ok).length;
+  return { correct, total: auto.length, score: auto.length ? Math.round((correct / auto.length) * 100) : 0, details, manual: details.length - auto.length };
+}
+
+// Сколько всего ответов ждёт лист (для прогресса и подписи)
+export function sheetSize(game) {
+  return game.blocks.reduce((n, b) => n + (b.t === 'gaps' ? parseGaps(b.text).gaps.length : b.t === 'page' ? b.fields.length : ['choice', 'open', 'voice'].includes(b.t) ? 1 : 0), 0);
 }
 
 // Сколько заданий в упражнении (для подписи в списке)
@@ -96,5 +135,6 @@ export function gameSize(game) {
   if (game.type === 'order') return game.sentences.length;
   if (game.type === 'gaps') return parseGaps(game.text).gaps.length;
   if (game.type === 'groups') return game.groups.reduce((n, g) => n + g.items.length, 0);
+  if (game.type === 'sheet') return sheetSize(game);
   return 0;
 }

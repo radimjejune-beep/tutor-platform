@@ -64,7 +64,7 @@ router.post(
 
     // Упражнение проверяет сервер. HTML-урок проверяет себя сам и присылает итог
     const g = item.kind === 'game' ? grade(item.game, b.answers) : htmlResult(b.answers);
-    if (!g.total) return res.status(400).json({ error: 'В результате урока нет ни одного задания' });
+    if (!g.total && !g.manual) return res.status(400).json({ error: 'В результате нет ни одного задания' });
     const { rows: saved } = await query(
       `INSERT INTO game_results (item_id, student_id, user_id, homework_id, lesson_id, correct, total, score, details, duration_sec)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, score, correct, total, created_at`,

@@ -237,6 +237,8 @@ export const api = {
     return res.blob();
   },
   deleteFile: (id) => request('DELETE', `/files/${id}`),
+  homeworkComments: (id) => request('GET', `/homework/${id}/comments`),
+  addHomeworkComment: (id, body) => request('POST', `/homework/${id}/comments`, { body }),
 
   // Прогресс и отчёты
   progress: (studentId) => request('GET', `/progress/students/${studentId}`),

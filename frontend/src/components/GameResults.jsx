@@ -1,5 +1,6 @@
 // components/GameResults.jsx — результаты упражнений
 import { relativeDay, time } from '../format';
+import { FileAudio } from '../games/Sheet';
 
 // Сгруппировать результаты по упражнению: { [item_id]: [новые первыми] }
 export function byItem(results = []) {
@@ -17,9 +18,9 @@ export function ResultLine({ results, who = 'Ваш' }) {
   const last = results[0];
   return (
     <div className="result-line">
-      <span className={`result-pill ${best.score === 100 ? 'perfect' : ''}`}>{best.correct}/{best.total}</span>
+      <span className={`result-pill ${best.total && best.score === 100 ? 'perfect' : ''}`}>{best.total ? `${best.correct}/${best.total}` : 'сдано'}</span>
       <span>
-        {who} лучший результат — {best.score}%. Попыток: {results.length}, последняя {when(last.created_at)}
+        {best.total ? `${who} лучший результат: ${best.score}%. ` : ''}Попыток: {results.length}, последняя {when(last.created_at)}
       </span>
     </div>
   );
@@ -37,13 +38,25 @@ export function GameResultsPanel({ items, results }) {
         {games.map((g) => {
           const rs = map[g.id] || [];
           const last = rs[0];
-          const mistakes = last ? (last.details || []).filter((d) => !d.ok) : [];
+          const mistakes = last ? (last.details || []).filter((d) => d.ok === false) : [];
+          const manual = last ? (last.details || []).filter((d) => d.manual) : [];
           return (
             <div key={g.id} className="lib-card" style={{ padding: '16px 18px' }}>
               <div className="row-between" style={{ gap: 12 }}>
                 <div className="list-title">{g.title}</div>
                 {rs.length ? <ResultLine results={rs} who="Лучший" /> : <span className="small muted">Не проходил</span>}
               </div>
+              {manual.length > 0 && (
+                <div className="manual-answers">
+                  <div className="small muted">Ответы на проверку, последняя попытка:</div>
+                  {manual.map((d, i) => (
+                    <div key={i} className="manual-answer">
+                      <div className="small"><b>{d.prompt}</b></div>
+                      {d.file_id ? <FileAudio id={d.file_id} /> : <div className="manual-text">{d.given || <span className="muted">без ответа</span>}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
               {mistakes.length > 0 && (
                 <div className="small" style={{ marginTop: 10 }}>
                   <div className="muted" style={{ marginBottom: 4 }}>Ошибки в последней попытке:</div>
@@ -69,7 +82,7 @@ export function GameResultsPanel({ items, results }) {
 export function averageBest(items, results) {
   const map = byItem(results);
   const scores = items
-    .filter((i) => i.kind === 'game' && map[i.id]?.length)
-    .map((i) => Math.max(...map[i.id].map((r) => r.score)));
+    .filter((i) => i.kind === 'game' && map[i.id]?.some((r) => r.total))
+    .map((i) => Math.max(...map[i.id].filter((r) => r.total).map((r) => r.score)));
   return scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
 }

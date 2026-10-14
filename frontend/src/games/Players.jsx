@@ -4,6 +4,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { GAME_TYPES, grade, parseGaps, shuffle, shuffleChanged, tokenize } from './logic';
 import { Icon } from '../ui';
+import { SheetBoard, sheetProgress } from './Sheet';
 
 /* ============================================================
    Обёртка: заголовок, кнопка «Проверить», итог, «Ещё раз»
@@ -26,7 +27,7 @@ function Round({ game, onFinish, footer, onRetry }) {
   const [saveError, setSaveError] = useState('');
   const checked = Boolean(result);
 
-  const Board = { match: MatchBoard, order: OrderBoard, gaps: GapsBoard, groups: GroupsBoard }[game.type];
+  const Board = { match: MatchBoard, order: OrderBoard, gaps: GapsBoard, groups: GroupsBoard, sheet: SheetBoard }[game.type];
   if (!Board) return null;
 
   const check = async () => {
@@ -56,9 +57,10 @@ function Round({ game, onFinish, footer, onRetry }) {
       {checked ? (
         <div className={`game-result ${result.score === 100 ? 'perfect' : ''}`}>
           <div>
-            <div className="game-score num">{result.correct} из {result.total}</div>
+            <div className="game-score num">{result.total ? `${result.correct} из ${result.total}` : 'Отправлено'}</div>
             <div className="small">
-              {result.score === 100 ? 'Всё верно!' : result.score >= 70 ? 'Хорошо, ошибки отмечены.' : 'Посмотрите ошибки и попробуйте ещё раз.'}
+              {!result.total ? '' : result.score === 100 ? 'Всё верно!' : result.score >= 70 ? 'Хорошо, ошибки отмечены.' : 'Посмотрите ошибки и попробуйте ещё раз.'}
+              {result.manual ? ' Развёрнутые и устные ответы проверит преподаватель.' : ''}
               {onFinish && (saving ? ' Сохраняем…' : saveError ? ` Не сохранилось: ${saveError}` : ' Результат сохранён.')}
             </div>
           </div>
@@ -66,7 +68,7 @@ function Round({ game, onFinish, footer, onRetry }) {
         </div>
       ) : (
         <div className="game-foot">
-          <button type="button" className="btn" onClick={check}>Проверить</button>
+          <button type="button" className="btn" onClick={check}>{game.type === 'sheet' ? 'Сдать и проверить' : 'Проверить'}</button>
           {!onFinish && <span className="small muted">Тренировка — результат не сохраняется</span>}
         </div>
       )}
@@ -79,6 +81,7 @@ function progressText(game, answers) {
   if (game.type === 'match') return `Соединено ${Object.keys(answers.pairs || {}).length} из ${game.pairs.length}`;
   if (game.type === 'order') return `Собрано ${(answers.sentences || []).filter((s, i) => s?.length === tokenize(game.sentences[i]).length).length} из ${game.sentences.length}`;
   if (game.type === 'gaps') return `Заполнено ${(answers.gaps || []).filter(Boolean).length} из ${parseGaps(game.text).gaps.length}`;
+  if (game.type === 'sheet') return sheetProgress(game, answers);
   if (game.type === 'groups') {
     const total = game.groups.reduce((n, g) => n + g.items.length, 0);
     return `Разложено ${Object.keys(answers.items || {}).length} из ${total}`;

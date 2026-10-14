@@ -3,12 +3,14 @@
 import { useState } from 'react';
 import { Field, Icon } from '../ui';
 import { GAME_TYPES, parseGaps } from './logic';
+import { SheetEditor } from './Sheet';
 
 export const EMPTY_GAME = {
   match: { type: 'match', pairs: [{ a: '', b: '' }, { a: '', b: '' }, { a: '', b: '' }] },
   order: { type: 'order', sentences: [] },
   gaps: { type: 'gaps', text: '', mode: 'type', distractors: [] },
   groups: { type: 'groups', groups: [{ name: '', items: [] }, { name: '', items: [] }] },
+  sheet: { type: 'sheet', blocks: [{ t: 'text', text: '' }] },
 };
 
 // Выбор типа для нового упражнения
@@ -31,9 +33,11 @@ const ILLUSTRATION = {
   order: (<><i>to</i><i>I</i><i>go</i></>),
   gaps: (<><i>She</i><u /><i>here</i></>),
   groups: (<><i>go</i><i>play</i><b>|</b><i>see</i></>),
+  sheet: (<><i>1.</i><u /><i>фото</i></>),
 };
 
-export default function GameEditor({ game, onChange }) {
+export default function GameEditor({ game, onChange, itemId }) {
+  if (game.type === 'sheet') return <SheetEditor game={game} onChange={onChange} itemId={itemId} />;
   if (game.type === 'match') return <MatchEditor game={game} onChange={onChange} />;
   if (game.type === 'order') return <OrderEditor game={game} onChange={onChange} />;
   if (game.type === 'gaps') return <GapsEditor game={game} onChange={onChange} />;
@@ -181,5 +185,16 @@ function GroupsEditor({ game, onChange }) {
 export function cleanGame(game) {
   if (game.type === 'match') return { ...game, pairs: game.pairs.map((p) => ({ a: p.a.trim(), b: p.b.trim() })).filter((p) => p.a && p.b) };
   if (game.type === 'groups') return { ...game, groups: game.groups.map((g) => ({ name: g.name.trim(), items: g.items })).filter((g) => g.name) };
+  if (game.type === 'sheet') {
+    const blocks = game.blocks
+      .map((b) => {
+        if (b.t !== 'choice') return b;
+        const keep = b.options.map((o, j) => ({ o: o.trim(), j })).filter((x) => x.o);
+        const correct = Math.max(0, keep.findIndex((x) => x.j === b.correct));
+        return { ...b, options: keep.map((x) => x.o), correct };
+      })
+      .filter((b) => !(b.t === 'gaps' && !b.text.trim()));
+    return { ...game, blocks: blocks.length ? blocks : [{ t: 'text', text: '' }] };
+  }
   return game;
 }

@@ -82,6 +82,16 @@ function FavStar({ item, onChanged }) {
   );
 }
 
+// Лист с заданиями создаётся сразу: к нему прикрепляются фото и аудио
+async function createSheet(title) {
+  try {
+    const created = await api.createLibraryItem({ kind: 'game', title: (title || '').trim() || 'Лист с заданиями', game: EMPTY_GAME.sheet });
+    navigate(`/library/${created.id}`);
+  } catch (err) {
+    window.alert(err.message);
+  }
+}
+
 /* ============================================================
    Список
    ============================================================ */
@@ -107,6 +117,7 @@ export function LibraryPage({ kind = 'task' }) {
         </div>
         <div className="row" style={{ gap: 8 }}>
           <ImportButton onDone={() => { list.reload(); facets.reload(); }} />
+          {kind !== 'theory' && <button className="btn btn-secondary" onClick={() => createSheet()}><Icon name="layers" /> Лист из фото</button>}
           <Link to={`/library/new?kind=${kind}`} className="btn"><Icon name="plus" /> {NEW_LABEL[kind]}</Link>
         </div>
       </div>
@@ -313,7 +324,7 @@ function EditorForm({ item, presetKind, facets, reload }) {
             </Field>
             {f.kind === 'game' && !f.game && (
               <Field label="Тип упражнения">
-                <GameTypePicker onPick={(type) => setF({ ...f, game: EMPTY_GAME[type] })} />
+                <GameTypePicker onPick={(type) => (type === 'sheet' && isNew ? createSheet(f.title) : setF({ ...f, game: EMPTY_GAME[type] }))} />
               </Field>
             )}
             {f.kind === 'game' && f.game && (
@@ -322,7 +333,7 @@ function EditorForm({ item, presetKind, facets, reload }) {
                   <span className="game-type">{GAME_TYPES[f.game.type].label}</span>
                   {isNew && <button type="button" className="btn btn-quiet btn-sm" onClick={() => setF({ ...f, game: null })}>Другой тип</button>}
                 </div>
-                <GameEditor key={f.game.type} game={f.game} onChange={(game) => setF({ ...f, game })} />
+                <GameEditor key={f.game.type} game={f.game} itemId={item?.id} onChange={(game) => setF({ ...f, game })} />
               </div>
             )}
             {f.kind === 'html' && <HtmlUpload f={f} setF={setF} />}

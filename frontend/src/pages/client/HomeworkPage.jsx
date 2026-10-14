@@ -2,10 +2,10 @@
 import { useState } from 'react';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Badge, Icon, Link, Field, useToast, useSubmit } from '../../ui';
-import { FileList, FileUploadButton } from '../../components/Files';
+import Materials, { UploadArea, Comments } from '../../components/Materials';
 import { QuizForm } from '../../components/Quiz';
 import VocabPractice from '../../components/VocabPractice';
-import { linkLabel, AssignmentTasks } from '../tutor/Assignments';
+import { AssignmentTasks } from '../tutor/Assignments';
 import { shortDate, relativeDay, time, HW_STATUS, todayISO } from '../../format';
 import { useSubject } from '../../subjects';
 
@@ -55,15 +55,9 @@ function HomeworkView({ h, isParent, reload }) {
           </div>
 
           {h.description && <p className="instructions" style={{ marginTop: 0 }}>{h.description}</p>}
-          {h.links.length > 0 && (
-            <div className="row wrap" style={{ gap: 8, margin: '14px 0' }}>
-              {h.links.map((url) => <a key={url} className="btn btn-secondary btn-sm" href={url} target="_blank" rel="noreferrer">{linkLabel(url)}</a>)}
-            </div>
-          )}
-          {h.materials.length > 0 && (
+          {(h.materials.length > 0 || h.links.length > 0) && (
             <div style={{ margin: '18px 0' }}>
-              <div className="small muted" style={{ marginBottom: 8 }}>Материалы</div>
-              <FileList files={h.materials} />
+              <Materials files={h.materials} links={h.links} />
             </div>
           )}
 
@@ -118,21 +112,13 @@ function HomeworkView({ h, isParent, reload }) {
             <div className="note" style={{ marginBottom: 14 }}>Преподаватель вернул на доработку: {h.tutor_feedback}</div>
           )}
 
-          <FileList
-            files={h.attachments}
-            canDelete={(f) => canEdit && f.uploaded_by !== null}
-            onDeleted={reload}
-            empty={!canEdit && <p className="muted small" style={{ marginTop: 0 }}>Файлов нет</p>}
-          />
+          {h.attachments.length > 0 ? (
+            <Materials files={h.attachments} canDelete={(f) => canEdit && f.uploaded_by !== null} onDeleted={reload} />
+          ) : !canEdit && <p className="muted small" style={{ marginTop: 0 }}>Файлов нет</p>}
 
           {canEdit ? (
             <div className="form" style={{ marginTop: 12 }}>
-              <FileUploadButton
-                label="Добавить файл или фото"
-                className="btn btn-secondary"
-                upload={(file) => api.uploadFile({ homework_id: h.id }, file)}
-                onUploaded={reload}
-              />
+              <UploadArea upload={(file) => api.uploadFile({ homework_id: h.id }, file)} onUploaded={reload} hint="Фото тетради, запись голоса, файлы" />
               <Field label="Ответ или комментарий">
                 <textarea className="textarea" value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="Можно написать ответы здесь или прикрепить фото тетради" />
               </Field>
@@ -156,6 +142,7 @@ function HomeworkView({ h, isParent, reload }) {
               )}
             </>
           )}
+          <Comments homeworkId={h.id} />
         </aside>
       </div>
     </>

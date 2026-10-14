@@ -206,4 +206,47 @@ router.delete(
   })
 );
 
+// ------------------------------------------------------------
+// Личные комментарии к работе: видят ученик, его родители и преподаватель
+// ------------------------------------------------------------
+router.get(
+  '/:id/comments',
+  asyncHandler(async (req, res) => {
+    const hw = await loadHomework(req.user, Number(req.params.id));
+    if (!hw) return res.status(404).json({ error: 'Работа не найдена' });
+    const { rows } = await query(
+      `SELECT c.id, c.body, c.created_at, c.user_id, u.full_name, u.role
+         FROM homework_comments c LEFT JOIN users u ON u.id = c.user_id
+        WHERE c.homework_id = $1 ORDER BY c.created_at, c.id`,
+      [hw.id]
+    );
+    res.json(rows.map((r) => ({ ...r, mine: r.user_id === req.user.id })));
+  })
+);
+
+router.post(
+  '/:id/comments',
+  validateBody(z.object({ body: z.string().trim().min(1, 'Пустой комментарий').max(5000) }).strict()),
+  asyncHandler(async (req, res) => {
+    const hw = await loadHomework(req.user, Number(req.params.id));
+    if (!hw) return res.status(404).json({ error: 'Работа не найдена' });
+    const { rows } = await query(
+      'INSERT INTO homework_comments (homework_id, user_id, body) VALUES ($1, $2, $3) RETURNING id, body, created_at, user_id',
+      [hw.id, req.user.id, req.body.body]
+    );
+    const preview = req.body.body.slice(0, 300);
+    if (req.user.role === 'tutor') {
+      notify.toStudent(hw.student_id, { kind: 'homework_comment', title: `Комментарий к заданию: ${hw.title}`, body: preview, link: `/homework/${hw.id}` });
+    } else {
+      notify.toTutor(req.user.tid, {
+        kind: 'homework_comment',
+        title: `${req.user.full_name}: комментарий к заданию`,
+        body: `${hw.title}. ${preview}`,
+        link: `/homework/${hw.assignment_id}/review/${hw.id}`,
+      });
+    }
+    res.status(201).json({ ...rows[0], full_name: req.user.full_name, role: req.user.role, mine: true });
+  })
+);
+
 module.exports = router;

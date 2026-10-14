@@ -4,10 +4,36 @@
 //   order  — собери предложение:    { sentences: ['I have never been to London.'] }
 //   gaps   — вставь пропуск:        { text: 'She [has|'s] lived here [since] 2010.', mode: 'type' | 'bank', distractors: [] }
 //   groups — распредели по группам: { groups: [{ name, items: [] }] }
+//   sheet  — лист с заданиями (из фото учебника или тетради): { blocks: [...] }
+//            text   — инструкция или текст:   { t: 'text', text, image?, audio? }
+//            gaps   — пропуски в тексте:       { t: 'gaps', text: 'She [goes|is going] home.', audio? }
+//            choice — выбор ответа:            { t: 'choice', q, options: [], correct: 0, audio? }
+//            open   — развёрнутый ответ:       { t: 'open', q }          (проверяет преподаватель)
+//            voice  — ответ голосом:           { t: 'voice', q }         (проверяет преподаватель)
+//            page   — фото с полями поверх:    { t: 'page', image, fields: [{ x, y, w, h, a: 'ответ|вариант' }] }
+//            image и audio — id файлов, прикреплённых к этому материалу
 const { z } = require('zod');
 const { normalize } = require('./quiz');
 
 const word = z.string().trim().min(1).max(200);
+
+const fileId = z.number().int().positive();
+const pct = z.number().min(0).max(100);
+const sheetBlock = z.discriminatedUnion('t', [
+  z.object({ t: z.literal('text'), text: z.string().max(5000).default(''), image: fileId.nullish(), audio: fileId.nullish() }).strict(),
+  z.object({ t: z.literal('gaps'), text: z.string().trim().min(1, 'Пустой блок с пропусками').max(5000), audio: fileId.nullish() }).strict(),
+  z.object({
+    t: z.literal('choice'), q: z.string().trim().max(1000).default(''),
+    options: z.array(z.string().trim().min(1).max(300)).min(2, 'В вопросе с выбором нужно минимум 2 варианта').max(8),
+    correct: z.number().int().min(0).max(7), audio: fileId.nullish(),
+  }).strict(),
+  z.object({ t: z.literal('open'), q: z.string().trim().max(2000).default(''), audio: fileId.nullish() }).strict(),
+  z.object({ t: z.literal('voice'), q: z.string().trim().max(2000).default(''), audio: fileId.nullish() }).strict(),
+  z.object({
+    t: z.literal('page'), image: fileId,
+    fields: z.array(z.object({ x: pct, y: pct, w: pct, h: pct, a: z.string().trim().max(300).default('') }).strict()).max(80),
+  }).strict(),
+]);
 
 const gameSchema = z.discriminatedUnion('type', [
   z.object({
@@ -35,6 +61,10 @@ const gameSchema = z.discriminatedUnion('type', [
       .min(2, 'Нужно минимум 2 группы')
       .max(5)
       .refine((gs) => gs.reduce((n, g) => n + g.items.length, 0) >= 2, 'Добавьте слова в группы'),
+  }).strict(),
+  z.object({
+    type: z.literal('sheet'),
+    blocks: z.array(sheetBlock).min(1, 'Добавьте хотя бы одно задание').max(80),
   }).strict(),
 ]);
 
@@ -85,10 +115,49 @@ function grade(game, answers = {}) {
         details.push({ ok: cg === gi, given: cg === null ? null : game.groups[cg]?.name ?? null, expected: grp.name, prompt: item });
       });
     });
+  } else if (game.type === 'sheet') {
+    return gradeSheet(game, answers);
   }
   const total = details.length;
   const correct = details.filter((d) => d.ok).length;
   return { correct, total, score: total ? Math.round((correct / total) * 100) : 0, details };
 }
 
-module.exports = { gameSchema, grade, parseGaps };
+// Лист: пропуски, выбор и поля на фото проверяются сами; развёрнутые и устные ответы
+// сохраняются для преподавателя (ok: null) и в оценку не входят
+const alts = (a) => String(a || '').split('|').map((x) => x.trim()).filter(Boolean);
+function gradeSheet(game, answers = {}) {
+  const given = answers.b || {};
+  const details = [];
+  const short = (v) => (v === undefined || v === null || v === '' ? null : String(v).slice(0, 300));
+  game.blocks.forEach((b, i) => {
+    const a = given[i];
+    if (b.t === 'gaps') {
+      parseGaps(b.text).gaps.forEach((opts, k) => {
+        const g = Array.isArray(a) ? a[k] : '';
+        details.push({ block: i, k, ok: opts.some((o) => normalize(o) === normalize(g)), given: short(g), expected: opts.join(' / ') });
+      });
+    } else if (b.t === 'page') {
+      b.fields.forEach((f, k) => {
+        const opts = alts(f.a);
+        const g = Array.isArray(a) ? a[k] : '';
+        // Поле без ответа проверяет преподаватель
+        if (!opts.length) return details.push({ block: i, field: k, k, ok: null, manual: true, prompt: `Поле ${k + 1}`, given: short(g) });
+        details.push({ block: i, field: k, k, ok: opts.some((o) => normalize(o) === normalize(g)), given: short(g), expected: opts.join(' / ') });
+      });
+    } else if (b.t === 'choice') {
+      const j = a === undefined || a === null || a === '' ? null : Number(a);
+      details.push({ block: i, ok: j === b.correct, given: j === null ? null : b.options[j] ?? null, expected: b.options[b.correct], prompt: b.q || null });
+    } else if (b.t === 'open') {
+      details.push({ block: i, ok: null, manual: true, prompt: b.q || 'Развёрнутый ответ', given: a ? String(a).slice(0, 5000) : null });
+    } else if (b.t === 'voice') {
+      details.push({ block: i, ok: null, manual: true, prompt: b.q || 'Ответ голосом', file_id: Number(a) || null });
+    }
+  });
+  const auto = details.filter((d) => !d.manual);
+  const correct = auto.filter((d) => d.ok).length;
+  const total = auto.length;
+  return { correct, total, score: total ? Math.round((correct / total) * 100) : 0, details, manual: details.length - auto.length };
+}
+
+module.exports = { gameSchema, sheetBlock, grade, parseGaps };
