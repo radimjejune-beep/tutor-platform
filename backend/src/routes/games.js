@@ -6,6 +6,7 @@ const { requireRole, canAccessStudent, accessibleStudentIds } = require('../midd
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { grade } = require('../services/games');
 const { addWords, wordsFromMistakes } = require('../services/vocab');
+const { POINTS, addPoints } = require('../services/points');
 const { visibleTaskIds } = require('./library');
 
 const router = express.Router();
@@ -78,6 +79,7 @@ router.post(
     } catch (err) {
       console.error('Словарь: не удалось добавить слова из ошибок:', err.message);
     }
+    await addPoints(b.student_id, g.correct * POINTS.gameCorrect);
     console.log(`📝 Упражнение #${item.id}: ученик #${b.student_id}, ${g.correct}/${g.total}`);
     res.status(201).json({ ...saved[0], details: g.details, vocab_added: vocabAdded });
   })

@@ -52,6 +52,8 @@ app.use('/api/auth', require('./routes/auth'));
 
 // Юридические документы открыты всем (ссылки со страницы входа)
 app.use('/api/legal/public', require('./routes/legal').publicRouter);
+// Страница записи для новых учеников — тоже без входа
+app.use('/api/public', require('./routes/leads').publicRouter);
 
 // Всё остальное — только после входа и смены временного пароля
 const protectedApi = express.Router();
@@ -75,6 +77,9 @@ protectedApi.use('/vocab', require('./routes/vocab'));
 protectedApi.use('/notifications', require('./routes/notifications'));
 protectedApi.use('/groups', require('./routes/groups'));
 protectedApi.use('/admin', require('./routes/admin'));
+protectedApi.use('/motivation', require('./routes/motivation'));
+protectedApi.use('/leads', require('./routes/leads').router);
+protectedApi.use('/market', require('./routes/market'));
 app.use('/api', protectedApi);
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Не найдено' }));

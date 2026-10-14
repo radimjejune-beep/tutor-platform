@@ -6,6 +6,7 @@ const { query } = require('../db');
 const { requireRole, canAccessStudent, accessibleStudentIds, requireOwn } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { addWords, review } = require('../services/vocab');
+const { POINTS, addPoints } = require('../services/points');
 const { buildUpdate } = require('../utils');
 
 const router = express.Router();
@@ -104,6 +105,7 @@ router.post(
       .object({
         student_id: z.number().int().positive(),
         homework_id: z.number().int().positive().optional(),
+        lesson_id: z.number().int().positive().optional(), // разминка перед этим уроком
         results: z.array(z.object({ id: z.number().int().positive(), ok: z.boolean() }).strict()).min(1).max(60),
       })
       .strict()
@@ -113,17 +115,27 @@ router.post(
     if (!(await canAccessStudent(req.user, b.student_id))) return res.status(404).json({ error: 'Ученик не найден' });
     const seen = new Set();
     let correct = 0;
+    const missed = [];
     for (const r of b.results) {
       if (seen.has(r.id)) continue;
       seen.add(r.id);
-      const { rows } = await query('SELECT 1 FROM vocab_items WHERE id = $1 AND student_id = $2', [r.id, b.student_id]);
+      const { rows } = await query('SELECT term FROM vocab_items WHERE id = $1 AND student_id = $2', [r.id, b.student_id]);
       if (!rows[0]) continue;
       await review({ query }, r.id, r.ok);
       if (r.ok) correct++;
+      else missed.push(rows[0].term);
     }
-    const result = { correct, total: seen.size, at: new Date().toISOString() };
-    if (b.homework_id && req.user.role !== 'tutor') {
-      await query('UPDATE homework SET vocab_result = $1 WHERE id = $2 AND student_id = $3', [JSON.stringify(result), b.homework_id, b.student_id]);
+    const result = { correct, total: seen.size, missed: missed.slice(0, 20), at: new Date().toISOString() };
+    if (req.user.role !== 'tutor') {
+      if (b.homework_id) {
+        await query('UPDATE homework SET vocab_result = $1 WHERE id = $2 AND student_id = $3', [JSON.stringify(result), b.homework_id, b.student_id]);
+      }
+      if (b.lesson_id) {
+        await query("UPDATE lessons SET warmup_result = $1 WHERE id = $2 AND student_id = $3 AND status = 'scheduled'", [
+          JSON.stringify(result), b.lesson_id, b.student_id,
+        ]);
+      }
+      await addPoints(b.student_id, correct * POINTS.practiceCorrect);
     }
     res.json(result);
   })
@@ -137,7 +149,9 @@ router.post(
     const id = Number(req.params.id);
     const { rows } = await query('SELECT student_id FROM vocab_items WHERE id = $1', [id]);
     if (!rows[0] || !(await canAccessStudent(req.user, rows[0].student_id))) return res.status(404).json({ error: 'Слово не найдено' });
-    res.json(await review({ query }, id, req.body.known));
+    const updated = await review({ query }, id, req.body.known);
+    if (req.user.role !== 'tutor') await addPoints(rows[0].student_id, POINTS.review);
+    res.json(updated);
   })
 );
 

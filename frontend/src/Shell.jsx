@@ -16,6 +16,7 @@ export const TUTOR_NAV = [
   { to: '/library', label: 'Библиотека', short: 'Библ.', icon: 'library' },
   { to: '/courses', label: 'Курсы', icon: 'layers', hideMobile: true },
   { to: '/finance', label: 'Доход', icon: 'wallet', hideMobile: true },
+  { to: '/market', label: 'Каталог', icon: 'grid', hideMobile: true },
   { to: '/settings', label: 'Настройки', short: 'Ещё', icon: 'settings' },
 ];
 

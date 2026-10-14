@@ -2,8 +2,8 @@
 // отметка, итог для родителей, заметка для себя, ДЗ по юниту и переход к следующему юниту
 import { useState } from 'react';
 import { api } from '../api';
-import { Modal, Field, useSubmit, useToast, useLoad } from '../ui';
-import { dayKey } from '../format';
+import { Modal, Field, Icon, useSubmit, useToast, useLoad } from '../ui';
+import { dayKey, dayMonth, time, weekday, cap } from '../format';
 
 const STATUSES = [
   ['done', 'Проведено'],
@@ -32,6 +32,10 @@ export default function FinishLessonModal({ lesson, unit, onClose, onDone }) {
   );
   const defaultDue = next.data ? dayKey(next.data.starts_at) : dayKey(new Date(Date.now() + 7 * 864e5));
   const done = status === 'done';
+  const tg = useLoad(() => api.telegramStatus().catch(() => null), []);
+  const tgOn = Boolean(tg.data?.enabled);
+  const [sendTg, setSendTg] = useState(!lesson.summary_sent_at);
+  const parentText = parentMessage({ lesson, topic, summary, homework: done && homework, due: due || defaultDue });
 
   const save = useSubmit(async () => {
     const r = await api.finishLesson(lesson.id, {
@@ -46,6 +50,14 @@ export default function FinishLessonModal({ lesson, unit, onClose, onDone }) {
     const parts = [done ? 'Урок отмечен' : 'Сохранено'];
     if (r.assignment) parts.push('ДЗ выдано');
     if (r.next_unit) parts.push(`дальше ${unitLabel(r.next_unit)}`);
+    if (done && tgOn && sendTg && (summary.trim() || topic.trim())) {
+      try {
+        const t = await api.sendLessonSummary(lesson.id);
+        parts.push(t.sent.length ? `итоги в Telegram: ${t.sent.join(', ')}` : 'родители ещё не подключили Telegram');
+      } catch (err) {
+        parts.push(`итоги не отправлены: ${err.message}`);
+      }
+    }
     toast(parts.join(', '));
     onDone(r);
   });
@@ -72,6 +84,27 @@ export default function FinishLessonModal({ lesson, unit, onClose, onDone }) {
             </Field>
           </>
         )}
+        {done && (summary.trim() || topic.trim()) && (
+          <div className="parent-send">
+            <div className="meta-label">Родителям</div>
+            {tgOn && (
+              <label className="check">
+                <input type="checkbox" checked={sendTg} onChange={(e) => setSendTg(e.target.checked)} />
+                <span>Отправить итоги в Telegram{lesson.summary_sent_at ? ' ещё раз' : ''}</span>
+              </label>
+            )}
+            <div className="row wrap" style={{ gap: 6 }}>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={async () => {
+                try { await navigator.clipboard.writeText(parentText); toast('Текст скопирован: вставьте в WhatsApp, MAX или любой чат'); }
+                catch { toast('Не получилось скопировать', 'error'); }
+              }}><Icon name="note" /> Скопировать текст</button>
+              <a className="btn btn-secondary btn-sm" href={`https://wa.me/?text=${encodeURIComponent(parentText)}`} target="_blank" rel="noreferrer">WhatsApp</a>
+              <a className="btn btn-secondary btn-sm" href={`https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${encodeURIComponent(parentText)}`} target="_blank" rel="noreferrer">Telegram</a>
+            </div>
+            {!tgOn && <div className="small muted">Чтобы итоги уходили сами, подключите Telegram-бота в настройках.</div>}
+          </div>
+        )}
+
         <Field label="Заметка для себя" hint="Видите только вы. Покажется перед следующим уроком">
           <textarea className="textarea" style={{ minHeight: 72 }} value={notes} onChange={(e) => setNotes(e.target.value)}
             placeholder="Путает about и of. Начать с повторения." />
@@ -109,4 +142,15 @@ export default function FinishLessonModal({ lesson, unit, onClose, onDone }) {
       </form>
     </Modal>
   );
+}
+
+// Готовое сообщение родителям: для мессенджеров, где нет бота
+export function parentMessage({ lesson, topic, summary, homework, due }) {
+  const d = new Date(lesson.starts_at);
+  const lines = [`Итоги урока: ${lesson.student_name || ''}`.trim(), `${cap(weekday(d))}, ${dayMonth(d)}, ${time(d)}`];
+  if (topic?.trim()) lines.push('', `Тема: ${topic.trim()}`);
+  if (summary?.trim()) lines.push('', summary.trim());
+  if (homework) lines.push('', `Домашнее задание в личном кабинете${due ? `, срок ${dayMonth(new Date(`${due}T12:00:00`))}` : ''}.`);
+  lines.push('', `Личный кабинет: ${window.location.origin}`);
+  return lines.join('\n');
 }

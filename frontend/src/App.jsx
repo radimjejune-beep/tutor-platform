@@ -14,6 +14,10 @@ import { TheoryList, TheoryView } from './pages/client/Theory';
 import { CoursesList, CourseEditor } from './pages/tutor/Courses';
 import { GroupsList, GroupPage } from './pages/tutor/Groups';
 import Words from './pages/client/Words';
+import Join from './pages/Join';
+import Leads from './pages/tutor/Leads';
+import Pricing from './pages/tutor/Pricing';
+import { MarketPage } from './pages/tutor/Market';
 
 import TutorDashboard from './pages/tutor/Dashboard';
 import TutorSchedule from './pages/tutor/Schedule';
@@ -48,6 +52,8 @@ function Root() {
 
   // Документы открываются и без входа
   if (path.startsWith('/legal/')) return <LegalPage kind={path.split('/')[2]} tutor={params.get('t') || undefined} />;
+  // Страница записи репетитора открывается без входа
+  if (path.startsWith('/join/')) return <Join login={decodeURIComponent(path.split('/')[2] || '')} />;
   if (session === undefined) return <Spinner />;
   if (!session) return path === '/register' ? <Register /> : <Login />;
   if (user.must_change_password) return <ChangePassword forced />;
@@ -86,7 +92,10 @@ function TutorApp({ path, params }) {
   else if (parts[0] === 'homework' && parts[2] === 'review' && parts[3]) page = <ReviewPage assignmentId={Number(parts[1])} homeworkId={Number(parts[3])} />;
   else if (parts[0] === 'homework' && parts[1]) page = <AssignmentPage id={Number(parts[1])} />;
   else if (parts[0] === 'homework') page = <AssignmentsList />;
+  else if (parts[0] === 'finance' && parts[1] === 'pricing') page = <Pricing />;
   else if (parts[0] === 'finance') page = <Finance />;
+  else if (parts[0] === 'leads') page = <Leads />;
+  else if (parts[0] === 'market') page = <MarketPage key={parts[1] || 'all'} tab={parts[1] === 'mine' ? 'mine' : 'all'} />;
   else if (parts[0] === 'settings') page = <Settings tab={parts[1] || 'booking'} />;
   else if (parts[0] === 'library' && parts[1] === 'new') page = <LibraryEditor key={`new-${params.get('kind')}`} presetKind={params.get('kind') || 'task'} />;
   else if (parts[0] === 'library' && /^\d+$/.test(parts[1] || '')) page = <LibraryEditor key={parts[1]} id={Number(parts[1])} />;

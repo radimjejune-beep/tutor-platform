@@ -4,6 +4,7 @@ import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Link, PassMarks, Bar } 
 import { CONTACT_URL } from '../../config';
 import { callService } from '../LessonRoom';
 import TelegramCard from '../../components/TelegramCard';
+import { MotivationCard, WarmupBanner } from '../../components/Motivation';
 import { time, dayMonth, relativeDay, rub, shortDate, monthName, lessonsWord, HW_STATUS, plural } from '../../format';
 
 export default function ClientHome({ student, isParent }) {
@@ -27,6 +28,9 @@ export default function ClientHome({ student, isParent }) {
           <div className="lead">{[s.student.level, s.unit ? `${s.unit.course_title}, ${[s.unit.code, s.unit.title].filter(Boolean).join(' ')}` : s.student.textbook].filter(Boolean).join(', ') || 'Английский язык'}{s.student.goal ? `. ${s.student.goal}` : ''}</div>
         </div>
       </div>
+
+      <WarmupBanner lesson={next} studentId={student.id} onDone={dash.reload} />
+      <MotivationCard studentId={student.id} compact />
 
       {s.vocab?.due > 0 && (
         <Link to="/words" className="words-strip">

@@ -17,7 +17,7 @@ const FILE_META = 'id, filename, mime, size_bytes, uploaded_by, created_at';
 // Поля, которые может видеть ученик (без ответа и заметок преподавателя)
 const PUBLIC_FIELDS = 'id, tutor_id, kind, subject, title, body, exam, exam_task, links, game, html';
 // Для списков: всё, кроме самого HTML-урока (он большой и в списке не нужен)
-const LIST_FIELDS = 'id, kind, subject, title, body, answer, exam, exam_task, tags, tutor_note, links, game, created_at, updated_at';
+const LIST_FIELDS = 'id, kind, subject, title, body, answer, exam, exam_task, tags, tutor_note, links, game, favorite, created_at, updated_at';
 const PUBLIC_LIST_FIELDS = 'id, kind, subject, title, body, exam, exam_task, links, game';
 
 // Какие задачи доступны ученику/родителю: из его уроков и его заданий
@@ -75,8 +75,10 @@ router.get(
           AND ($6::text IS NULL OR title ILIKE '%' || $6::text || '%' OR body ILIKE '%' || $6::text || '%'
                OR tutor_note ILIKE '%' || $6::text || '%')
           AND tutor_id = $7
+          AND ($8::boolean IS NULL OR favorite = $8::boolean)
         ORDER BY subject, exam NULLS LAST, exam_task NULLS LAST, title`,
-      [kind, req.query.subject || null, req.query.exam || null, examTask, req.query.tag || null, (req.query.q || '').trim() || null, req.user.tid]
+      [kind, req.query.subject || null, req.query.exam || null, examTask, req.query.tag || null, (req.query.q || '').trim() || null, req.user.tid,
+        isTutor && req.query.fav === '1' ? true : null]
     );
     res.json(rows);
   })
@@ -139,6 +141,7 @@ const fields = {
   exam_task: z.number().int().min(1).max(50).nullable(),
   tags: z.array(tag).max(20),
   tutor_note: z.string().max(5000).nullable(),
+  favorite: z.boolean(),
   links: z.array(z.string().trim().url().max(1000)).max(10),
   game: gameSchema.nullable(),
   html: z.string().max(3_000_000, 'Файл урока слишком большой (больше 3 МБ)').nullable(),

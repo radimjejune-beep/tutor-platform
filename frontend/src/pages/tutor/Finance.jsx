@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox } from '../../ui';
 import { rub, monthName, plural } from '../../format';
+import { FinanceTabs } from './Pricing';
 
 // Последние 6 месяцев, от старого к новому: ['2026-05', ..., '2026-10']
 function lastMonths(n = 6) {
@@ -34,9 +35,10 @@ export default function Finance() {
       <div className="page-head">
         <div>
           <h1 className="page-title">Доход</h1>
-          <div className="lead">Поступления по дате оплаты, часы — по проведённым занятиям</div>
+          <div className="lead">Поступления по дате оплаты, часы по проведённым занятиям</div>
         </div>
       </div>
+      <FinanceTabs active="income" />
 
       <section className="panel">
         <div className="panel-head"><h2 className="section-title">Полгода</h2></div>

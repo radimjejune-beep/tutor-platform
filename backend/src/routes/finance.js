@@ -219,4 +219,45 @@ router.get(
   })
 );
 
+// ------------------------------------------------------------
+// Советник по цене: сколько реально приносит каждый ученик за 90 дней
+// ------------------------------------------------------------
+router.get(
+  '/pricing',
+  tutorOnly,
+  asyncHandler(async (req, res) => {
+    const { rows } = await query(
+      `SELECT s.id, s.full_name, s.category, s.default_price, s.default_duration,
+              (SELECT ROUND(x.price_total::numeric / x.lessons_total)::int FROM subscriptions x
+                WHERE x.student_id = s.id AND x.status = 'active' ORDER BY x.starts_on DESC LIMIT 1) AS sub_price,
+              (SELECT MIN(f.starts_at) FROM lessons f WHERE f.student_id = s.id AND f.status = 'done') AS first_lesson_at,
+              COUNT(l.id) FILTER (WHERE l.status = 'done')::int AS done_90,
+              COUNT(l.id) FILTER (WHERE l.status IN ('cancelled_late', 'missed'))::int AS lost_90,
+              COUNT(l.id) FILTER (WHERE l.status = 'cancelled')::int AS cancelled_90,
+              COALESCE(SUM(l.duration_min) FILTER (WHERE l.status = 'done'), 0)::int AS minutes_90,
+              COALESCE(ROUND(SUM(CASE WHEN l.subscription_id IS NOT NULL THEN sub.price_total::numeric / sub.lessons_total ELSE l.price END)
+                FILTER (WHERE l.charged)), 0)::int AS income_90
+         FROM students s
+         LEFT JOIN lessons l ON l.student_id = s.id AND l.starts_at > NOW() - INTERVAL '90 days' AND l.starts_at < NOW()
+         LEFT JOIN subscriptions sub ON sub.id = l.subscription_id
+        WHERE s.tutor_id = $1 AND s.status = 'active'
+        GROUP BY s.id
+        ORDER BY s.full_name`,
+      [req.user.id]
+    );
+    const students = rows.map((r) => {
+      const price = r.sub_price ?? r.default_price; // цена одного занятия сейчас
+      const per60 = r.default_duration ? Math.round((price * 60) / r.default_duration) : price;
+      return {
+        ...r,
+        price,
+        price_per_60: per60,
+        lessons_per_month: Math.round((r.done_90 / 3) * 10) / 10,
+        real_per_hour: r.minutes_90 ? Math.round(r.income_90 / (r.minutes_90 / 60)) : null,
+      };
+    });
+    res.json({ students, top_price_per_60: Math.max(0, ...students.map((s) => s.price_per_60)) });
+  })
+);
+
 module.exports = router;

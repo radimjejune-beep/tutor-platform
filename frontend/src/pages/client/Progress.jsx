@@ -2,6 +2,7 @@
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Bar, Link, Badge } from '../../ui';
 import { relativeDay } from '../../format';
+import { MotivationCard } from '../../components/Motivation';
 import { SKILLS, shortDate, monthName, plural } from '../../format';
 
 export default function ClientProgress({ student }) {
@@ -27,6 +28,7 @@ export default function ClientProgress({ student }) {
           <div className="lead">Всё, что уже получилось: слова, упражнения, задания и курс. Обновляется само после каждого урока и задания.</div>
         </div>
       </div>
+      <MotivationCard studentId={student.id} />
       <Achievements d={d} />
       <MonthSummaries studentId={student.id} />
       <div className="grid grid-main">

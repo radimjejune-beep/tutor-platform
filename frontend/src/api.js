@@ -180,6 +180,30 @@ export const api = {
   cancelGroupLesson: (id, starts_at) => request('POST', `/groups/${id}/lessons/cancel`, { starts_at }),
   finishGroupLesson: (id, data) => request('POST', `/groups/${id}/lessons/finish`, data),
 
+  // Мотивация
+  motivation: (student_id) => request('GET', `/motivation${qs({ student_id })}`),
+  league: () => request('GET', '/motivation/league'),
+
+  // Страница записи и заявки
+  publicTutor: (login) => request('GET', `/public/tutors/${encodeURIComponent(login)}`),
+  sendLead: (login, data) => request('POST', `/public/tutors/${encodeURIComponent(login)}/leads`, data),
+  profile: () => request('GET', '/leads/profile'),
+  saveProfile: (data) => request('PUT', '/leads/profile', data),
+  leads: () => request('GET', '/leads'),
+  updateLead: (id, status) => request('PATCH', `/leads/${id}`, { status }),
+  convertLead: (id) => request('POST', `/leads/${id}/convert`),
+  deleteLead: (id) => request('DELETE', `/leads/${id}`),
+
+  // Цена и каталог
+  pricing: () => request('GET', '/finance/pricing'),
+  market: () => request('GET', '/market'),
+  marketMine: () => request('GET', '/market/mine'),
+  publishItem: (data) => request('POST', '/market', data),
+  unpublishItem: (id) => request('DELETE', `/market/${id}`),
+  getMarketItem: (id) => request('POST', `/market/${id}/get`),
+  grantOrder: (id) => request('POST', `/market/orders/${id}/grant`),
+  declineOrder: (id) => request('POST', `/market/orders/${id}/decline`),
+
   // Уведомления
   notifications: () => request('GET', '/notifications'),
   unreadCount: () => request('GET', '/notifications/unread'),

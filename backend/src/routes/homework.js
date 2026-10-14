@@ -7,6 +7,7 @@ const { validateBody, asyncHandler } = require('../middleware/validate');
 const { grade, hideAnswers } = require('../services/quiz');
 const { buildUpdate } = require('../utils');
 const notify = require('../services/notify');
+const { POINTS, addPoints } = require('../services/points');
 
 const router = express.Router();
 const tutorOnly = requireRole('tutor');
@@ -119,6 +120,11 @@ router.post(
       [req.body.student_answer || null, answers ? JSON.stringify(answers) : null, g ? g.score : null, hw.id]
     );
     console.log(`📝 Работа #${hw.id} сдана${g ? `, тест ${g.score}%` : ''}`);
+    // Очки только за первую сдачу (повторная после «отменить отправку» не считается)
+    if (!hw.submitted_at) {
+      const { rows: t } = await query('SELECT CURRENT_DATE::text AS d');
+      await addPoints(hw.student_id, POINTS.homework + (!hw.due_on || t[0].d <= hw.due_on ? POINTS.homeworkOnTime : 0));
+    }
     const { rows: info } = await query(
       'SELECT s.full_name, a.title FROM homework h JOIN students s ON s.id = h.student_id JOIN assignments a ON a.id = h.assignment_id WHERE h.id = $1',
       [hw.id]

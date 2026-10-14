@@ -901,3 +901,88 @@ kbd { font-family: var(--sans); font-size: 11px; color: var(--muted); border: 1p
   .window-day { grid-template-columns: 1fr; gap: 8px; }
   .month-stats { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ============================================================
+   v8: мотивация, разминка, лига
+   ============================================================ */
+.motiv { border: 1px solid var(--line); background: var(--surface); border-radius: var(--r-panel); padding: 20px 22px; margin-bottom: 20px; }
+.motiv-stats { display: flex; flex-wrap: wrap; gap: 14px 40px; }
+.motiv-stats > div { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.motiv-stats b { font-size: 40px; font-weight: 500; line-height: 1; }
+.motiv-stats span { color: var(--ink-2); font-size: 14px; }
+.motiv-days { display: grid; grid-template-columns: repeat(14, 1fr); gap: 4px; margin-top: 16px; max-width: 420px; }
+.motiv-days i { height: 10px; border-radius: 2px; background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line); }
+.motiv-days i.on { background: var(--ink); box-shadow: none; }
+.motiv-league { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+.motiv-league ol, .league-list { list-style: none; margin: 8px 0 10px; padding: 0; }
+.motiv-league li, .league-list li { display: grid; grid-template-columns: 28px 1fr auto auto; gap: 10px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.motiv-league li.me { font-weight: 600; }
+.lg-rank { font-family: var(--serif); font-size: 20px; color: var(--muted); }
+.lg-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.lg-pts { font-weight: 600; }
+.warmup { display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid var(--ink); border-radius: var(--r-panel); padding: 16px 20px; margin-bottom: 20px; background: var(--surface); }
+.warmup > div { display: flex; flex-direction: column; gap: 2px; }
+.warmup-title { font-size: 26px; line-height: 1.15; }
+.practice-opt.chosen { border-color: var(--ink); background: var(--ink); color: var(--bg); }
+
+/* ============================================================
+   v8: страница записи и заявки
+   ============================================================ */
+.join { min-height: 100vh; background: var(--bg); display: flex; justify-content: center; padding: 48px 16px 64px; }
+.join-wrap { width: 100%; max-width: 620px; }
+.join-brand { font-family: var(--serif); font-size: 22px; letter-spacing: .02em; margin-bottom: 48px; }
+.join-title { font-family: var(--serif); font-weight: 500; font-size: clamp(40px, 7vw, 60px); line-height: 1.02; margin: 6px 0 16px; }
+.join-about { font-size: 17px; color: var(--ink-2); white-space: pre-line; margin: 0 0 12px; }
+.join-price { font-size: 15px; color: var(--ink); margin: 0 0 24px; padding-left: 12px; border-left: 2px solid var(--ink); }
+.join-steps { display: grid; gap: 12px; margin: 0 0 28px; }
+.join-steps > div { display: flex; gap: 14px; align-items: baseline; }
+.join-steps b { font-family: var(--serif); font-size: 26px; font-weight: 500; width: 20px; }
+.join-test, .join-form, .join-done { margin-top: 8px; }
+.join-q { font-size: clamp(24px, 4.5vw, 32px); line-height: 1.2; margin: 24px 0 20px; }
+.join-sub { font-size: 32px; font-weight: 500; margin: 0 0 6px; }
+.join-level { font-size: 72px; line-height: 1; margin: 8px 0 4px; }
+.share-link { border: 1px dashed var(--line-strong); border-radius: var(--r-panel); padding: 14px 16px; margin: 16px 0; display: grid; gap: 8px; }
+.share-link code { font-size: 14px; background: var(--surface-2); padding: 8px 10px; border-radius: 4px; }
+.lead-row { display: flex; gap: 16px; align-items: flex-start; padding: 16px 0; border-bottom: 1px solid var(--line); }
+.lead-row:last-child { border-bottom: 0; }
+.lead-level { font-size: 30px; width: 48px; flex: none; line-height: 1; color: var(--ink); }
+
+/* ============================================================
+   v8: цены и каталог
+   ============================================================ */
+.price-hero { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r-panel); overflow: hidden; margin-bottom: 20px; }
+.price-hero > div { background: var(--surface); padding: 18px 20px; display: flex; flex-direction: column; gap: 6px; }
+.price-hero b { font-size: 38px; font-weight: 500; line-height: 1.05; }
+.price-input { max-width: 150px; }
+.table-scroll { overflow-x: auto; }
+.price-table td, .price-table th { white-space: nowrap; padding-left: 10px; padding-right: 10px; }
+.price-table th { font-size: 10.5px; }
+@media (max-width: 1280px) { .price-hero { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.price-table .ok-row { color: var(--muted); }
+.market-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.market-card { border: 1px solid var(--line); background: var(--surface); border-radius: var(--r-panel); padding: 18px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.market-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.market-price { font-size: 22px; }
+
+/* ============================================================
+   v9: избранные задачи, быстрые кнопки, итоги родителям
+   ============================================================ */
+.fav-filter { background: var(--surface); color: var(--ink-2); border: 1px solid var(--line-strong); }
+.fav-filter.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.fav-star { border: 0; background: none; padding: 6px; margin: -6px 0; color: var(--line-strong); cursor: pointer; flex: none; display: inline-flex; border-radius: 50%; }
+.fav-star:hover { color: var(--ink-2); }
+.fav-star.on { color: var(--brass); }
+.fav-star.on svg path { fill: currentColor; }
+.pick-note { display: block; color: #7a5717; }
+.lesson-quick { gap: 6px; flex: none; }
+.parent-send { border: 1px solid var(--line); border-radius: var(--r-panel); padding: 14px 16px; display: grid; gap: 10px; background: var(--surface-2); }
+
+@media (max-width: 760px) {
+  .price-hero { grid-template-columns: 1fr; }
+  .warmup { flex-direction: column; align-items: stretch; }
+  .motiv-stats { gap: 12px 24px; }
+  .motiv-stats b { font-size: 32px; }
+  .join { padding-top: 28px; }
+  .join-brand { margin-bottom: 28px; }
+  .lesson-quick .btn:not([aria-label]) { padding: 0 10px; }
+}

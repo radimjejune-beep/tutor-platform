@@ -11,6 +11,7 @@ export function PeopleTabs({ active }) {
     <div className="tabs" role="tablist">
       <button role="tab" aria-selected={active === 'students'} className={active === 'students' ? 'active' : ''} onClick={() => navigate('/students')}>Ученики</button>
       <button role="tab" aria-selected={active === 'groups'} className={active === 'groups' ? 'active' : ''} onClick={() => navigate('/groups')}>Группы</button>
+      <button role="tab" aria-selected={active === 'leads'} className={active === 'leads' ? 'active' : ''} onClick={() => navigate('/leads')}>Заявки</button>
     </div>
   );
 }

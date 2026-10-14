@@ -9,6 +9,7 @@ import { TaskPicker } from './tutor/Library';
 import { ResultLine, byItem } from '../components/GameResults';
 import { relativeDay, dayMonth, time } from '../format';
 import FinishLessonModal, { unitLabel } from '../components/FinishLesson';
+import { WarmupBanner } from '../components/Motivation';
 
 export function callService(url) {
   if (!url) return null;
@@ -16,6 +17,14 @@ export function callService(url) {
   if (/zoom\./i.test(url)) return 'Zoom';
   if (/meet\.google/i.test(url)) return 'Google Meet';
   return 'Видеозвонок';
+}
+
+// Доски, которые умеют встраиваться: обычную ссылку превращаем в ссылку для встраивания
+export function boardEmbed(url) {
+  if (!url) return url;
+  const miro = url.match(/miro\.com\/app\/board\/([^/?#]+)/);
+  if (miro) return `https://miro.com/app/live-embed/${miro[1]}/`;
+  return url;
 }
 
 export default function LessonRoom({ id }) {
@@ -81,6 +90,8 @@ export default function LessonRoom({ id }) {
         </div>
       </div>
 
+      {!isTutor && <div style={{ marginTop: 20 }}><WarmupBanner lesson={l} studentId={l.student_id} onDone={room.reload} /></div>}
+
       {isTutor && (
         <section className="unit-strip">
           <div style={{ minWidth: 0 }}>
@@ -113,7 +124,7 @@ export default function LessonRoom({ id }) {
           </div>
           {boardOpen && (
             <>
-              <iframe className="board-frame" src={l.board_link} title="Доска" allow="clipboard-read; clipboard-write; fullscreen; microphone; camera" />
+              <iframe className="board-frame" src={boardEmbed(l.board_link)} title="Доска" allow="clipboard-read; clipboard-write; fullscreen; microphone; camera" />
               <div className="small muted" style={{ padding: '8px 18px' }}>
                 Если доска не загрузилась, откройте её кнопкой «Доска в новой вкладке» — некоторые сервисы не разрешают показывать себя внутри других сайтов.
               </div>

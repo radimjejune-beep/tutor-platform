@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Badge, Icon, Field, Link, navigate, useToast, useSubmit } from '../../ui';
 import { fullDate, plural } from '../../format';
+import PageSettings from './PageSettings';
 
 const DAYS = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
 
@@ -12,10 +13,11 @@ export default function Settings({ tab }) {
       <div className="page-head"><h1 className="page-title">Настройки</h1></div>
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'booking'} className={tab === 'booking' ? 'active' : ''} onClick={() => navigate('/settings/booking')}>Запись учеников</button>
+        <button role="tab" aria-selected={tab === 'page'} className={tab === 'page' ? 'active' : ''} onClick={() => navigate('/settings/page')}>Страница записи</button>
         <button role="tab" aria-selected={tab === 'documents'} className={tab === 'documents' ? 'active' : ''} onClick={() => navigate('/settings/documents')}>Документы</button>
         <button role="tab" aria-selected={tab === 'telegram'} className={tab === 'telegram' ? 'active' : ''} onClick={() => navigate('/settings/telegram')}>Telegram</button>
       </div>
-      {tab === 'documents' ? <DocumentsTab /> : tab === 'telegram' ? <TelegramTab /> : <BookingTab />}
+      {tab === 'page' ? <PageSettings /> : tab === 'documents' ? <DocumentsTab /> : tab === 'telegram' ? <TelegramTab /> : <BookingTab />}
     </>
   );
 }

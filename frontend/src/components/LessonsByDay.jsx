@@ -1,5 +1,5 @@
 // components/LessonsByDay.jsx — список занятий, сгруппированный по дням
-import { Badge } from '../ui';
+import { Badge, Icon } from '../ui';
 import { time, dayMonth, relativeDay, dayKey, isToday, LESSON_STATUS } from '../format';
 
 export default function LessonsByDay({ lessons, onOpen, showStudent = true }) {
@@ -40,6 +40,14 @@ export default function LessonsByDay({ lessons, onOpen, showStudent = true }) {
                 </div>
               </div>
               {l.status !== 'scheduled' && <Badge tone={st.tone}>{st.label}</Badge>}
+              {onOpen && l.status === 'scheduled' && (
+                <span className="row lesson-quick" onClick={(e) => e.stopPropagation()}>
+                  {l.join_link && (
+                    <a className="btn btn-secondary btn-sm" href={l.join_link} target="_blank" rel="noreferrer" aria-label="Звонок"><Icon name="video" /></a>
+                  )}
+                  <a className="btn btn-secondary btn-sm" href={`#/lesson/${l.id}`}><Icon name="board" /> Комната</a>
+                </span>
+              )}
             </div>
           );
         })}

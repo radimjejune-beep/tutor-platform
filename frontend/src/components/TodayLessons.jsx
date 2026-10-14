@@ -91,6 +91,19 @@ function TodayCard({ l, current, onFinish, onOpen }) {
               </dd>
             </div>
           )}
+          {scheduled && (
+            <div>
+              <dt>Разминка</dt>
+              <dd>
+                {l.warmup_result ? (
+                  <>
+                    {l.warmup_result.correct} из {l.warmup_result.total}
+                    {l.warmup_result.missed?.length > 0 && <>, ошибки: <b>{l.warmup_result.missed.join(', ')}</b></>}
+                  </>
+                ) : <span className="muted">ещё не сделана (откроется ученику за час до урока)</span>}
+              </dd>
+            </div>
+          )}
           {l.homework?.length > 0 && (
             <div>
               <dt>Задания</dt>

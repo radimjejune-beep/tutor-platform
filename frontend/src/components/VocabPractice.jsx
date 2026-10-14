@@ -42,7 +42,7 @@ const PROMPT = {
   listen: 'Послушайте и выберите слово',
 };
 
-export default function VocabPractice({ studentId, homeworkId, count = 12, onDone }) {
+export default function VocabPractice({ studentId, homeworkId, lessonId, count = 12, onDone }) {
   const toast = useToast();
   const [data, setData] = useState(null);
   const [step, setStep] = useState(0);
@@ -73,6 +73,8 @@ export default function VocabPractice({ studentId, homeworkId, count = 12, onDon
         <p className="muted">
           {final.correct === final.total ? 'Все слова верно!' : 'Слова с ошибками вернутся в повторение уже завтра.'}
           {homeworkId ? ' Результат сохранён в задании.' : ''}
+          {lessonId ? ' Преподаватель увидит результат к началу урока.' : ''}
+          {final.correct > 0 ? ` +${final.correct * 2} очков.` : ''}
         </p>
         <button className="btn btn-secondary" onClick={() => onDone?.(final)}>Готово</button>
       </div>
@@ -93,7 +95,7 @@ export default function VocabPractice({ studentId, homeworkId, count = 12, onDon
     setAnswer('');
     if (step + 1 < tasks.length) return setStep(step + 1);
     try {
-      const r = await api.savePractice({ student_id: studentId, homework_id: homeworkId, results });
+      const r = await api.savePractice({ student_id: studentId, homework_id: homeworkId, lesson_id: lessonId, results });
       setFinal(r);
     } catch (e) {
       toast(e.message, 'error');

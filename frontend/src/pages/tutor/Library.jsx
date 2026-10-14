@@ -5,6 +5,7 @@ import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Field, Link, Modal, nav
 import { FileList, FileUploadButton } from '../../components/Files';
 import HtmlLesson from '../../components/HtmlLesson';
 import LibraryItem, { ItemMeta, examLabel } from '../../components/LibraryItem';
+import { PublishButton } from './Market';
 import GameEditor, { GameTypePicker, EMPTY_GAME, cleanGame } from '../../games/Editors';
 import { GAME_TYPES, gameSize } from '../../games/logic';
 import { relativeDay, dayMonth, time } from '../../format';
@@ -18,7 +19,7 @@ const orNull = (v) => (v && String(v).trim() ? String(v).trim() : null);
    Фильтры (общие для списка и выбора задач)
    ============================================================ */
 function useFilters(kind) {
-  const [f, setF] = useState({ kind, subject: '', exam: '', exam_task: '', tag: '', q: '' });
+  const [f, setF] = useState({ kind, subject: '', exam: '', exam_task: '', tag: '', q: '', fav: false });
   return [f, setF];
 }
 
@@ -26,6 +27,11 @@ function Filters({ f, setF, facets }) {
   return (
     <div className="lib-filters">
       <input className="input" placeholder="Поиск по названию, тексту и заметкам" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} />
+      {f.kind !== 'theory' && (
+        <button type="button" className={`btn btn-sm fav-filter ${f.fav ? 'on' : ''}`} aria-pressed={f.fav} onClick={() => setF({ ...f, fav: !f.fav })}>
+          <Icon name="star" size={16} /> Избранное
+        </button>
+      )}
       {facets.subjects.length > 1 && (
         <select className="select" value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })} aria-label="Предмет">
           <option value="">Все предметы</option>
@@ -50,7 +56,30 @@ function Filters({ f, setF, facets }) {
   );
 }
 
-const loadList = (f) => api.library({ kind: f.kind, subject: f.subject, exam: f.exam, exam_task: f.exam_task, tag: f.tag, q: f.q });
+const loadList = (f) => api.library({ kind: f.kind, subject: f.subject, exam: f.exam, exam_task: f.exam_task, tag: f.tag, q: f.q, fav: f.fav ? 1 : '' });
+
+// Звёздочка: избранные задачи быстро находятся на уроке
+function FavStar({ item, onChanged }) {
+  const toast = useToast();
+  const [on, setOn] = useState(Boolean(item.favorite));
+  const flip = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setOn(!on);
+    try {
+      await api.updateLibraryItem(item.id, { favorite: !on });
+      onChanged?.();
+    } catch (err) {
+      setOn(on);
+      toast(err.message, 'error');
+    }
+  };
+  return (
+    <button type="button" className={`fav-star ${on ? 'on' : ''}`} aria-pressed={on} aria-label={on ? 'Убрать из избранного' : 'В избранное'} onClick={flip}>
+      <Icon name="star" size={18} />
+    </button>
+  );
+}
 
 /* ============================================================
    Список
@@ -58,7 +87,7 @@ const loadList = (f) => api.library({ kind: f.kind, subject: f.subject, exam: f.
 export function LibraryPage({ kind = 'task' }) {
   const [f, setF] = useFilters(kind);
   const facets = useLoad(() => api.libraryFacets(), []);
-  const list = useLoad(() => loadList({ ...f, kind }), [kind, f.subject, f.exam, f.exam_task, f.tag, f.q]);
+  const list = useLoad(() => loadList({ ...f, kind }), [kind, f.subject, f.exam, f.exam_task, f.tag, f.q, f.fav]);
   const [selected, setSelected] = useState(new Set());
   const [toLesson, setToLesson] = useState(false);
 
@@ -105,9 +134,10 @@ export function LibraryPage({ kind = 'task' }) {
         {list.loading && <Spinner />}
         {list.error && <ErrorBox error={list.error} onRetry={list.reload} />}
         {list.data && !list.data.length && (
-          <Empty title={f.q || f.exam || f.tag ? 'Ничего не нашлось' : { task: 'Задачник пуст', game: 'Упражнений пока нет', html: 'Уроков пока нет', theory: 'Теории пока нет' }[kind]}
+          <Empty title={f.fav && !f.q ? 'В избранном пусто' : f.q || f.exam || f.tag ? 'Ничего не нашлось' : { task: 'Задачник пуст', game: 'Упражнений пока нет', html: 'Уроков пока нет', theory: 'Теории пока нет' }[kind]}
             action={<Link to={`/library/new?kind=${kind}`} className="btn">Добавить</Link>}>
-            {kind === 'task' && !f.q && 'Добавляйте задачи с пометками: номер задания ОГЭ/ЕГЭ, теги, заметка для себя.'}
+            {f.fav && 'Нажмите звёздочку у задачи, чтобы она появилась здесь и в выборе задач на уроке.'}
+            {kind === 'task' && !f.q && !f.fav && 'Добавляйте задачи с пометками: номер задания ОГЭ/ЕГЭ, теги, заметка для себя.'}
             {kind === 'html' && !f.q && 'Загрузите готовый HTML-урок (например, тренажёр слов). Его можно открыть на уроке и выдать как ДЗ, результат ученика сохранится сам.'}
             {kind === 'game' && !f.q && 'Найди пару, собери предложение, вставь пропуск, распредели по группам — ученик проходит прямо в кабинете, оценка ставится сама.'}
           </Empty>
@@ -126,6 +156,7 @@ export function LibraryPage({ kind = 'task' }) {
               {i.tutor_note && <div className="list-sub truncate" style={{ color: '#7a5717' }}><Icon name="note" size={13} /> {i.tutor_note}</div>}
             </div>
             {i.files_count > 0 && <Badge>Файлов: {i.files_count}</Badge>}
+            {kind !== 'theory' && <FavStar item={i} onChanged={f.fav ? list.reload : undefined} />}
           </div>
         ))}
       </section>
@@ -257,6 +288,7 @@ function EditorForm({ item, presetKind, facets, reload }) {
           <div className="row" style={{ gap: 6 }}>
             <button className="btn btn-secondary btn-sm" onClick={() => setPreview(!preview)}>{preview ? 'Редактировать' : f.kind === 'game' || f.kind === 'html' ? 'Попробовать' : 'Как увидит ученик'}</button>
             {f.kind !== 'theory' && <Link to={`/homework/new?items=${item.id}`} className="btn btn-secondary btn-sm">Выдать как ДЗ</Link>}
+            <PublishButton item={item} />
           </div>
         )}
       </div>
@@ -344,7 +376,7 @@ function EditorForm({ item, presetKind, facets, reload }) {
             <Field label="Теги" hint={`Через запятую${facets.tags.length ? `. Уже есть: ${facets.tags.slice(0, 8).join(', ')}` : ''}`}>
               <input className="input" value={f.tags} onChange={(e) => setF({ ...f, tags: e.target.value })} placeholder="словообразование, сложное" />
             </Field>
-            <Field label="Заметка для себя" hint="Ученики не видят">
+            <Field label="Комментарий к задаче" hint="Видите только вы: для какого задания, на что обратить внимание">
               <textarea className="textarea" style={{ minHeight: 80 }} value={f.tutor_note} onChange={(e) => setF({ ...f, tutor_note: e.target.value })}
                 placeholder="Пригодится для 13 задания ОГЭ" />
             </Field>
@@ -364,7 +396,7 @@ function EditorForm({ item, presetKind, facets, reload }) {
 export function TaskPicker({ selected, onClose, onPick }) {
   const [f, setF] = useFilters('task,game,html');
   const facets = useLoad(() => api.libraryFacets(), []);
-  const list = useLoad(() => loadList(f), [f.subject, f.exam, f.exam_task, f.tag, f.q]);
+  const list = useLoad(() => loadList(f), [f.subject, f.exam, f.exam_task, f.tag, f.q, f.fav]);
   const [chosen, setChosen] = useState(new Set(selected));
 
   const toggle = (id) => {
@@ -386,9 +418,10 @@ export function TaskPicker({ selected, onClose, onPick }) {
               <span className="list-title" style={{ display: 'block' }}>{i.title}</span>
               <span className="list-sub" style={{ display: 'block' }}>
                 {[i.game && GAME_TYPES[i.game.type]?.label, examLabel(i), ...(i.tags || []).map((t) => `#${t}`)].filter(Boolean).join(' · ') || i.subject}
-                {i.tutor_note ? ` — ${i.tutor_note}` : ''}
               </span>
+              {i.tutor_note && <span className="list-sub pick-note"><Icon name="note" size={13} /> {i.tutor_note}</span>}
             </span>
+            <FavStar item={i} />
           </label>
         ))}
       </div>
