@@ -20,7 +20,7 @@ export function ResultLine({ results, who = 'Ваш' }) {
     <div className="result-line">
       <span className={`result-pill ${best.total && best.score === 100 ? 'perfect' : ''}`}>{best.total ? `${best.correct}/${best.total}` : 'сдано'}</span>
       <span>
-        {best.total ? `${who} лучший результат: ${best.score}%. ` : ''}Попыток: {results.length}, последняя {when(last.created_at)}
+        {best.total ? `${who === 'Лучший' ? 'Лучший результат' : `${who} лучший результат`}: ${best.score}%. ` : ''}Попыток: {results.length}, последняя {when(last.created_at)}
       </span>
     </div>
   );

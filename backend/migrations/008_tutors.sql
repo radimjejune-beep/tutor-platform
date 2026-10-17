@@ -50,7 +50,10 @@ ALTER TABLE legal_documents DROP CONSTRAINT legal_documents_kind_version_key;
 ALTER TABLE legal_documents ADD CONSTRAINT legal_documents_tutor_kind_version_key UNIQUE (tutor_id, kind, version);
 
 -- Настройки записи: ключ «booking:<id репетитора>»
-UPDATE settings SET key = 'booking:' || (SELECT MIN(id) FROM users WHERE role = 'tutor') WHERE key = 'booking';
+UPDATE settings SET key = 'booking:' || (SELECT MIN(id) FROM users WHERE role = 'tutor') WHERE key = 'booking'
+  AND EXISTS (SELECT 1 FROM users WHERE role = 'tutor');
+-- В пустой базе репетиторов ещё нет: общие настройки просто убираем, у каждого будут свои
+DELETE FROM settings WHERE key = 'booking';
 
 -- Регистрация новых репетиторов: включается и выключается сисадмином
 INSERT INTO settings (key, value) VALUES ('registration', '{"open": true}') ON CONFLICT (key) DO NOTHING;

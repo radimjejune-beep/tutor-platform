@@ -17,7 +17,7 @@ async function getProfile(tutorId) {
 }
 
 async function tutorByLogin(login) {
-  const { rows } = await query("SELECT id, login, full_name, subject FROM users WHERE login = $1 AND role = 'tutor' AND is_active", [
+  const { rows } = await query("SELECT id, login, full_name, COALESCE(subject, 'Английский язык') AS subject FROM users WHERE login = $1 AND role = 'tutor' AND is_active", [
     String(login || '').toLowerCase().slice(0, 64),
   ]);
   return rows[0] || null;

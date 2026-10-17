@@ -201,7 +201,7 @@ function VoiceAnswer({ value, disabled, onChange }) {
   }, [rec]);
 
   if (!homeworkId) {
-    return <div className="voice-box muted small">Здесь ученик запишет ответ голосом. Запись работает в домашнем задании.</div>;
+    return <div className="voice-box muted small">Ответ голосом записывается, когда лист выдан как домашнее задание и работа ещё не проверена.</div>;
   }
   if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
     return <div className="voice-box muted small">Этот браузер не умеет записывать звук. Откройте задание в Chrome или Safari.</div>;

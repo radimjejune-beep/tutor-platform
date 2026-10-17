@@ -22,11 +22,24 @@ async function copyItem(client, srcId, buyerId) {
     [srcId, buyerId]
   );
   if (!rows[0]) return null;
-  await client.query(
-    `INSERT INTO files (library_item_id, filename, mime, size_bytes, data, uploaded_by)
-     SELECT $2, filename, mime, size_bytes, data, $3 FROM files WHERE library_item_id = $1`,
-    [srcId, rows[0].id, buyerId]
-  );
+  // Файлы копируются по одному, чтобы знать новые id: в листе с заданиями фото и аудио указаны по id
+  const { rows: files } = await client.query('SELECT id FROM files WHERE library_item_id = $1 ORDER BY id', [srcId]);
+  const map = {};
+  for (const f of files) {
+    const { rows: c } = await client.query(
+      `INSERT INTO files (library_item_id, filename, mime, size_bytes, data, uploaded_by)
+       SELECT $2, filename, mime, size_bytes, data, $3 FROM files WHERE id = $1 RETURNING id`,
+      [f.id, rows[0].id, buyerId]
+    );
+    map[f.id] = c[0].id;
+  }
+  const { rows: g } = await client.query('SELECT game FROM library_items WHERE id = $1', [rows[0].id]);
+  if (g[0].game?.type === 'sheet') {
+    const remap = (id) => (id ? map[id] || null : id);
+    const blocks = g[0].game.blocks.map((b) => ({ ...b, ...(b.image !== undefined ? { image: remap(b.image) } : {}), ...(b.audio !== undefined ? { audio: remap(b.audio) } : {}) }))
+      .filter((b) => b.t !== 'page' || b.image);
+    await client.query('UPDATE library_items SET game = $1 WHERE id = $2', [JSON.stringify({ ...g[0].game, blocks }), rows[0].id]);
+  }
   return rows[0].id;
 }
 
