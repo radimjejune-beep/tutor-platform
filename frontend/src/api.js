@@ -225,6 +225,8 @@ export const api = {
   addMyWords: (student_id, items) => request('POST', '/vocab/mine', { student_id, items }),
   deleteMyWord: (id) => request('DELETE', `/vocab/mine/${id}`),
 
+  recommendations: (student_id) => request('GET', `/progress/students/${student_id}/recommendations`),
+
   // Объявления на главной
   announcements: () => request('GET', '/announcements'),
   createAnnouncement: (data) => request('POST', '/announcements', data),

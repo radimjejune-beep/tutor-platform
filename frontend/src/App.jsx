@@ -20,6 +20,7 @@ import Pricing from './pages/tutor/Pricing';
 import { MarketPage } from './pages/tutor/Market';
 import { WordSetsList, WordSetEditor } from './pages/tutor/WordSets';
 import SetStudy from './pages/client/SetStudy';
+import Generator from './pages/tutor/Generator';
 
 import TutorDashboard from './pages/tutor/Dashboard';
 import TutorSchedule from './pages/tutor/Schedule';
@@ -100,6 +101,7 @@ function TutorApp({ path, params }) {
   else if (parts[0] === 'leads') page = <Leads />;
   else if (parts[0] === 'market') page = <MarketPage key={parts[1] || 'all'} tab={parts[1] === 'mine' ? 'mine' : 'all'} />;
   else if (parts[0] === 'settings') page = <Settings tab={parts[1] || 'booking'} />;
+  else if (parts[0] === 'library' && parts[1] === 'generate') page = <Generator />;
   else if (parts[0] === 'library' && parts[1] === 'new') page = <LibraryEditor key={`new-${params.get('kind')}`} presetKind={params.get('kind') || 'task'} />;
   else if (parts[0] === 'library' && /^\d+$/.test(parts[1] || '')) page = <LibraryEditor key={parts[1]} id={Number(parts[1])} />;
   else if (parts[0] === 'library') page = <LibraryPage key={parts[1] || 'tasks'} kind={{ theory: 'theory', games: 'game', lessons: 'html' }[parts[1]] || 'task'} />;

@@ -1201,3 +1201,36 @@ kbd { font-family: var(--sans); font-size: 11px; color: var(--muted); border: 1p
   .ann-title { font-size: 20px; }
   .ann-link { margin-left: 0; }
 }
+
+/* v14: «Что повторить» */
+.rec { margin-bottom: 20px; }
+.rec-list { display: flex; flex-direction: column; margin-top: 4px; }
+.rec-item { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--line); color: var(--ink); }
+.rec-item:last-child { border-bottom: 0; }
+a.rec-item:hover { text-decoration: none; }
+a.rec-item:hover .rec-title { text-decoration: underline; text-underline-offset: 3px; }
+.rec-icon { flex: none; width: 36px; height: 36px; border-radius: 50%; background: var(--brass-soft); display: inline-flex; align-items: center; justify-content: center; color: #6e5f40; }
+.rec-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.rec-title { font-family: var(--serif); font-size: 21px; line-height: 1.2; font-weight: 500; overflow-wrap: anywhere; }
+.rec-go { color: var(--muted); }
+.rec-strong { margin-top: 12px; padding: 10px 14px; border-radius: var(--r-panel); background: var(--ok-soft); color: var(--ok); }
+
+/* v14: задания по тексту и видео */
+.gen-video { max-width: 560px; }
+.gen-text { font-size: 17px; line-height: 2; white-space: pre-wrap; max-height: 460px; overflow-y: auto; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--r-panel); background: var(--surface); }
+.gen-w { border: 0; background: none; padding: 1px 2px; margin: 0 -1px; border-radius: 4px; font: inherit; color: inherit; cursor: pointer; line-height: 1.5; }
+.gen-w:hover { background: var(--surface-2); }
+.gen-w.gap { background: var(--ink); color: var(--bg); }
+.gen-w.voc { box-shadow: inset 0 -3px 0 var(--brass); background: var(--brass-soft); }
+.gen-w.gap.voc { background: var(--ink); color: var(--bg); box-shadow: inset 0 -3px 0 var(--brass-light); }
+.gen-vocab { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 8px 16px; }
+.gen-vocab-row { display: grid; grid-template-columns: 1fr 1fr 32px; gap: 6px; align-items: center; }
+.gen-sents { display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto; }
+.gen-sents .check { align-items: flex-start; line-height: 1.45; }
+.gen-sents .check input { margin-top: 2px; }
+.gen-make { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin-top: 12px; }
+.gen-make-item { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--line-strong); border-radius: var(--r-panel); cursor: pointer; }
+.gen-make-item.on { border-color: var(--ink); background: var(--green-soft); }
+.gen-make-item input { margin-top: 3px; accent-color: var(--ink); }
+.gen-make-item > span { display: flex; flex-direction: column; gap: 2px; }
+@media (max-width: 760px) { .gen-vocab { grid-template-columns: 1fr; } .gen-text { font-size: 16px; } }

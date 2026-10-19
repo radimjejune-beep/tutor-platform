@@ -7,6 +7,7 @@ import { callService } from '../LessonRoom';
 import TelegramCard from '../../components/TelegramCard';
 import { ClientAnnouncements } from '../../components/Announcements';
 import { SelfStudyStrip } from './SelfStudy';
+import Recommendations from '../../components/Recommendations';
 import { MotivationCard, WarmupBanner } from '../../components/Motivation';
 import { time, dayMonth, relativeDay, rub, shortDate, monthName, lessonsWord, HW_STATUS, plural } from '../../format';
 
@@ -48,6 +49,7 @@ export default function ClientHome({ student, isParent }) {
       )}
 
       <SelfStudyStrip studentId={student.id} />
+      <Recommendations studentId={student.id} compact />
 
       <div className="grid grid-main">
         {/* Следующее занятие */}

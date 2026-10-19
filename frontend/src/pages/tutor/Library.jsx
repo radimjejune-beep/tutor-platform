@@ -118,6 +118,7 @@ export function LibraryPage({ kind = 'task' }) {
         <div className="row" style={{ gap: 8 }}>
           <ImportButton onDone={() => { list.reload(); facets.reload(); }} />
           {kind !== 'theory' && <button className="btn btn-secondary" onClick={() => createSheet()}><Icon name="layers" /> Лист из фото</button>}
+          {kind !== 'theory' && <Link to="/library/generate" className="btn btn-secondary"><Icon name="star" /> По тексту или видео</Link>}
           <Link to={`/library/new?kind=${kind}`} className="btn"><Icon name="plus" /> {NEW_LABEL[kind]}</Link>
         </div>
       </div>

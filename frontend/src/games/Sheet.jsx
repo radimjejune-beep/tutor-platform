@@ -29,6 +29,12 @@ export function useFileUrl(id) {
   return url;
 }
 
+// Ссылка YouTube → id ролика (для встроенного плеера)
+export function ytId(url) {
+  const m = String(url || '').match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{11})/);
+  return m ? m[1] : null;
+}
+
 export function FileImage({ id, alt = '', ...rest }) {
   const url = useFileUrl(id);
   return url ? <img src={url} alt={alt} {...rest} /> : <div className="sheet-img-wait">Загружаем фото…</div>;
@@ -55,8 +61,11 @@ export function SheetBoard({ game, answers, setAnswers, result }) {
       {game.blocks.map((blk, i) => {
         const audio = blk.audio ? <FileAudio id={blk.audio} /> : null;
         if (blk.t === 'text') {
+          const yt = ytId(blk.video);
           return (
             <div key={i} className="sheet-block sheet-text">
+              {yt && <div className="mat-yt"><iframe src={`https://www.youtube-nocookie.com/embed/${yt}`} title="Видео" allow="accelerometer; encrypted-media; picture-in-picture; fullscreen" allowFullScreen /></div>}
+              {blk.video && !yt && <a className="mat-link" href={blk.video} target="_blank" rel="noreferrer"><span className="mat-link-text"><span className="mat-link-title">Видео</span><span className="mat-link-url">{blk.video.replace(/^https?:\/\/(www\.)?/, '')}</span></span></a>}
               {blk.text && <div className="sheet-instr">{blk.text}</div>}
               {blk.image && <FileImage id={blk.image} className="sheet-pic" />}
               {audio}
@@ -375,6 +384,7 @@ function BlockEditor({ b, onChange, upload }) {
     return (
       <>
         <textarea className="textarea" style={{ minHeight: 70 }} value={b.text} placeholder="Например: 3. Listen and complete the sentences." onChange={(e) => onChange({ text: e.target.value })} />
+        <input className="input" value={b.video || ''} placeholder="Ссылка на видео YouTube (необязательно)" onChange={(e) => onChange({ video: e.target.value })} />
         {b.image && (
           <div className="row" style={{ gap: 6, alignItems: 'flex-start' }}>
             <FileImage id={b.image} className="sheet-pic" />

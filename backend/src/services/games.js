@@ -5,7 +5,7 @@
 //   gaps   — вставь пропуск:        { text: 'She [has|'s] lived here [since] 2010.', mode: 'type' | 'bank', distractors: [] }
 //   groups — распредели по группам: { groups: [{ name, items: [] }] }
 //   sheet  — лист с заданиями (из фото учебника или тетради): { blocks: [...] }
-//            text   — инструкция или текст:   { t: 'text', text, image?, audio? }
+//            text   — инструкция или текст:   { t: 'text', text, image?, audio?, video? (ссылка YouTube) }
 //            gaps   — пропуски в тексте:       { t: 'gaps', text: 'She [goes|is going] home.', audio? }
 //            choice — выбор ответа:            { t: 'choice', q, options: [], correct: 0, audio? }
 //            open   — развёрнутый ответ:       { t: 'open', q }          (проверяет преподаватель)
@@ -20,7 +20,7 @@ const word = z.string().trim().min(1).max(200);
 const fileId = z.number().int().positive();
 const pct = z.number().min(0).max(100);
 const sheetBlock = z.discriminatedUnion('t', [
-  z.object({ t: z.literal('text'), text: z.string().max(5000).default(''), image: fileId.nullish(), audio: fileId.nullish() }).strict(),
+  z.object({ t: z.literal('text'), text: z.string().max(5000).default(''), image: fileId.nullish(), audio: fileId.nullish(), video: z.string().trim().max(500).regex(/^https?:\/\//, 'Ссылка на видео должна начинаться с https://').nullish().or(z.literal('')) }).strict(),
   z.object({ t: z.literal('gaps'), text: z.string().trim().min(1, 'Пустой блок с пропусками').max(5000), audio: fileId.nullish() }).strict(),
   z.object({
     t: z.literal('choice'), q: z.string().trim().max(1000).default(''),

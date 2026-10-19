@@ -6,6 +6,7 @@ const { requireRole, requireStudentAccess, canAccessStudent, requireOwn } = requ
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { buildUpdate } = require('../utils');
 const notify = require('../services/notify');
+const { recommendations } = require('../services/recommend');
 
 const router = express.Router();
 const tutorOnly = requireRole('tutor');
@@ -222,6 +223,15 @@ router.delete(
 // Итоги по месяцам — собираются сами, видят ученик и родитель
 // К месяцу добавляется опубликованный отзыв преподавателя, если он есть
 // ------------------------------------------------------------
+// «Что повторить»: слабые темы и упражнения, забытые слова, брошенные наборы
+router.get(
+  '/students/:studentId/recommendations',
+  requireStudentAccess(),
+  asyncHandler(async (req, res) => {
+    res.json(await recommendations(Number(req.params.studentId)));
+  })
+);
+
 router.get(
   '/students/:studentId/months',
   requireStudentAccess(),

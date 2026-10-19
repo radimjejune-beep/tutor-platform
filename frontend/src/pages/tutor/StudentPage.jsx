@@ -10,6 +10,7 @@ import {
 } from './modals';
 import LessonsByDay from '../../components/LessonsByDay';
 import { CourseTab, WordsTab } from './StudentCourse';
+import Recommendations from '../../components/Recommendations';
 import {
   CATEGORY, HW_STATUS, SKILLS, METHOD, rub, shortDate, fullDate, monthName, currentMonth, prevMonth,
   lessonsWord, relativeDay, time,
@@ -102,6 +103,7 @@ export default function StudentPage({ id, tab }) {
       {tab === 'course' && <CourseTab student={s} onChange={student.reload} />}
       {tab === 'words' && <WordsTab student={s} />}
       {tab === 'homework' && <HomeworkTab student={s} />}
+      {(tab === 'progress' || tab === 'lessons') && <Recommendations studentId={s.id} tutor compact={tab === 'lessons'} />}
       {tab === 'progress' && <ProgressTab student={s} />}
       {tab === 'reports' && <ReportsTab student={s} />}
       {tab === 'finance' && <FinanceTab student={s} onChange={student.reload} />}
