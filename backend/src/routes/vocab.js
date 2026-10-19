@@ -106,7 +106,9 @@ router.post(
         student_id: z.number().int().positive(),
         homework_id: z.number().int().positive().optional(),
         lesson_id: z.number().int().positive().optional(), // разминка перед этим уроком
-        results: z.array(z.object({ id: z.number().int().positive(), ok: z.boolean() }).strict()).min(1).max(60),
+        results: z.array(z.object({ id: z.number().int().positive(), ok: z.boolean() }).strict()).min(1).max(500),
+        mode: z.enum(['vocab', 'cards', 'learn', 'write', 'match', 'test']).optional(),
+        duration_sec: z.number().int().min(0).max(86400).optional(),
       })
       .strict()
   ),
@@ -126,6 +128,12 @@ router.post(
       else missed.push(rows[0].term);
     }
     const result = { correct, total: seen.size, missed: missed.slice(0, 20), at: new Date().toISOString() };
+    if (req.user.role !== 'tutor' && seen.size) {
+      const title = b.homework_id ? 'Словарь в домашнем задании' : b.lesson_id ? 'Разминка перед уроком' : 'Мой словарь';
+      await query('INSERT INTO practice_log (student_id, title, mode, correct, total, duration_sec) VALUES ($1, $2, $3, $4, $5, $6)', [
+        b.student_id, title, b.mode || 'vocab', correct, seen.size, b.duration_sec ?? null,
+      ]).catch((err) => console.error('Журнал тренировок:', err.message));
+    }
     if (req.user.role !== 'tutor') {
       if (b.homework_id) {
         await query('UPDATE homework SET vocab_result = $1 WHERE id = $2 AND student_id = $3', [JSON.stringify(result), b.homework_id, b.student_id]);
@@ -175,6 +183,29 @@ router.post(
     if (!rows[0]) return res.status(404).json({ error: 'Ученик не найден' });
     const added = await addWords({ query }, req.body.student_id, req.body.items, 'tutor');
     res.status(201).json({ added, total: req.body.items.length });
+  })
+);
+
+// Ученик (или родитель) добавляет свои слова: вставкой списком, как в Quizlet
+router.post(
+  '/mine',
+  validateBody(z.object({ student_id: z.number().int().positive(), items: z.array(wordSchema).min(1).max(300) }).strict()),
+  asyncHandler(async (req, res) => {
+    if (!(await canAccessStudent(req.user, req.body.student_id))) return res.status(404).json({ error: 'Ученик не найден' });
+    const added = await addWords({ query }, req.body.student_id, req.body.items, req.user.role === 'tutor' ? 'tutor' : 'self');
+    res.status(201).json({ added, total: req.body.items.length });
+  })
+);
+
+// Ученик может удалить слово, которое добавил сам
+router.delete(
+  '/mine/:id',
+  asyncHandler(async (req, res) => {
+    const { rows } = await query('SELECT student_id, source FROM vocab_items WHERE id = $1', [Number(req.params.id)]);
+    if (!rows[0] || !(await canAccessStudent(req.user, rows[0].student_id))) return res.status(404).json({ error: 'Слово не найдено' });
+    if (req.user.role !== 'tutor' && rows[0].source !== 'self') return res.status(403).json({ error: 'Это слово добавил преподаватель, удалить его может только он' });
+    await query('DELETE FROM vocab_items WHERE id = $1', [Number(req.params.id)]);
+    res.json({ ok: true });
   })
 );
 

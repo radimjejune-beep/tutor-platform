@@ -18,6 +18,8 @@ import Join from './pages/Join';
 import Leads from './pages/tutor/Leads';
 import Pricing from './pages/tutor/Pricing';
 import { MarketPage } from './pages/tutor/Market';
+import { WordSetsList, WordSetEditor } from './pages/tutor/WordSets';
+import SetStudy from './pages/client/SetStudy';
 
 import TutorDashboard from './pages/tutor/Dashboard';
 import TutorSchedule from './pages/tutor/Schedule';
@@ -102,6 +104,9 @@ function TutorApp({ path, params }) {
   else if (parts[0] === 'library' && /^\d+$/.test(parts[1] || '')) page = <LibraryEditor key={parts[1]} id={Number(parts[1])} />;
   else if (parts[0] === 'library') page = <LibraryPage key={parts[1] || 'tasks'} kind={{ theory: 'theory', games: 'game', lessons: 'html' }[parts[1]] || 'task'} />;
   else if (parts[0] === 'lesson' && parts[1]) page = <LessonRoom id={Number(parts[1])} />;
+  else if (parts[0] === 'wordsets' && parts[1] === 'new') page = <WordSetEditor key="new" />;
+  else if (parts[0] === 'wordsets' && /^\d+$/.test(parts[1] || '')) page = <WordSetEditor key={parts[1]} id={Number(parts[1])} />;
+  else if (parts[0] === 'wordsets') page = <WordSetsList />;
   else if (parts[0] === 'courses' && parts[1]) page = <CourseEditor key={parts[1]} id={Number(parts[1])} />;
   else if (parts[0] === 'courses') page = <CoursesList />;
   else if (parts[0] === 'admin' && user.is_admin) page = <AdminPage />;
@@ -160,6 +165,7 @@ function ClientCabinet({ path }) {
   else if (parts[0] === 'homework' && parts[1]) page = <HomeworkPage id={Number(parts[1])} isParent={props.isParent} />;
   else if (parts[0] === 'homework') page = <ClientHomework {...props} />;
   else if (parts[0] === 'progress') page = <ClientProgress {...props} />;
+  else if (parts[0] === 'words' && parts[1] === 'set' && parts[2]) page = <SetStudy key={`${child.id}-${parts[2]}`} id={Number(parts[2])} {...props} />;
   else if (parts[0] === 'words') page = <Words key={child.id} {...props} />;
   else if (parts[0] === 'theory' && parts[1]) page = <TheoryView id={Number(parts[1])} />;
   else if (parts[0] === 'theory') page = <TheoryList />;

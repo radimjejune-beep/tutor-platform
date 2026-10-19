@@ -80,6 +80,8 @@ protectedApi.use('/admin', require('./routes/admin'));
 protectedApi.use('/motivation', require('./routes/motivation'));
 protectedApi.use('/leads', require('./routes/leads').router);
 protectedApi.use('/market', require('./routes/market'));
+protectedApi.use('/wordsets', require('./routes/wordsets'));
+protectedApi.use('/announcements', require('./routes/announcements'));
 app.use('/api', protectedApi);
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Не найдено' }));

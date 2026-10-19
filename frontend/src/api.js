@@ -211,6 +211,26 @@ export const api = {
   markRead: (data) => request('POST', '/notifications/read', data),
 
   // Личный словарь
+  // Наборы карточек и самостоятельная тренировка
+  wordSets: () => request('GET', '/wordsets'),
+  wordSet: (id, student_id) => request('GET', `/wordsets/${id}${qs({ student_id })}`),
+  createWordSet: (data) => request('POST', '/wordsets', data),
+  updateWordSet: (id, data) => request('PATCH', `/wordsets/${id}`, data),
+  deleteWordSet: (id) => request('DELETE', `/wordsets/${id}`),
+  mySets: (student_id) => request('GET', `/wordsets/my${qs({ student_id })}`),
+  saveSetProgress: (id, data) => request('POST', `/wordsets/${id}/progress`, data),
+  resetSet: (id, student_id) => request('POST', `/wordsets/${id}/reset`, { student_id }),
+  setToVocab: (id, student_id) => request('POST', `/wordsets/${id}/to-vocab`, { student_id }),
+  practiceActivity: (student_id) => request('GET', `/wordsets/activity${qs({ student_id })}`),
+  addMyWords: (student_id, items) => request('POST', '/vocab/mine', { student_id, items }),
+  deleteMyWord: (id) => request('DELETE', `/vocab/mine/${id}`),
+
+  // Объявления на главной
+  announcements: () => request('GET', '/announcements'),
+  createAnnouncement: (data) => request('POST', '/announcements', data),
+  updateAnnouncement: (id, data) => request('PATCH', `/announcements/${id}`, data),
+  deleteAnnouncement: (id) => request('DELETE', `/announcements/${id}`),
+
   vocabPractice: (student_id, count) => request('GET', `/vocab/practice${qs({ student_id, count })}`),
   savePractice: (data) => request('POST', '/vocab/practice', data),
   vocab: (student_id) => request('GET', `/vocab${qs({ student_id })}`),

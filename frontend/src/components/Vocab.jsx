@@ -4,6 +4,7 @@ import { api } from '../api';
 import { Modal, Field, useSubmit, useToast, Icon, Empty, Spinner } from '../ui';
 import { shortDate, todayISO, plural } from '../format';
 import { useSubject } from '../subjects';
+import WordPaste from './WordPaste';
 
 // Озвучка голосом языка предмета (для неязыковых предметов выключена)
 let voice = null;
@@ -35,7 +36,7 @@ export function speak(text) {
 }
 
 export const wordsWord = (n, forms = ['слово', 'слова', 'слов']) => `${n} ${plural(n, ...forms)}`;
-const SOURCE = { tutor: 'от преподавателя', unit: 'из юнита', mistake: 'из ошибок' };
+const SOURCE = { tutor: 'от преподавателя', unit: 'из юнита', mistake: 'из ошибок', set: 'из набора', self: 'добавил сам' };
 
 // Коробка 0–5 точками: сколько раз подряд вспомнил
 export function BoxDots({ box }) {
@@ -186,6 +187,11 @@ export function VocabList({ items, tutor, onChanged }) {
                 <BoxDots box={w.box} />
                 <span className="small muted">{w.due_on <= today ? 'сегодня' : shortDate(w.due_on)}</span>
               </td>
+              {!tutor && (
+                <td className="vocab-actions">
+                  {w.source === 'self' && <button className="icon-btn" title="Удалить своё слово" aria-label="Удалить" onClick={act(() => api.deleteMyWord(w.id))}><Icon name="trash" size={16} /></button>}
+                </td>
+              )}
               {tutor && (
                 <td className="vocab-actions">
                   <span className="small muted hide-sm">{SOURCE[w.source]}{w.lapses ? `, забыл ${w.lapses}` : ''}</span>
@@ -232,10 +238,10 @@ export function parseWordLines(text) {
 export function AddWordsModal({ studentId, subject, onClose, onSaved }) {
   const toast = useToast();
   const subj = useSubject(subject);
-  const [text, setText] = useState('');
-  const words = parseWordLines(text);
+  const [words, setWords] = useState([]);
   const save = useSubmit(async () => {
     if (!words.length) throw new Error('Добавьте хотя бы одну строку');
+    if (words.length > 300) throw new Error('За раз можно добавить до 300 карточек');
     const r = await api.addWords(studentId, words);
     toast(r.added === r.total ? `Добавлено: ${r.added}` : `Добавлено: ${r.added}, остальные уже были`);
     onSaved();
@@ -243,15 +249,12 @@ export function AddWordsModal({ studentId, subject, onClose, onSaved }) {
   return (
     <Modal title={subj.isLang ? 'Добавить слова' : 'Добавить термины'} onClose={onClose} wide>
       <form className="form" onSubmit={save.submit}>
-        <Field label="По одному на строку" hint={subj.addHint}>
-          <textarea className="textarea" style={{ minHeight: 200, fontFamily: 'inherit' }} value={text} onChange={(e) => setText(e.target.value)}
-            placeholder={subj.isLang ? 'keen on — увлекаться — She is very keen on music.\nproud of — гордиться\nget on well with — ладить с' : 'Гипотенуза — сторона против прямого угла\nДискриминант — b² − 4ac\nВалентность — число связей атома'} autoFocus />
-        </Field>
-        {words.length > 0 && <div className="small muted">Будет добавлено: {wordsWord(words.length, subj.item)}</div>}
+        <div className="small muted">{subj.addHint}. Можно вставить две колонки из Word, Excel или экспорт из Quizlet.</div>
+        <WordPaste onWords={(w) => setWords(w)} autoFocus />
         {save.error && <div className="alert">{save.error}</div>}
         <div className="modal-actions">
           <button type="button" className="btn btn-secondary" onClick={onClose}>Отмена</button>
-          <button className="btn" disabled={save.busy}>{save.busy ? 'Сохраняем…' : 'Добавить'}</button>
+          <button className="btn" disabled={save.busy || !words.length}>{save.busy ? 'Сохраняем…' : `Добавить${words.length ? ` (${words.length})` : ''}`}</button>
         </div>
       </form>
     </Modal>

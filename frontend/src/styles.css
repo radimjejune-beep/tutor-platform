@@ -1097,3 +1097,107 @@ kbd { font-family: var(--sans); font-size: 11px; color: var(--muted); border: 1p
   .lb-nav { top: auto; bottom: 10px; transform: none; }
 }
 .lb-next svg { transform: scaleX(-1); }
+
+/* ============================================================
+   v13: вставка списком, тренировки как в Quizlet, наборы, объявления
+   ============================================================ */
+.paste { display: flex; flex-direction: column; gap: 14px; }
+.paste-area { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 14px; line-height: 1.55; tab-size: 18; min-height: 160px; }
+.paste-opts { display: flex; flex-direction: column; gap: 12px; }
+.paste-opts .meta-label { display: block; margin-bottom: 6px; }
+.paste-custom { width: 90px; height: 36px; padding: 0 10px; }
+.paste-preview { border: 1px solid var(--line); border-radius: var(--r-panel); padding: 12px 14px; background: var(--surface); }
+.paste-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.paste-table td { padding: 6px 4px; border-bottom: 1px solid var(--line); width: 50%; vertical-align: top; }
+.paste-table tr:last-child td { border-bottom: 0; }
+.paste-table td:first-child { font-weight: 500; }
+
+.study { max-width: 760px; margin: 0 auto; }
+.study-top { margin-bottom: 8px; }
+.study-modes { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.study-mode { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left; padding: 18px; border: 1px solid var(--line-strong); border-radius: var(--r-panel); background: var(--surface); cursor: pointer; color: var(--ink); transition: border-color .15s, transform .15s; }
+.study-mode:hover { border-color: var(--ink); transform: translateY(-1px); }
+.study-mode-title { font-family: var(--serif); font-size: 24px; line-height: 1.1; font-weight: 500; }
+.study-settings { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-top: 18px; }
+.study-settings .meta-label { display: block; margin-bottom: 4px; }
+.study-progress { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
+.study-q { overflow-wrap: anywhere; }
+.study-key { display: inline-flex; width: 20px; height: 20px; align-items: center; justify-content: center; border: 1px solid var(--line-strong); border-radius: 50%; font-size: 11px; color: var(--muted); margin-right: 8px; vertical-align: 1px; }
+.study-type { margin-top: 4px; }
+.practice-input.is-ok { border-color: var(--ok); background: var(--ok-soft); color: var(--ok); }
+.practice-input.is-bad { border-color: var(--danger); background: var(--danger-soft); color: var(--danger); }
+.practice-fb { margin-top: 14px; padding: 12px 14px; border-radius: var(--r-panel); font-size: 15px; }
+.practice-fb.ok { background: var(--ok-soft); color: var(--ok); }
+.practice-fb.bad { background: var(--danger-soft); color: var(--ink); }
+.study-bad .study-type { margin-top: 12px; }
+.practice-opt.picked { border-color: var(--ink); background: var(--green-soft); }
+.study-result { text-align: center; padding: 24px 6px; }
+.study-missed { max-width: 520px; margin: 0 auto; text-align: left; border-top: 1px solid var(--line); padding-top: 12px; }
+.study-missed-row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.study-missed-row .serif { font-size: 20px; }
+.match-time { font-size: 30px; font-variant-numeric: tabular-nums; }
+.match-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
+.match-tile { min-height: 96px; padding: 10px; border: 1px solid var(--line-strong); border-radius: var(--r-panel); background: var(--surface); cursor: pointer; font-size: 15px; color: var(--ink); overflow-wrap: anywhere; transition: opacity .25s, transform .25s; }
+.match-tile:hover { border-color: var(--ink); }
+.match-tile.sel { border-color: var(--ink); background: var(--green-soft); }
+.match-tile.gone { opacity: 0; transform: scale(.9); pointer-events: none; }
+.match-tile.shake { animation: lf-shake .35s; border-color: var(--danger); }
+@keyframes lf-shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+.test-q { padding: 18px 0; border-bottom: 1px solid var(--line); }
+.test-q.ok .test-term { color: var(--ok); }
+.test-q.bad .test-term { color: var(--danger); }
+.test-term { font-size: 26px; line-height: 1.2; margin: 6px 0 10px; font-weight: 500; }
+.test-shown { font-size: 17px; margin: -4px 0 10px; color: var(--ink-2); }
+.lvl { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vertical-align: 0; box-shadow: inset 0 0 0 1.5px var(--line-strong); }
+.lvl-1 { background: var(--brass-light); box-shadow: none; }
+.lvl-2 { background: var(--brass); box-shadow: none; }
+.lvl-3 { background: var(--ok); box-shadow: none; }
+
+.set-progress { display: flex; flex-direction: column; gap: 8px; }
+.set-bar { display: flex; height: 6px; border-radius: 6px; background: var(--surface-2); overflow: hidden; }
+.set-bar .lv3 { background: var(--ok); }
+.set-bar .lv1 { background: var(--brass-light); }
+.set-legend { display: flex; gap: 14px; flex-wrap: wrap; }
+.set-legend .lvl { margin-right: 5px; }
+.set-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 4px; }
+.set-card { display: flex; flex-direction: column; gap: 10px; padding: 18px; border: 1px solid var(--line-strong); border-radius: var(--r-panel); color: var(--ink); background: var(--surface); transition: border-color .15s; }
+.set-card:hover { border-color: var(--ink); text-decoration: none; }
+.set-card-title { font-family: var(--serif); font-size: 23px; line-height: 1.15; font-weight: 500; }
+.set-card-go { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; margin-top: 2px; }
+.practice-week { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; padding: 12px 16px; border-radius: var(--r-panel); background: var(--ok-soft); color: var(--ok); font-size: 14.5px; }
+
+.ws-rows { display: flex; flex-direction: column; gap: 8px; }
+.ws-row { display: grid; grid-template-columns: 28px 1fr 36px; gap: 8px; align-items: start; }
+.ws-row.dupe .input:first-child { border-color: var(--danger); }
+.ws-n { font-size: 13px; color: var(--muted); padding-top: 12px; text-align: right; font-variant-numeric: tabular-nums; }
+.ws-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ws-fields .ws-ex { grid-column: 1 / -1; font-size: 14px; }
+.ws-row .icon-btn { margin-top: 6px; }
+.ws-students { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.ws-table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+.ws-table th { text-align: left; font-size: 12px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 8px 6px; border-bottom: 1px solid var(--line); }
+.ws-table td { padding: 10px 6px; border-bottom: 1px solid var(--line); }
+.ws-table tr.clickable { cursor: pointer; }
+.ws-table tr.clickable:hover td { background: var(--surface-2); }
+
+.ann-feed { display: flex; flex-direction: column; gap: 10px; margin-bottom: 22px; }
+.panel .ann-feed { margin-bottom: 0; margin-top: 10px; }
+.ann { padding: 16px 18px; border: 1px solid var(--line-strong); border-radius: var(--r-panel); background: var(--surface); }
+.ann.pinned { border-color: var(--ink); background: var(--brass-soft); }
+.ann.faded { opacity: .6; }
+.ann-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.ann-title { margin: 0; font-family: var(--serif); font-size: 23px; line-height: 1.2; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+.ann-body { margin: 8px 0 0; white-space: pre-line; color: var(--ink-2); }
+.ann-foot { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.ann-link { margin-left: auto; font-weight: 500; color: var(--ink); }
+
+@media (max-width: 760px) {
+  .match-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .match-tile { min-height: 78px; font-size: 14px; }
+  .ws-fields { grid-template-columns: 1fr; }
+  .ws-row { grid-template-columns: 22px 1fr 32px; }
+  .study-mode-title { font-size: 21px; }
+  .test-term { font-size: 22px; }
+  .ann-title { font-size: 20px; }
+  .ann-link { margin-left: 0; }
+}

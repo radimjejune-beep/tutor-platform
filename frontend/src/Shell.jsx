@@ -14,6 +14,7 @@ export const TUTOR_NAV = [
   { to: '/students', label: 'Ученики', icon: 'users' },
   { to: '/homework', label: 'Задания', short: 'Задания', icon: 'book', countKey: 'homework' },
   { to: '/library', label: 'Библиотека', short: 'Библ.', icon: 'library' },
+  { to: '/wordsets', label: 'Карточки', icon: 'cards', hideMobile: true },
   { to: '/courses', label: 'Курсы', icon: 'layers', hideMobile: true },
   { to: '/finance', label: 'Доход', icon: 'wallet', hideMobile: true },
   { to: '/market', label: 'Каталог', icon: 'grid', hideMobile: true },

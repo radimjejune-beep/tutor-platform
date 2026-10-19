@@ -5,6 +5,7 @@ import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Link, navigate } from '
 import { LessonModal, NewLessonModal } from './modals';
 import BookingRequests from '../../components/BookingRequests';
 import TodayLessons from '../../components/TodayLessons';
+import { TutorAnnouncements } from '../../components/Announcements';
 import { LeagueBoard } from '../../components/Motivation';
 import { useAuth } from '../../auth';
 import { time, dayMonth, weekday, cap, rub, relativeDay, LESSON_STATUS, monthName, prevMonth, plural } from '../../format';
@@ -56,6 +57,7 @@ export default function TutorDashboard() {
       </section>
 
       <BookingRequests requests={d.booking_requests || []} cancellations={d.client_cancellations || []} onChanged={dash.reload} />
+      <TutorAnnouncements />
 
       <div className="grid grid-main" style={{ marginTop: 24 }}>
         {/* Требует внимания */}

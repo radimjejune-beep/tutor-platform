@@ -4,7 +4,7 @@ import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Icon, Link, useToast, Field } from '../../ui';
 import { unitLabel } from '../../components/FinishLesson';
 import { FlashSession, VocabList, VocabStats, AddWordsModal } from '../../components/Vocab';
-import { plural } from '../../format';
+import { plural, dayMonth, time } from '../../format';
 import { useSubject } from '../../subjects';
 
 export function CourseTab({ student, onChange }) {
@@ -134,7 +134,36 @@ export function WordsTab({ student }) {
           <Empty title={`${subj.vocabTitle}: пока пусто`}>Добавьте вручную, запишите ученика на курс или выдайте упражнение: ошибки попадут сюда сами.</Empty>
         )}
       </section>
+      <PracticeActivity studentId={student.id} />
       {adding && <AddWordsModal studentId={student.id} subject={student.subject} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); vocab.reload(); }} />}
     </>
+  );
+}
+
+// Самостоятельные занятия ученика: наборы карточек, словарь, разминки
+const MODE_LABEL = { cards: 'карточки', learn: 'заучивание', write: 'письмо', match: 'подбор', test: 'тест', vocab: 'тренировка' };
+export function PracticeActivity({ studentId }) {
+  const act = useLoad(() => api.practiceActivity(studentId), [studentId]);
+  if (!act.data) return null;
+  const { items, week } = act.data;
+  return (
+    <section className="panel">
+      <div className="panel-head">
+        <h2 className="section-title">Занимался сам</h2>
+        <span className="small muted">за 7 дней: {week.sessions} {plural(week.sessions, 'тренировка', 'тренировки', 'тренировок')}, {week.days} {plural(week.days, 'день', 'дня', 'дней')}</span>
+      </div>
+      {!items.length && <p className="small muted" style={{ margin: 0 }}>Пока ни одной самостоятельной тренировки. Создайте набор в разделе «Карточки», и ученик увидит его в своём словаре.</p>}
+      <div className="list">
+        {items.slice(0, 12).map((x) => (
+          <div key={x.id} className="list-item">
+            <div className="list-main">
+              <div className="list-title truncate">{x.title}</div>
+              <div className="list-sub">{MODE_LABEL[x.mode] || x.mode} · {dayMonth(x.created_at)}, {time(x.created_at)}{x.duration_sec ? ` · ${Math.max(1, Math.round(x.duration_sec / 60))} мин` : ''}</div>
+            </div>
+            <span className={`small ${x.total && x.correct / x.total >= 0.8 ? '' : 'muted'}`}>{x.correct} из {x.total}</span>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
