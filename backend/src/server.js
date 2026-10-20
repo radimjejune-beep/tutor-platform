@@ -19,6 +19,13 @@ if (!process.env.DATABASE_URL) {
 
 const app = express();
 app.set('trust proxy', 1); // хостинг стоит за прокси — нужно для ограничения попыток входа
+
+// Магазин уроков Lessonfold: сайт, админка /admin, оплата ЮKassa и Telegram-бот.
+// Включается переменной LF_PUBLIC_URL (см. lessonfold/README.md). Подключается до helmet и express.json:
+// магазин сам разбирает запросы и ставит свои заголовки. Адреса /api/* остаются платформе,
+// кроме /api/order, /api/yookassa и /api/restore.
+const lessonfold = require('../lessonfold/src/embed');
+app.use(lessonfold.middleware());
 app.use(helmet());
 // Обычные запросы — до 200 КБ; загрузка файлов (/api/files) разбирается отдельно, до 15 МБ
 const smallJson = express.json({ limit: '200kb' });
@@ -100,6 +107,7 @@ const PORT = Number(process.env['PORT']) || 3001;
 if (require.main === module) {
   app.listen(PORT, () => console.log(`✅ API запущен на порту ${PORT}`));
   require('./services/telegram').start();
+  lessonfold.start();
 }
 
 module.exports = app;

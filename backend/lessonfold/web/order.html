@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Ваш заказ · Lessonfold</title>
+<style>
+@font-face{font-family:"Unb";src:url(/assets/unbounded.woff) format("woff");font-weight:200 900;font-display:swap}
+@font-face{font-family:"Nun";src:url(/assets/nunito.woff) format("woff");font-weight:200 1000;font-display:swap}
+:root{--paper:#f5f1e8;--surface:#fbf8f2;--ink:#141c2a;--muted:#5f6676;--line:#ddd5c5;--amber:#ffb703;--amber-ink:#251900;--board:#121a28;--board-ink:#f5f1e8;--board-muted:#aab2c2;--ok:#14885a;--bad:#cf4339}
+@media (prefers-color-scheme:dark){:root{--paper:#10161f;--surface:#18212e;--ink:#eef0f3;--muted:#9aa3b2;--line:#283244;--board:#0a0f17;--ok:#4cc995;--bad:#ff7c70;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:500 17px/1.6 "Nun",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2{font-family:"Unb",system-ui,sans-serif;font-weight:500;letter-spacing:-.04em;line-height:1.05;margin:0}
+.top{background:var(--board);color:var(--board-ink);padding-block:16px}
+.wrap{max-width:860px;margin:0 auto;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
+.logo{display:inline-flex;align-items:center;gap:11px;font:600 19px/1 "Unb",system-ui;text-decoration:none;color:inherit;letter-spacing:-.03em}
+.lamp{width:32px;height:32px;border-radius:10px;background:#1c2636;display:grid;place-items:center}
+.lamp i{width:9px;height:9px;border-radius:50%;background:#ffb703;box-shadow:0 -7px 0 -1px #ef5b4f,0 7px 0 -1px #2fc488}
+main{padding-block:56px 80px}
+.kick{font:800 12px/1 "Nun",system-ui;letter-spacing:.18em;text-transform:uppercase;color:#946300}
+h1{font-size:clamp(32px,5vw,52px);margin:16px 0 14px}
+.lead{color:var(--muted);font-size:18px;max-width:36em}
+.meta{display:flex;flex-wrap:wrap;gap:6px 22px;margin-top:18px;font-weight:700;color:var(--muted);font-size:15px}
+.meta b{color:var(--ink)}
+.lesson{border-top:1.5px solid var(--ink);margin-top:40px;padding-top:22px;display:flex;flex-direction:column;gap:14px}
+.lesson + .lesson{border-top-width:1px;border-color:var(--line);margin-top:26px}
+.lesson h2{font-size:26px}
+.lesson .facts{color:var(--muted);font-weight:700;font-size:15px}
+.btns{display:flex;flex-wrap:wrap;gap:10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5em;font:800 16px/1 "Nun",system-ui;padding:15px 22px;border-radius:999px;border:1.5px solid var(--line);text-decoration:none;color:var(--ink);background:var(--surface);min-height:50px}
+.btn:hover{border-color:var(--ink)}
+.btn.main{background:var(--amber);border-color:var(--amber);color:var(--amber-ink)}
+.note{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:15px;display:flex;flex-direction:column;gap:8px}
+.wait{display:flex;gap:14px;align-items:center;margin-top:28px;font-weight:700}
+.spin{width:22px;height:22px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--amber);animation:s 1s linear infinite}
+@keyframes s{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.spin{animation:none}}
+a{color:inherit}
+ul{padding-left:20px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="top"><div class="wrap"><a class="logo" href="/"><span class="lamp"><i></i></span>Lessonfold</a></div></div>
+<main><div class="wrap" id="app"></div></main>
+<script>
+const O = /*ORDER*/null;
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const app = document.getElementById("app");
+const base = location.pathname.replace(/\/$/, "");
+const meta = `<div class="meta"><span>Заказ <b>${esc(O.id)}</b></span><span>${esc(O.title)}</span><span>${O.amount} ₽</span><span>${esc(O.email)}</span></div>`;
+if (O.status === "paid") {
+  app.innerHTML = `<span class="kick">Оплата прошла</span><h1>Ваши уроки готовы</h1>
+  <p class="lead">Скачайте HTML-урок и откройте его в браузере на компьютере или интерактивной доске. Интернет на уроке не нужен. ${O.mailOk ? `Эту ссылку мы также отправили на ${esc(O.email)}.` : "Сохраните эту страницу в закладки: по ссылке можно скачать файлы снова."}</p>${meta}
+  ${O.ready.map(l => `<div class="lesson"><h2>${esc(l.title)}</h2>${l.meta.length ? `<p class="facts">${l.meta.map(esc).join(" · ")}</p>` : ""}
+    <div class="btns"><a class="btn main" href="${base}/${esc(l.sku)}/lesson.html">Скачать урок</a>${l.pdf ? `<a class="btn" href="${base}/${esc(l.sku)}/teacher.pdf">PDF для учителя</a>` : ""}<a class="btn" href="${base}/${esc(l.sku)}/view" target="_blank" rel="noopener">Открыть в браузере</a></div></div>`).join("")}
+  ${O.waiting.length ? `<div class="lesson"><h2>Выйдут позже</h2><ul>${O.waiting.map(w => `<li>${esc(w.title)}</li>`).join("")}</ul><p class="facts">Когда урок выйдет, он появится на этой странице, и мы пришлём письмо.</p></div>` : ""}
+  <div class="note"><p>Ссылка личная, не передавайте её другим: в файлы вшиты ваша почта и номер заказа. Урок можно проводить со всеми своими классами и учениками по <a href="/offer">оферте</a>.</p><p>Потеряли письмо? <a href="/my">Запросите ссылки заново</a> по почте.</p></div>`;
+} else if (O.status === "pending") {
+  app.innerHTML = `<span class="kick">Заказ ${esc(O.id)}</span><h1>Проверяем оплату</h1><p class="lead">Обычно это занимает несколько секунд. Страница обновится сама.</p>${meta}<div class="wait"><span class="spin"></span><span id="w">Ждём подтверждения от ЮKassa…</span></div>
+  <div class="note"><p>Если вы закрыли страницу оплаты, не завершив её, заказ отменится сам. Деньги не списываются без вашего подтверждения.</p></div>`;
+  let n = 0; try { n = +sessionStorage.getItem("lf-w-" + O.id) || 0 } catch (e) {}
+  if (n < 40) { try { sessionStorage.setItem("lf-w-" + O.id, n + 1) } catch (e) {} setTimeout(() => location.reload(), 3500) }
+  else document.getElementById("w").textContent = "Оплата пока не подтверждена. Если деньги списались, ссылка придёт на почту в течение 15 минут, или напишите нам.";
+} else if (O.status === "refunded") {
+  app.innerHTML = `<span class="kick">Заказ ${esc(O.id)}</span><h1>Возврат оформлен</h1><p class="lead">Деньги вернутся тем же способом, которым была оплата, обычно за 1-10 дней. Лицензия на урок по этому заказу прекращена.</p>${meta}`;
+} else {
+  app.innerHTML = `<span class="kick">Заказ ${esc(O.id)}</span><h1>Оплата не прошла</h1><p class="lead">Платёж отменён, деньги не списаны. Можно попробовать ещё раз.</p>${meta}<div class="btns" style="margin-top:26px"><a class="btn main" href="/#lessons">Вернуться в каталог</a></div>`;
+}
+</script>
+</body>
+</html>

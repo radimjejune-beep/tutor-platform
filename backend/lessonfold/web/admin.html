@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Lessonfold · админка</title>
+<style>
+@font-face{font-family:"Unb";src:url(/assets/unbounded.woff) format("woff");font-weight:200 900}
+@font-face{font-family:"Nun";src:url(/assets/nunito.woff) format("woff");font-weight:200 1000}
+:root{--bg:#f3f1ec;--panel:#ffffff;--ink:#141c2a;--muted:#647083;--line:#e1ddd3;--amber:#ffb703;--ok:#13804f;--bad:#c63c32;--warn:#9a6400;--warn-bg:#fff4d6;--sel:#eef3fd;--f:"Nun",system-ui,sans-serif}
+@media (prefers-color-scheme:dark){:root{--bg:#0f141c;--panel:#171e29;--ink:#e9ecf1;--muted:#98a2b3;--line:#2a3343;--ok:#47c98f;--bad:#ff7b70;--warn:#ffc642;--warn-bg:#3a2e10;--sel:#1c2a44;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:500 15px/1.5 var(--f)}
+h1,h2,h3{font-family:"Unb",var(--f);font-weight:600;letter-spacing:-.02em;margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+input,select,textarea{width:100%;background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:9px 11px}
+textarea{min-height:76px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ink)}
+label{display:flex;flex-direction:column;gap:5px;font-weight:800;font-size:13px;color:var(--muted)}
+label.inline{flex-direction:row;align-items:center;gap:8px;color:var(--ink);font-size:14px}
+label.inline input{width:auto}
+.btn{border:1.5px solid var(--line);background:var(--panel);border-radius:999px;padding:9px 16px;font-weight:800;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--ink)}
+a.btn{text-decoration:none;color:inherit;display:inline-flex;align-items:center}
+.btn.main{background:var(--amber);border-color:var(--amber);color:#251900}
+.btn.dark{background:var(--ink);border-color:var(--ink);color:var(--panel)}
+.btn.danger{color:var(--bad)}
+.btn.sm{padding:5px 11px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.top{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 20px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.top .l{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.top h1{font-size:17px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tabs button{border:0;background:none;padding:8px 12px;border-radius:999px;font-weight:800;color:var(--muted);cursor:pointer}
+.tabs button.on{background:var(--ink);color:var(--panel)}
+.top .r{display:flex;gap:10px;align-items:center}
+.dirty{font-weight:800;color:var(--warn);font-size:13px}
+main{max-width:1280px;margin:0 auto;padding:22px 20px 80px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px}
+.grid2{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:20px;align-items:start}
+@media(max-width:900px){.grid2{grid-template-columns:1fr}}
+.list{display:flex;flex-direction:column}
+.item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:11px 12px;border-radius:10px;cursor:pointer;border:1px solid transparent}
+.item:hover{background:var(--bg)}
+.item.on{background:var(--sel);border-color:var(--line)}
+.item b{display:block}
+.item small{color:var(--muted)}
+.pill{font-size:11px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;padding:4px 8px;border-radius:999px;border:1px solid var(--line);align-self:start}
+.pill.available{color:var(--ok);border-color:currentColor}
+.pill.preorder{color:var(--warn);border-color:currentColor}
+.pill.hidden{opacity:.6}
+.group{font-size:12px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:14px 12px 6px}
+.form{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px 14px}
+.c2{grid-column:span 2}.c3{grid-column:span 3}.c6{grid-column:span 6}.c4{grid-column:span 4}
+@media(max-width:700px){.form{grid-template-columns:1fr}.c2,.c3,.c4,.c6{grid-column:auto}}
+.sec{grid-column:1/-1;border-top:1px solid var(--line);padding-top:14px;margin-top:4px;font-family:"Unb",var(--f);font-weight:600;font-size:14px}
+.file{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 12px;border:1.5px dashed var(--line);border-radius:12px}
+.file .name{flex:1;min-width:160px}
+.file .name b{display:block}
+.file .name small{color:var(--muted)}
+.ok{color:var(--ok);font-weight:800}
+.bad{color:var(--bad);font-weight:800}
+.warn{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:10px 12px;font-weight:700}
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.shot{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--bg)}
+.shot img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:#121a28}
+.shot .b{padding:8px;display:flex;flex-direction:column;gap:6px}
+.shot .row{display:flex;gap:6px}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.errors{border:1.5px solid var(--bad);color:var(--bad);border-radius:12px;padding:12px 14px;margin-bottom:16px}
+.errors ul{margin:6px 0 0;padding-left:20px}
+table{width:100%;border-collapse:collapse}
+td,th{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.muted{color:var(--muted)}
+.login{max-width:380px;margin:12vh auto;display:flex;flex-direction:column;gap:14px}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:12px 18px;border-radius:999px;font-weight:800;opacity:0;transition:.2s;pointer-events:none;z-index:20;max-width:calc(100vw - 32px)}
+.toast.on{opacity:1}
+.help{color:var(--muted);font-size:13px;font-weight:600}
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px}
+.kpi div{border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi b{display:block;font:600 24px/1.1 "Unb",var(--f);font-variant-numeric:tabular-nums}
+.kpi small{color:var(--muted);font-weight:700}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let tt; const toast = m => { const t = $("#toast"); t.textContent = m; t.classList.add("on"); clearTimeout(tt); tt = setTimeout(() => t.classList.remove("on"), 3200) };
+async function api(path, opts = {}) {
+  const r = await fetch("/admin/api" + path, { ...opts, headers: { "x-lf-admin": "1", ...(opts.json !== undefined ? { "content-type": "application/json" } : {}), ...(opts.headers || {}) }, body: opts.json !== undefined ? JSON.stringify(opts.json) : opts.body, credentials: "same-origin" });
+  const data = await r.json().catch(() => ({}));
+  if (r.status === 401 && path !== "/login") { state.me = null; render(); throw new Error(data.error || "Нужно войти") }
+  if (!r.ok) { const e = new Error(data.error || "Ошибка " + r.status); e.data = data; throw e }
+  return data;
+}
+const STATUS = { available: "В продаже", preorder: "Предзаказ", soon: "Готовится", hidden: "Скрыт" };
+const state = { me: null, tab: "orders", cat: null, files: {}, sel: null, dirty: false, errors: [], warnings: {} };
+
+function djb(s) { let h = 5381; for (const c of String(s)) h = (h * 33 + c.charCodeAt(0)) >>> 0; return h.toString(36) }
+function markDirty() { state.dirty = true; $("#dirty") && ($("#dirty").textContent = "Есть неопубликованные изменения") }
+window.addEventListener("beforeunload", e => { if (state.dirty) { e.preventDefault(); e.returnValue = "" } });
+
+async function boot() {
+  try { state.me = await api("/me") } catch (e) { state.me = null }
+  if (state.me) await loadCatalog();
+  render();
+}
+async function loadCatalog() {
+  const r = await api("/catalog");
+  state.cat = r.catalog; state.files = r.files; state.dirty = false;
+}
+
+function render() {
+  const app = $("#app");
+  if (!state.me) {
+    app.innerHTML = `<form class="login panel" id="lf"><h1>Lessonfold</h1><p class="muted">Вход для администраторов</p>
+      <label>Логин<input id="lg" autocomplete="username" required></label>
+      <label>Пароль<input id="pw" type="password" autocomplete="current-password" required></label>
+      <button class="btn main" type="submit">Войти</button><p class="bad" id="lerr"></p></form>`;
+    $("#lf").onsubmit = async e => { e.preventDefault();
+      try { await api("/login", { method: "POST", json: { login: $("#lg").value, password: $("#pw").value } }); await boot() }
+      catch (err) { $("#lerr").textContent = err.message } };
+    return;
+  }
+  const tabs = [["orders", "Заказы"], ["lessons", "Уроки"], ["books", "Учебники"], ["settings", "Реквизиты и ссылки"], ["admins", "Администраторы"], ["stats", "Статистика"]];
+  app.innerHTML = `<div class="top"><div class="l"><h1>Lessonfold</h1><div class="tabs">${tabs.map(([k, t]) => `<button data-t="${k}" class="${state.tab === k ? "on" : ""}">${t}</button>`).join("")}</div></div>
+    <div class="r"><span class="dirty" id="dirty">${state.dirty ? "Есть неопубликованные изменения" : ""}</span><button class="btn main" id="pub">Опубликовать</button><a class="btn" href="/" target="_blank">Сайт</a><button class="btn" id="out">Выйти (${esc(state.me.login)})</button></div></div><main id="m"></main>`;
+  $(".tabs").onclick = e => { const b = e.target.closest("button"); if (!b) return; state.tab = b.dataset.t; render() };
+  $("#out").onclick = async () => { await api("/logout", { method: "POST", json: {} }); state.me = null; render() };
+  $("#pub").onclick = publish;
+  $("#pub").hidden = !["lessons", "books"].includes(state.tab);
+  ({ orders: renderOrders, lessons: renderLessons, books: renderBooks, settings: renderSettings, admins: renderAdmins, stats: renderStats })[state.tab]();
+}
+
+async function publish() {
+  const btn = $("#pub"); btn.disabled = true;
+  try {
+    const clean = JSON.parse(JSON.stringify(state.cat));
+    for (const p of Object.values(clean.products)) { delete p._new; delete p.sku }
+    await api("/catalog", { method: "PUT", json: { catalog: clean } });
+    state.errors = []; state.dirty = false; toast("Опубликовано. Бот уже видит изменения.");
+    await loadCatalog(); render();
+  } catch (e) { state.errors = (e.data && e.data.errors) || [e.message]; render(); window.scrollTo(0, 0) }
+  finally { btn.disabled = false }
+}
+const errorsBox = () => state.errors.length ? `<div class="errors"><b>Не опубликовано. Исправьте:</b><ul>${state.errors.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : "";
+
+/* ---------- уроки ---------- */
+function renderLessons() {
+  const c = state.cat, m = $("#m");
+  const prods = Object.entries(c.products || {}).map(([sku, p]) => ({ ...p, sku })).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+  const groups = c.textbooks.map(t => [t, prods.filter(p => p.book === t.id)]);
+  const orphan = prods.filter(p => !c.textbooks.some(t => t.id === p.book));
+  const item = p => `<div class="item ${state.sel === p.sku ? "on" : ""}" data-s="${esc(p.sku)}"><div><b>${esc(p.title || "Без названия")}</b><small>${esc(p.sku)} · ${p.type === "pack" ? "пакет" : "урок"}${p.free ? " · бесплатный" : p.price ? " · " + p.price + " ₽" : ""}${fileState(p)}</small></div><span class="pill ${p.status}">${STATUS[p.status] || p.status}</span></div>`;
+  m.innerHTML = errorsBox() + `<div class="grid2"><div class="panel"><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"><button class="btn sm dark" id="addL">+ Урок</button><button class="btn sm" id="addP">+ Пакет</button></div>
+    <div class="list" id="lst">${groups.map(([t, ps]) => `<div class="group">${esc(t.title)}</div>${ps.map(item).join("") || '<p class="help" style="padding:0 12px">Пока пусто</p>'}`).join("")}${orphan.length ? `<div class="group">Без учебника</div>${orphan.map(item).join("")}` : ""}</div></div>
+    <div class="panel" id="ed">${state.sel && c.products[state.sel] ? "" : '<p class="muted">Выберите урок слева или добавьте новый. Изменения появятся на сайте и в боте после кнопки «Опубликовать».</p>'}</div></div>`;
+  $("#lst").onclick = e => { const it = e.target.closest(".item"); if (!it) return; state.sel = it.dataset.s; renderLessons() };
+  $("#addL").onclick = () => addProduct("lesson");
+  $("#addP").onclick = () => addProduct("pack");
+  if (state.sel && c.products[state.sel]) renderEditor(state.sel);
+}
+function fileState(p) {
+  if (p.type !== "lesson") return "";
+  const h = p.files && p.files.html, ok = h && (!h.startsWith("db:") || state.files[h.slice(3)]);
+  return ok ? " · HTML ✓" : " · нет HTML";
+}
+function addProduct(type) {
+  const sku = "new-" + Math.random().toString(36).slice(2, 7);
+  const book = (state.cat.textbooks[0] || {}).id || "";
+  state.cat.products[sku] = { type, title: "", short: "", description: "", status: "soon", price: 0, book, grade: "", moduleTitle: "", unit: "", meta: [], files: {}, shots: [], includes: [], order: Object.keys(state.cat.products).length, _new: true };
+  state.sel = sku; markDirty(); renderLessons();
+}
+function renameSku(oldSku, newSku) {
+  const c = state.cat;
+  if (oldSku === newSku) return true;
+  if (!/^[a-z0-9][a-z0-9-]{1,40}$/.test(newSku)) { toast("Код: латиница в нижнем регистре, цифры и дефис, например sp5-2b"); return false }
+  if (c.products[newSku]) { toast("Такой код уже есть"); return false }
+  const p = c.products[oldSku];
+  if (!p._new) { toast("Код опубликованного товара менять нельзя: он уже мог попасть в покупки."); return false }
+  delete c.products[oldSku]; c.products[newSku] = p;
+  for (const x of Object.values(c.products)) if (x.includes) x.includes = x.includes.map(s => s === oldSku ? newSku : s);
+  state.sel = newSku; return true;
+}
+
+function renderEditor(sku) {
+  const c = state.cat, p = c.products[sku], ed = $("#ed");
+  const lessons = Object.entries(c.products).filter(([k, x]) => x.type === "lesson" && k !== sku);
+  const books = c.textbooks.map(t => `<option value="${esc(t.id)}" ${p.book === t.id ? "selected" : ""}>${esc(t.title)}</option>`).join("");
+  const st = Object.entries(STATUS).filter(([k]) => p.type === "pack" || k !== "preorder").map(([k, v]) => `<option value="${k}" ${p.status === k ? "selected" : ""}>${v}</option>`).join("");
+  ed.innerHTML = `<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:14px"><h2 style="font-size:18px">${p.type === "pack" ? "Пакет" : "Урок"}: ${esc(p.name || p.title || "без названия")}</h2><button class="btn sm danger" id="del">Удалить</button></div>
+  <div class="form">
+    <label class="c2">Код (для ссылок и бота)<input id="f_sku" value="${esc(sku)}" ${p._new ? "" : "readonly"}></label>
+    <label class="c2">Статус<select id="f_status">${st}</select></label>
+    <label class="c2">Порядок в списке<input id="f_order" type="number" value="${esc(p.order ?? 0)}"></label>
+    <label class="c3">Название в боте и в чеке<input id="f_title" value="${esc(p.title)}" placeholder="Spotlight 6 · 3a Road safety"></label>
+    <label class="c3">Название на сайте<input id="f_name" value="${esc(p.name || "")}" placeholder="Street Smart"></label>
+    <label class="c3">Кнопка в боте (внутри модуля)<input id="f_short" value="${esc(p.short || "")}" placeholder="3a Road safety"></label>
+    <label class="c6">Описание<textarea id="f_description" placeholder="Что в уроке: тема, лексика, грамматика, задания">${esc(p.description || "")}</textarea></label>
+    <div class="sec">Где в каталоге</div>
+    <label class="c2">Учебник<select id="f_book">${books}</select></label>
+    <label class="c2">Класс или уровень<input id="f_grade" value="${esc(p.grade ?? "")}" placeholder="6 или A1"></label>
+    <label class="c2">Раздел учебника<input id="f_unit" value="${esc(p.unit || "")}" placeholder="Модуль 3a"></label>
+    <label class="c6">Модуль (группа в боте)<input id="f_moduleTitle" value="${esc(p.moduleTitle || "")}" placeholder="Модуль 3. Getting around"></label>
+    <div class="sec">Цена</div>
+    <label class="c2">Цена, ₽<input id="f_price" type="number" min="0" value="${esc(p.price || 0)}"></label>
+    <label class="c2">Старая цена, ₽<input id="f_oldPrice" type="number" min="0" value="${esc(p.oldPrice || 0)}"></label>
+    <label class="c2 inline" style="align-self:end;padding-bottom:10px"><input id="f_free" type="checkbox" ${p.free ? "checked" : ""}> Бесплатный (открыт на сайте целиком)</label>
+    ${p.type === "lesson" ? `
+    <div class="sec">Карточка на сайте</div>
+    <label class="c3">Факты, каждый с новой строки<textarea id="f_meta" placeholder="40 минут&#10;13 экранов&#10;57 аудио&#10;PDF 6 страниц">${esc((p.meta || []).join("\n"))}</textarea></label>
+    <label class="c3">Автор урока (для договора)<input id="f_author" value="${esc(p.author || "")}" placeholder="Кочка Радим"></label>
+    <div class="sec">Файлы</div>
+    <div class="c6" id="filesBox"></div>
+    <div class="sec">Скриншоты экранов</div>
+    <div class="c6"><p class="help">PNG, JPG или WebP. Перед загрузкой картинка уменьшается до 1600 пикселей и сохраняется в WebP. Первый скриншот становится обложкой.</p><div class="shots" id="shots"></div><div class="actions"><label class="btn sm dark" style="display:inline-flex;flex-direction:row;color:var(--panel)">+ Скриншоты<input type="file" id="shotIn" accept="image/png,image/jpeg,image/webp" multiple hidden></label></div></div>` : `
+    <div class="sec">Уроки в пакете</div>
+    <div class="c6" style="display:flex;flex-direction:column;gap:6px">${lessons.map(([k, x]) => `<label class="inline"><input type="checkbox" class="inc" value="${esc(k)}" ${(p.includes || []).includes(k) ? "checked" : ""}> ${esc(x.title || k)} <span class="muted">(${esc(k)}, ${STATUS[x.status]})</span></label>`).join("")}</div>`}
+  </div>`;
+  const bind = (id, fn) => { const el = $("#f_" + id); if (el) el.addEventListener(el.type === "checkbox" ? "change" : "input", () => { fn(el); markDirty() }) };
+  for (const k of ["title", "name", "short", "description", "unit", "author"]) bind(k, el => p[k] = el.value);
+  bind("status", el => p.status = el.value);
+  bind("order", el => p.order = Number(el.value));
+  bind("price", el => p.price = Number(el.value));
+  bind("oldPrice", el => p.oldPrice = Number(el.value) || 0);
+  bind("free", el => { p.free = el.checked; if (el.checked) p.price = 0 });
+  bind("meta", el => p.meta = el.value.split("\n").map(s => s.trim()).filter(Boolean));
+  const modSync = () => { const same = Object.values(c.products).find(x => x !== p && x.book === p.book && String(x.grade) === String(p.grade) && x.moduleTitle === p.moduleTitle && x.module); p.module = same ? same.module : `${p.book}-${p.grade}-${djb(p.moduleTitle)}` };
+  bind("book", el => { p.book = el.value; modSync() });
+  bind("grade", el => { p.grade = /^\d+$/.test(el.value) ? Number(el.value) : el.value; modSync() });
+  bind("moduleTitle", el => { p.moduleTitle = el.value; modSync() });
+  $("#f_sku").addEventListener("change", e => { if (renameSku(sku, e.target.value.trim())) { markDirty(); renderLessons() } else e.target.value = sku });
+  $("#del").onclick = () => {
+    if (!p._new && p.status !== "hidden") { toast("Сначала поставьте статус «Скрыт»: у этого товара могут быть покупатели. Скрытый товар не виден на сайте, но остаётся у купивших."); return }
+    if (!p._new && $("#del").dataset.sure !== "1") { $("#del").dataset.sure = "1"; $("#del").textContent = "Точно удалить?"; return }
+    delete c.products[sku]; state.sel = null; markDirty(); renderLessons();
+  };
+  ed.querySelectorAll(".inc").forEach(cb => cb.onchange = () => { p.includes = [...ed.querySelectorAll(".inc:checked")].map(x => x.value); markDirty() });
+  if (p.type === "lesson") { renderFiles(sku); renderShots(sku) }
+}
+
+function fileRow(sku, kind, label, accept) {
+  const p = state.cat.products[sku];
+  const ref = p.files && p.files[kind];
+  const info = ref && ref.startsWith("db:") ? state.files[ref.slice(3)] : null;
+  const w = state.warnings[sku + kind];
+  return `<div class="file"><div class="name"><b>${label}</b>${info ? `<small class="ok">Загружен ${new Date(info.updated_at).toLocaleString("ru-RU")}, ${Math.round(info.size / 1024)} КБ${info.updated_by ? ", " + esc(info.updated_by) : ""}</small>` : ref ? `<small>${esc(ref)}</small>` : `<small class="bad">Не загружен</small>`}</div>
+    ${info ? `<a class="btn sm" href="/admin/api/files/${encodeURIComponent(ref.slice(3))}" target="_blank">Открыть</a>` : ""}
+    <label class="btn sm dark" style="display:inline-flex;flex-direction:row;color:var(--panel)">${info ? "Заменить" : "Загрузить"}<input type="file" data-kind="${kind}" accept="${accept}" hidden></label>
+    ${ref ? `<button class="btn sm danger" data-rm="${kind}">Убрать</button>` : ""}</div>${w ? `<div class="warn">${w.map(esc).join("<br>")}</div>` : ""}`;
+}
+function renderFiles(sku) {
+  const box = $("#filesBox");
+  box.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px">${fileRow(sku, "html", "HTML-урок (собран с меткой {{BUYER}})", ".html,text/html")}${fileRow(sku, "pdf", "PDF для учителя", ".pdf,application/pdf")}</div><p class="help" style="margin-top:8px">Имя файла у покупателя: ${esc(state.cat.products[sku].fileName || autoName(state.cat.products[sku]))}.html</p>`;
+  box.querySelectorAll("input[type=file]").forEach(inp => inp.onchange = async () => {
+    const f = inp.files[0]; if (!f) return;
+    const kind = inp.dataset.kind;
+    const key = `lesson/${sku}/${kind}`;
+    const mime = kind === "pdf" ? "application/pdf" : "text/html; charset=utf-8";
+    toast("Загружаю " + f.name + "…");
+    try {
+      const r = await api("/files/" + encodeURIComponent(key), { method: "PUT", body: f, headers: { "content-type": mime } });
+      const p = state.cat.products[sku]; p.files = p.files || {}; p.files[kind] = "db:" + key; p.fileName = p.fileName || autoName(p);
+      state.files[key] = { size: r.size, updated_at: new Date().toISOString(), updated_by: state.me.login };
+      state.warnings[sku + kind] = r.warnings && r.warnings.length ? r.warnings : null;
+      markDirty(); toast("Файл загружен. Нажмите «Опубликовать», чтобы он ушёл в продажу."); renderFiles(sku);
+    } catch (e) { toast(e.message) }
+  });
+  box.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { delete state.cat.products[sku].files[b.dataset.rm]; markDirty(); renderFiles(sku) });
+}
+function autoName(p) { return (p.title || p.sku || "lesson").replace(/[^A-Za-z0-9]+/g, "_").replace(/^_|_$/g, "") || "Lessonfold_lesson" }
+
+function renderShots(sku) {
+  const p = state.cat.products[sku]; p.shots = p.shots || [];
+  const box = $("#shots");
+  box.innerHTML = p.shots.map((s, i) => `<div class="shot"><img src="${s.file && s.file.startsWith("db:") ? "/f/" + esc(s.file.slice(3)) + "?v=" + (state.files[s.file.slice(3)] || {}).sha : ""}" alt=""><div class="b"><input data-cap="${i}" value="${esc(s.caption || "")}" placeholder="Подпись: что на экране"><div class="row"><button class="btn sm" data-up="${i}" ${i ? "" : "disabled"}>←</button><button class="btn sm" data-dn="${i}" ${i < p.shots.length - 1 ? "" : "disabled"}>→</button><button class="btn sm danger" data-x="${i}">Убрать</button></div></div></div>`).join("") || '<p class="help">Скриншотов пока нет. Без них урок показывается на сайте компактной строкой.</p>';
+  box.querySelectorAll("[data-cap]").forEach(inp => inp.oninput = () => { p.shots[+inp.dataset.cap].caption = inp.value; markDirty() });
+  const mv = (i, d) => { const s = p.shots.splice(i, 1)[0]; p.shots.splice(i + d, 0, s); markDirty(); renderShots(sku) };
+  box.querySelectorAll("[data-up]").forEach(b => b.onclick = () => mv(+b.dataset.up, -1));
+  box.querySelectorAll("[data-dn]").forEach(b => b.onclick = () => mv(+b.dataset.dn, 1));
+  box.querySelectorAll("[data-x]").forEach(b => b.onclick = () => { p.shots.splice(+b.dataset.x, 1); markDirty(); renderShots(sku) });
+  $("#shotIn").onchange = async e => {
+    for (const f of e.target.files) {
+      try {
+        const blob = await toWebp(f);
+        const key = `shot/${sku}/${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+        const r = await api("/files/" + encodeURIComponent(key), { method: "PUT", body: blob, headers: { "content-type": "image/webp" } });
+        state.files[key] = { size: r.size, sha: r.sha, updated_at: new Date().toISOString() };
+        p.shots.push({ file: "db:" + key, caption: f.name.replace(/\.[^.]+$/, "") });
+        markDirty(); renderShots(sku);
+      } catch (err) { toast(f.name + ": " + err.message) }
+    }
+  };
+}
+function toWebp(file) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => { const k = Math.min(1, 1600 / img.width); const cv = document.createElement("canvas"); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+      cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height); cv.toBlob(b => b ? res(b) : rej(new Error("Не удалось сжать картинку")), "image/webp", 0.82); URL.revokeObjectURL(img.src) };
+    img.onerror = () => rej(new Error("Это не картинка")); img.src = URL.createObjectURL(file);
+  });
+}
+
+/* ---------- учебники ---------- */
+function renderBooks() {
+  const c = state.cat, m = $("#m");
+  m.innerHTML = errorsBox() + `<div class="panel"><table><thead><tr><th>Код</th><th>Название</th><th>Коротко (кнопка на сайте)</th><th>Уроков</th><th></th></tr></thead><tbody>${c.textbooks.map((t, i) => {
+    const n = Object.values(c.products).filter(p => p.book === t.id).length;
+    return `<tr><td><input value="${esc(t.id)}" data-i="${i}" data-k="id" ${n ? "readonly" : ""}></td><td><input value="${esc(t.title)}" data-i="${i}" data-k="title"></td><td><input value="${esc(t.short || "")}" data-i="${i}" data-k="short"></td><td>${n}</td><td><button class="btn sm" data-u="${i}" ${i ? "" : "disabled"}>↑</button> <button class="btn sm danger" data-x="${i}" ${n ? "disabled title='Сначала перенесите уроки'" : ""}>Удалить</button></td></tr>` }).join("")}</tbody></table>
+    <div class="actions"><button class="btn dark" id="addB">+ Учебник</button></div><p class="help">Порядок здесь задаёт порядок учебников на сайте и в боте. Учебник без уроков на сайте не показывается.</p></div>`;
+  m.querySelectorAll("input[data-k]").forEach(inp => inp.oninput = () => { c.textbooks[+inp.dataset.i][inp.dataset.k] = inp.value.trim(); markDirty() });
+  m.querySelectorAll("[data-x]").forEach(b => b.onclick = () => { c.textbooks.splice(+b.dataset.x, 1); markDirty(); renderBooks() });
+  m.querySelectorAll("[data-u]").forEach(b => b.onclick = () => { const i = +b.dataset.u; [c.textbooks[i - 1], c.textbooks[i]] = [c.textbooks[i], c.textbooks[i - 1]]; markDirty(); renderBooks() });
+  $("#addB").onclick = () => { c.textbooks.push({ id: "book" + (c.textbooks.length + 1), title: "Новый учебник", short: "" }); markDirty(); renderBooks() };
+}
+
+/* ---------- настройки ---------- */
+async function renderSettings() {
+  const m = $("#m"); m.innerHTML = '<div class="panel">Загружаю…</div>';
+  const s = await api("/settings");
+  m.innerHTML = `<form class="panel form" id="sf">
+    <div class="sec" style="border:0;margin:0;padding:0">Продавец. Эти данные подставляются в оферту, политику и подвал сайта</div>
+    <label class="c3">ФИО полностью<input id="s_name" value="${esc(s.seller.name)}" placeholder="Кочка Радим Отчество"></label>
+    <label class="c3">ИНН самозанятого (12 цифр)<input id="s_inn" value="${esc(s.seller.inn)}" inputmode="numeric"></label>
+    <label class="c3">Telegram для связи и претензий<input id="s_contact" value="${esc(s.seller.contact)}" placeholder="@lessonfold_help"></label>
+    <label class="c3">Почта для претензий<input id="s_email" value="${esc(s.seller.email)}" type="email"></label>
+    <div class="sec">Ссылки и документы</div>
+    <label class="c3">Telegram-канал<input id="s_channel" value="${esc(s.channel)}" placeholder="https://t.me/lessonfold"></label>
+    <label class="c3">Дата редакции оферты<input id="s_offerDate" value="${esc(s.offerDate)}" placeholder="14 октября 2026 г."></label>
+    <label class="c3">Хостинг базы (для политики)<input id="s_hosting" value="${esc(s.hosting)}" placeholder="RelaxDev, серверы в РФ"></label>
+    <label class="c3">Платёжный сервис<input id="s_payment" value="${esc(s.payment)}"></label>
+    <div class="c6 actions"><button class="btn main" type="submit">Сохранить</button><a class="btn" href="/seller" target="_blank">Проверить сведения о продавце</a><a class="btn" href="/offer" target="_blank">Оферта</a></div>
+    <p class="c6 help">Бот: ${state.me.bot ? "@" + esc(state.me.bot) : "не запущен"}. Адрес сайта: ${esc(state.me.publicUrl)}.</p></form>`;
+  $("#sf").onsubmit = async e => { e.preventDefault();
+    const v = id => $("#s_" + id).value.trim();
+    try { await api("/settings", { method: "PUT", json: { seller: { name: v("name"), inn: v("inn"), contact: v("contact"), email: v("email") }, channel: v("channel"), offerDate: v("offerDate"), hosting: v("hosting"), payment: v("payment") } }); toast("Сохранено, сайт обновлён") }
+    catch (err) { toast(err.message) } };
+}
+
+/* ---------- админы ---------- */
+async function renderAdmins() {
+  const m = $("#m");
+  const r = await api("/admins");
+  m.innerHTML = `<div class="grid2"><div class="panel"><h3 style="font-size:15px;margin-bottom:10px">Администраторы</h3><table><tbody>${r.admins.map(a => `<tr><td><b>${esc(a.login)}</b>${a.login === r.me ? ' <span class="muted">(вы)</span>' : ""}<br><small class="muted">последний вход: ${a.last_login_at ? new Date(a.last_login_at).toLocaleString("ru-RU") : "не входил"}</small></td><td style="text-align:right">${a.login === r.me ? "" : `<button class="btn sm danger" data-x="${esc(a.login)}">Удалить</button>`}</td></tr>`).join("")}</tbody></table></div>
+    <div style="display:flex;flex-direction:column;gap:20px"><form class="panel form" id="af"><div class="sec" style="border:0;margin:0;padding:0">Добавить администратора</div><label class="c3">Логин<input id="a_l" required></label><label class="c3">Пароль (от 10 символов)<input id="a_p" type="text" required minlength="10"></label><div class="c6"><button class="btn dark" type="submit">Добавить</button><p class="help">Передайте логин и пароль коллеге лично или в мессенджере, затем попросите сменить пароль.</p></div></form>
+    <form class="panel form" id="pf"><div class="sec" style="border:0;margin:0;padding:0">Сменить свой пароль</div><label class="c6">Новый пароль<input id="p_n" type="password" required minlength="10" autocomplete="new-password"></label><div class="c6"><button class="btn" type="submit">Сменить и выйти</button></div></form></div></div>`;
+  m.querySelectorAll("[data-x]").forEach(b => b.onclick = async () => { if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "Точно?"; return } await api("/admins/" + b.dataset.x, { method: "DELETE" }); renderAdmins() });
+  $("#af").onsubmit = async e => { e.preventDefault(); try { await api("/admins", { method: "POST", json: { login: $("#a_l").value, password: $("#a_p").value } }); toast("Добавлен"); renderAdmins() } catch (err) { toast(err.message) } };
+  $("#pf").onsubmit = async e => { e.preventDefault(); try { await api("/password", { method: "POST", json: { password: $("#p_n").value } }); state.me = null; render(); toast("Пароль изменён, войдите снова") } catch (err) { toast(err.message) } };
+}
+
+/* ---------- заказы ---------- */
+const OST = { pending: ["Ждёт оплаты", ""], paid: ["Оплачен", "available"], canceled: ["Отменён", "hidden"], refunded: ["Возврат", "preorder"] };
+async function renderOrders(q) {
+  const m = $("#m");
+  q = q ?? (state.oq || "");
+  const r = await api("/orders?q=" + encodeURIComponent(q));
+  state.oq = q;
+  const warn = [!r.pay ? "Оплата на сайте выключена: задайте YOOKASSA_SHOP_ID и YOOKASSA_SECRET_KEY." : "", !r.mail ? "Почта не настроена: письма покупателям не уходят, ссылку на заказ можно скопировать и отправить вручную." : ""].filter(Boolean);
+  m.innerHTML = `${warn.map(w => `<div class="warn" style="margin-bottom:12px">${esc(w)}</div>`).join("")}<div class="panel">
+    <form id="oqf" style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap"><input id="oq" value="${esc(q)}" placeholder="Почта или номер заказа" style="max-width:340px"><button class="btn dark" type="submit">Найти</button></form>
+    <div style="overflow-x:auto"><table><thead><tr><th>Дата</th><th>Заказ</th><th>Почта</th><th>Урок</th><th>Сумма</th><th>Статус</th><th>Письмо</th><th></th></tr></thead><tbody>
+    ${r.orders.map(o => { const st = OST[o.status] || [o.status, ""]; return `<tr>
+      <td class="muted" style="white-space:nowrap">${new Date(o.paid_at || o.created_at).toLocaleString("ru-RU")}</td>
+      <td><b>${esc(o.id.slice(0, 8).toUpperCase())}</b>${o.note ? `<br><small class="bad">${esc(o.note)}</small>` : ""}</td>
+      <td>${esc(o.email)}${o.news ? '<br><small class="muted">подписан на новости</small>' : ""}</td>
+      <td>${esc(o.title)}</td><td style="white-space:nowrap">${o.amount_rub} ₽</td>
+      <td><span class="pill ${st[1]}">${st[0]}</span></td>
+      <td>${o.status === "paid" ? (o.emailed_at ? '<span class="ok">ушло</span>' : `<span class="bad">не ушло</span>${o.mail_error ? `<br><small class="muted">${esc(o.mail_error)}</small>` : ""}`) : ""}${o.opened ? `<br><small class="muted">скачиваний: ${o.opened}</small>` : ""}</td>
+      <td style="white-space:nowrap">${o.status === "paid" ? `<button class="btn sm" data-a="resend" data-id="${o.id}">Отправить ссылку</button> <button class="btn sm" data-a="link" data-id="${o.id}">Ссылка</button> <button class="btn sm danger" data-a="refund" data-id="${o.id}">Возврат</button>` : o.status === "pending" ? `<button class="btn sm" data-a="sync" data-id="${o.id}">Проверить оплату</button>` : ""}</td></tr>` }).join("") || '<tr><td colspan="8" class="muted">Заказов пока нет</td></tr>'}
+    </tbody></table></div><p class="help">После возврата аннулируйте чек в приложении «Мой налог»: Продажи → чек → Аннулировать → «Возврат средств».</p></div>`;
+  $("#oqf").onsubmit = e => { e.preventDefault(); renderOrders($("#oq").value.trim()) };
+  m.querySelectorAll("[data-a]").forEach(b => b.onclick = async () => {
+    const id = b.dataset.id, a = b.dataset.a;
+    try {
+      if (a === "refund") {
+        if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "Вернуть деньги?"; return }
+        await api(`/orders/${id}/refund`, { method: "POST", json: {} }); toast("Возврат отправлен в ЮKassa. Не забудьте аннулировать чек."); return renderOrders();
+      }
+      if (a === "link") {
+        const r = await api("/orders/link", { method: "POST", json: { id } });
+        try { await navigator.clipboard.writeText(r.link); toast("Ссылка скопирована") } catch (e) { prompt("Ссылка на заказ", r.link) }
+        return;
+      }
+      if (a === "resend") { await api(`/orders/${id}/resend`, { method: "POST", json: {} }); toast("Письмо отправлено"); return renderOrders() }
+      if (a === "sync") { const r = await api(`/orders/${id}/sync`, { method: "POST", json: {} }); toast("Статус: " + (OST[r.order.status] || [r.order.status])[0]); return renderOrders() }
+    } catch (e) { toast(e.message) }
+  });
+}
+
+/* ---------- статистика ---------- */
+async function renderStats() {
+  const m = $("#m");
+  const { stats: s, site: w, log, bot } = await api("/stats");
+  const k = (v, t) => `<div><b>${v}</b><small>${t}</small></div>`;
+  const rubs = n => Number(n).toLocaleString("ru-RU") + " ₽";
+  m.innerHTML = `<div class="panel"><h3 style="font-size:15px;margin-bottom:10px">Сайт</h3><div class="kpi">${k(w.paid, "оплаченных заказов")}${k(w.buyers, "покупателей")}${k(rubs(w.revenue), "выручка всего")}${k(rubs(w.revenue_30d), "за 30 дней")}${k(w.news, "подписаны на новости")}${k(w.pending, "ждут оплаты")}</div>
+    ${bot ? `<h3 style="font-size:15px;margin-bottom:10px">Telegram-бот</h3><div class="kpi">${k(s.users, "пользователей бота")}${k(s.free_takers, "взяли бесплатный урок")}${k(s.payers, "покупателей")}${k(s.paid, "оплат")}${k(rubs(s.revenue), "выручка всего")}${k(rubs(s.revenue_30d), "за 30 дней")}</div>` : ""}
+    <div class="grid2"><div><h3 style="font-size:15px;margin-bottom:8px">По товарам</h3><table><thead><tr><th>Код</th><th>Тип</th><th>Шт.</th><th>₽</th></tr></thead><tbody>${s.bySku.map(r => `<tr><td>${esc(r.sku)}</td><td>${esc(r.kind)}</td><td>${r.n}</td><td>${r.rub}</td></tr>`).join("")}</tbody></table>
+    <h3 style="font-size:15px;margin:18px 0 8px">Откуда пришли</h3><table><tbody>${s.sources.map(r => `<tr><td>${esc(r.src)}</td><td>${r.n}</td></tr>`).join("")}</tbody></table></div>
+    <div><h3 style="font-size:15px;margin-bottom:8px">Журнал действий админов</h3><table><tbody>${log.map(l => `<tr><td class="muted" style="white-space:nowrap">${new Date(l.at).toLocaleString("ru-RU")}</td><td><b>${esc(l.login || "")}</b> ${esc(l.action)}<br><small class="muted">${esc(l.detail || "")}</small></td></tr>`).join("")}</tbody></table></div></div></div>`;
+}
+boot();
+</script>
+</body>
+</html>

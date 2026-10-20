@@ -1,0 +1,191 @@
+{
+  "textbooks": [
+    {
+      "id": "spotlight",
+      "title": "Spotlight",
+      "grades": [
+        {
+          "grade": 6,
+          "modules": [
+            {
+              "id": "sp6-m3",
+              "title": "Модуль 3. Getting around",
+              "products": [
+                "sp6-3a",
+                "sp6-3b",
+                "sp6-3c",
+                "sp6-m3"
+              ]
+            }
+          ]
+        }
+      ],
+      "short": "Spotlight"
+    },
+    {
+      "id": "speakout",
+      "title": "Speakout 3rd edition",
+      "short": "Speakout",
+      "grades": [
+        {
+          "grade": "A1",
+          "modules": [
+            {
+              "id": "so-a1-u4",
+              "title": "Unit 4. Every day",
+              "products": [
+                "so-a1-4cd"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "followup": {
+    "sku": "sp6-m3",
+    "text": "Как прошёл урок 3a? Если понравилось, весь модуль 3 Spotlight 6 сейчас по предзаказу за 490 ₽ вместо 690 ₽. Готовые уроки придут сразу, остальные сами по мере выхода.",
+    "button": "Посмотреть модуль 3"
+  },
+  "products": {
+    "sp6-3a": {
+      "title": "Spotlight 6 · 3a Road safety",
+      "short": "3a Road safety",
+      "description": "Урок на 40 минут: лексика улицы, повелительное наклонение Do / Don't, задания к памятке на с. 27, аудирование, игры. HTML-урок с озвучкой и PDF для учителя.",
+      "type": "lesson",
+      "status": "available",
+      "price": 0,
+      "free": true,
+      "files": {
+        "html": "content/sp6-3a/lesson.html",
+        "pdf": "content/sp6-3a/teacher.pdf"
+      },
+      "fileName": "Spotlight6_3a_Road_safety",
+      "unit": "Модуль 3a",
+      "meta": [
+        "40 минут",
+        "13 экранов",
+        "57 аудио",
+        "6 страниц PDF"
+      ],
+      "author": "Кочка Радим",
+      "shots": [
+        {
+          "file": "content/sp6-3a/shots/1.webp",
+          "caption": "Spot it! Найти 10 предметов на улице"
+        },
+        {
+          "file": "content/sp6-3a/shots/2.webp",
+          "caption": "Road words: слова с озвучкой и примерами"
+        },
+        {
+          "file": "content/sp6-3a/shots/3.webp",
+          "caption": "Задания к тексту учебника, с. 27"
+        },
+        {
+          "file": "content/sp6-3a/shots/4.webp",
+          "caption": "Правило по шагам: Imperative"
+        },
+        {
+          "file": "content/sp6-3a/shots/5.webp",
+          "caption": "Аудирование Mia and Dad"
+        }
+      ],
+      "name": "Street Smart"
+    },
+    "sp6-3b": {
+      "title": "Spotlight 6 · 3b On the move",
+      "short": "3b On the move",
+      "description": "Транспорт, can / can't, may, should, маршрут по карте города.",
+      "type": "lesson",
+      "status": "soon",
+      "price": 199,
+      "files": {
+        "html": "content/sp6-3b/lesson.html",
+        "pdf": "content/sp6-3b/teacher.pdf"
+      },
+      "fileName": "Spotlight6_3b_On_the_move",
+      "unit": "Модуль 3b",
+      "name": "On the move"
+    },
+    "sp6-3c": {
+      "title": "Spotlight 6 · 3c Hot wheels",
+      "short": "3c Hot wheels",
+      "description": "Great sportsmen, относительные местоимения who, that, which, whose.",
+      "type": "lesson",
+      "status": "soon",
+      "price": 199,
+      "files": {
+        "html": "content/sp6-3c/lesson.html",
+        "pdf": "content/sp6-3c/teacher.pdf"
+      },
+      "fileName": "Spotlight6_3c_Hot_wheels",
+      "unit": "Модуль 3c",
+      "name": "Hot wheels"
+    },
+    "sp6-m3": {
+      "title": "Spotlight 6 · Модуль 3 целиком",
+      "short": "Модуль 3 целиком",
+      "description": "Уроки 3a, 3b, 3c, Culture Corner, English in Use и интерактивный Progress Check. Готовые уроки доступны сразу после оплаты, остальные придут на почту по мере выхода.",
+      "type": "pack",
+      "status": "preorder",
+      "price": 490,
+      "oldPrice": 690,
+      "includes": [
+        "sp6-3a",
+        "sp6-3b",
+        "sp6-3c"
+      ],
+      "unit": "Модуль 3 целиком",
+      "name": "Модуль 3 целиком"
+    },
+    "so-a1-4cd": {
+      "title": "Speakout A1 · 4C + 4D Café & Does?",
+      "short": "4C + 4D Café & Does?",
+      "description": "Урок на 60 минут: повторение 4C (заказ в кафе, предметы на столе, цены, интонация) и начало 4D (вопросы с Does и краткие ответы). Для взрослых, индивидуально и в группе.",
+      "type": "lesson",
+      "status": "available",
+      "price": 249,
+      "unit": "Unit 4, 4C + 4D",
+      "files": {
+        "html": "content/so-a1-4cd/lesson.html",
+        "pdf": "content/so-a1-4cd/teacher.pdf"
+      },
+      "fileName": "Speakout_A1_4C_4D",
+      "meta": [
+        "60 минут",
+        "14 экранов",
+        "91 аудио",
+        "6 страниц PDF"
+      ],
+      "author": "Кочка Радим",
+      "shots": [
+        {
+          "file": "content/so-a1-4cd/shots/1.webp",
+          "caption": "On the table: 12 предметов на столе"
+        },
+        {
+          "file": "content/so-a1-4cd/shots/2.webp",
+          "caption": "Диалог в кафе с выбором слов"
+        },
+        {
+          "file": "content/so-a1-4cd/shots/3.webp",
+          "caption": "Ролевая игра: меню и подсчёт суммы"
+        },
+        {
+          "file": "content/so-a1-4cd/shots/4.webp",
+          "caption": "Тексты Three jobs, three days"
+        },
+        {
+          "file": "content/so-a1-4cd/shots/5.webp",
+          "caption": "Правило по шагам: Does"
+        },
+        {
+          "file": "content/so-a1-4cd/shots/6.webp",
+          "caption": "Игра Guess the job"
+        }
+      ],
+      "name": "Café & Does?"
+    }
+  }
+}
