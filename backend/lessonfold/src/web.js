@@ -104,7 +104,10 @@ function publicProduct(p) {
     book: p.book, grade: p.grade, gradeLabel: catalog.gradeLabel(p.grade), moduleTitle: p.moduleTitle || '',
     unit: p.unit || '', meta: p.meta || [], steps: p.steps || [], includes: p.includes || [], author: p.author || '',
     shots: (p.shots || []).map(s => ({ src: fileUrl(s.file), caption: s.caption || '' })).filter(s => s.src),
-    demo: p.type === 'lesson' && p.free && p.status === 'available' ? `/demo/${p.sku}` : null
+    demo: p.type === 'lesson' && p.free && p.status === 'available' ? `/demo/${p.sku}` : null,
+    course: catalog.isCourse(p),
+    ready: catalog.isCourse(p) ? catalog.lessonsOf(p).filter((l) => l.status === 'available').length : undefined,
+    total: catalog.isCourse(p) ? catalog.lessonsOf(p).length : undefined
   };
 }
 

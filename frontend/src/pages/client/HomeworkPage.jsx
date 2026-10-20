@@ -8,6 +8,8 @@ import VocabPractice from '../../components/VocabPractice';
 import { AssignmentTasks } from '../tutor/Assignments';
 import { shortDate, relativeDay, time, HW_STATUS, todayISO } from '../../format';
 import { useSubject } from '../../subjects';
+import Study from '../../components/Study';
+import { SetProgress } from './SetStudy';
 
 export default function HomeworkPage({ id, isParent }) {
   const hw = useLoad(() => api.homeworkItem(id), [id]);
@@ -64,6 +66,8 @@ function HomeworkView({ h, isParent, reload }) {
           {h.library_item_ids?.length > 0 && (
             <AssignmentTasks ids={h.library_item_ids} homework={h} canPlay={h.status !== 'checked'} />
           )}
+
+          {h.word_set_id && <HomeworkCards h={h} isParent={isParent} />}
 
           {h.vocab_practice && <PracticeBlock h={h} canEdit={canEdit} isParent={isParent} reload={reload} />}
 
@@ -174,6 +178,51 @@ function PracticeBlock({ h, canEdit, isParent, reload }) {
           {isParent && !r && <span className="small muted">Ещё не пройдено</span>}
         </div>
       )}
+    </section>
+  );
+}
+
+// Слова к уроку: набор карточек задания, учим прямо здесь
+function HomeworkCards({ h, isParent }) {
+  const [open, setOpen] = useState(false);
+  const set = useLoad(() => (open ? api.wordSet(h.word_set_id, h.student_id) : Promise.resolve(null)), [open, h.word_set_id]);
+  const [progress, setProgress] = useState(null);
+  const [levels, setLevels] = useState(null);
+  const learned = progress ? progress.learned : h.word_set_learned;
+  const total = progress ? progress.total : h.word_set_count;
+  const onFinish = async (mode, results, sec) => {
+    const r = await api.saveSetProgress(h.word_set_id, { student_id: h.student_id, mode, duration_sec: sec, results: results.map((x) => ({ term: x.term, ok: x.ok })) });
+    if (!r.saved) return null;
+    setProgress(r.progress);
+    setLevels(new Map(r.words.map((w) => [w.term, w.level])));
+    return `Сохранено. Выучено ${r.progress.learned} из ${r.progress.total}. Преподаватель это увидит.`;
+  };
+  const words = set.data ? set.data.words.map((w) => ({ key: w.term.toLowerCase(), term: w.term, translation: w.translation, example: w.example, level: levels ? levels.get(w.term) ?? 0 : w.level })) : [];
+  return (
+    <section style={{ marginTop: 24 }}>
+      <div className="row-between" style={{ marginBottom: 12 }}>
+        <h2 className="section-title">Слова к уроку</h2>
+        <span className="muted small">выучено {learned} из {total}</span>
+      </div>
+      <div className="panel">
+        {!open ? (
+          <div className="words-hero">
+            <div style={{ minWidth: 0 }}>
+              <div className="serif" style={{ fontSize: 26, fontWeight: 500 }}>{h.word_set_title}</div>
+              <div className="small muted">Карточки, заучивание, письмо, подбор и тест. Учи, пока все слова не станут выученными.</div>
+              <div className="bar" style={{ marginTop: 10, maxWidth: 360 }}><span style={{ width: `${total ? (learned / total) * 100 : 0}%` }} /></div>
+            </div>
+            {!isParent ? <button className="btn" onClick={() => setOpen(true)}><Icon name="play" /> {learned ? 'Продолжить' : 'Учить слова'}</button>
+              : <Link to={`/words/set/${h.word_set_id}`} className="btn btn-secondary">Посмотреть слова</Link>}
+          </div>
+        ) : set.loading ? <Spinner /> : set.error ? <ErrorBox error={set.error} onRetry={set.reload} /> : (
+          <>
+            {progress && <div style={{ marginBottom: 16 }}><SetProgress p={progress} /></div>}
+            <Study words={words} subject={h.subject} onFinish={onFinish} />
+            <div className="row" style={{ justifyContent: 'flex-end', marginTop: 12 }}><button className="btn btn-quiet btn-sm" onClick={() => setOpen(false)}>Свернуть</button></div>
+          </>
+        )}
+      </div>
     </section>
   );
 }

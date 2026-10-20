@@ -35,7 +35,19 @@ const fields = {
   questions: questionsSchema,
   library_item_ids: z.array(z.number().int().positive()).max(50),
   vocab_practice: z.object({ count: z.number().int().min(4).max(30) }).strict().nullable(),
+  word_set_id: z.number().int().positive().nullable(), // слова к уроку: набор карточек
 };
+
+// Набор карточек должен быть своим. Ученикам задания открываем доступ к нему
+async function ownSet(db, setId, tutorId) {
+  if (!setId) return null;
+  const { rows } = await db.query('SELECT id FROM word_sets WHERE id = $1 AND tutor_id = $2', [setId, tutorId]);
+  return rows[0] ? rows[0].id : undefined;
+}
+async function shareSet(db, setId, studentIds) {
+  if (!setId || !studentIds.length) return;
+  await db.query('INSERT INTO word_set_students (set_id, student_id) SELECT $1, unnest($2::int[]) ON CONFLICT DO NOTHING', [setId, studentIds]);
+}
 
 // Список метаданных файлов (без содержимого)
 const FILE_META = 'id, filename, mime, size_bytes, uploaded_by, created_at';
@@ -76,7 +88,7 @@ const createSchema = z
     ...fields,
     student_ids: z.array(z.number().int().positive()).min(1, 'Выберите хотя бы одного ученика').max(100),
   })
-  .partial({ description: true, links: true, due_on: true, questions: true, library_item_ids: true, vocab_practice: true })
+  .partial({ description: true, links: true, due_on: true, questions: true, library_item_ids: true, vocab_practice: true, word_set_id: true })
   .strict();
 
 router.post(
@@ -87,13 +99,16 @@ router.post(
     const result = await transaction(async (client) => {
       const { rows: found } = await client.query('SELECT id FROM students WHERE id = ANY($1) AND tutor_id = $2', [b.student_ids, req.user.id]);
       if (found.length !== new Set(b.student_ids).size) return { error: 'Некоторые ученики не найдены' };
+      const setId = await ownSet(client, b.word_set_id, req.user.id);
+      if (setId === undefined) return { error: 'Набор карточек не найден' };
 
       const { rows } = await client.query(
-        `INSERT INTO assignments (title, description, links, due_on, questions, library_item_ids, vocab_practice, tutor_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        `INSERT INTO assignments (title, description, links, due_on, questions, library_item_ids, vocab_practice, tutor_id, word_set_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
         [b.title, b.description || null, b.links || [], b.due_on || null, JSON.stringify(b.questions || []),
-          await ownItems(client, b.library_item_ids, req.user.id), b.vocab_practice ? JSON.stringify(b.vocab_practice) : null, req.user.id]
+          await ownItems(client, b.library_item_ids, req.user.id), b.vocab_practice ? JSON.stringify(b.vocab_practice) : null, req.user.id, setId]
       );
+      await shareSet(client, setId, [...new Set(b.student_ids)]);
       const given = [];
       for (const sid of new Set(b.student_ids)) {
         const { rows: hw } = await client.query('INSERT INTO homework (assignment_id, student_id) VALUES ($1, $2) RETURNING id', [rows[0].id, sid]);
@@ -122,13 +137,20 @@ router.get(
     const { rows: files } = await query(`SELECT ${FILE_META} FROM files WHERE assignment_id = $1 ORDER BY id`, [id]);
     const { rows: submissions } = await query(
       `SELECT h.id, h.student_id, s.full_name AS student_name, h.status, h.submitted_at, h.score, h.quiz_score, h.vocab_result,
-              (SELECT COUNT(*)::int FROM files f WHERE f.homework_id = h.id) AS files_count
+              (SELECT COUNT(*)::int FROM files f WHERE f.homework_id = h.id) AS files_count,
+              (SELECT COUNT(*)::int FROM word_set_progress p WHERE p.set_id = $2 AND p.student_id = h.student_id AND p.level = 3) AS set_learned,
+              (SELECT COUNT(*)::int FROM practice_log l WHERE l.set_id = $2 AND l.student_id = h.student_id) AS set_sessions
          FROM homework h JOIN students s ON s.id = h.student_id
         WHERE h.assignment_id = $1
         ORDER BY (h.status = 'submitted') DESC, s.full_name`,
-      [id]
+      [id, rows[0].word_set_id || 0]
     );
-    res.json({ ...rows[0], files, submissions });
+    let wordSet = null;
+    if (rows[0].word_set_id) {
+      const { rows: ws } = await query('SELECT id, title, jsonb_array_length(words) AS word_count FROM word_sets WHERE id = $1', [rows[0].word_set_id]);
+      wordSet = ws[0] || null;
+    }
+    res.json({ ...rows[0], files, submissions, word_set: wordSet });
   })
 );
 
@@ -151,6 +173,9 @@ router.patch(
     if (data.questions) data.questions = JSON.stringify(data.questions);
     if (data.library_item_ids) data.library_item_ids = await ownItems({ query }, data.library_item_ids, req.user.id);
     if (data.vocab_practice !== undefined) data.vocab_practice = data.vocab_practice ? JSON.stringify(data.vocab_practice) : null;
+    if (data.word_set_id) {
+      if ((await ownSet({ query }, data.word_set_id, req.user.id)) === undefined) return res.status(400).json({ error: 'Набор карточек не найден' });
+    }
 
     const added = [];
     const updated = await transaction(async (client) => {
@@ -169,6 +194,12 @@ router.patch(
           [id, sid]
         );
         if (hw[0]) added.push({ sid, hid: hw[0].id });
+      }
+
+      // Набор карточек открываем всем, кому выдано задание
+      if (assignment.word_set_id) {
+        const { rows: hs } = await client.query('SELECT student_id FROM homework WHERE assignment_id = $1', [id]);
+        await shareSet(client, assignment.word_set_id, hs.map((r) => r.student_id));
       }
 
       if (data.questions) {

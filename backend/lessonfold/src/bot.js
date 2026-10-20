@@ -9,12 +9,13 @@ const orders = require('./orders');
 const MENU = {
   free: 'Бесплатный урок',
   catalog: 'Каталог уроков',
+  courses: 'Курсы на год',
   mine: 'Мои уроки',
   help: 'Помощь'
 };
 
 const mainKeyboard = {
-  keyboard: [[{ text: MENU.free }, { text: MENU.catalog }], [{ text: MENU.mine }, { text: MENU.help }]],
+  keyboard: [[{ text: MENU.free }, { text: MENU.catalog }], [{ text: MENU.courses }, { text: MENU.mine }], [{ text: MENU.help }]],
   resize_keyboard: true,
   is_persistent: true
 };
@@ -97,7 +98,8 @@ async function showGrade(chatId, messageId, tbId, grade) {
   const t = catalog.textbook(tbId);
   const g = t && t.grades.find(x => String(x.grade) === String(grade));
   if (!g) return showTextbooks(chatId, messageId);
-  const rows = g.modules.map(m => [{ text: m.title, callback_data: `md:${m.id}` }]);
+  const rows = (g.courses || []).map(catalog.product).filter(Boolean).map(c => [{ text: `🎓 ${c.short || 'Весь курс'} · ${priceText(c)}`, callback_data: `p:${c.sku}` }]);
+  rows.push(...g.modules.map(m => [{ text: m.title, callback_data: `md:${m.id}` }]));
   rows.push([{ text: '← Назад', callback_data: `tb:${t.id}` }]);
   return edit(chatId, messageId, `<b>${esc(t.title)}, ${esc(g.label)}</b>\nВыберите модуль:`, { inline_keyboard: rows });
 }
@@ -125,12 +127,33 @@ async function showModule(chatId, messageId, userId, moduleId) {
   return edit(chatId, messageId, `<b>${esc(loc.module.title)}</b>\n${esc(loc.textbook.title)}, ${esc(loc.grade.label)}`, { inline_keyboard: rows });
 }
 
+// Курсы на учебный год: все уроки учебника для одного класса одной покупкой
+async function showCourses(chatId, messageId) {
+  const list = catalog.courses();
+  if (!list.length) {
+    const text = 'Курсы на год скоро появятся. Пока можно купить отдельные уроки и модули в каталоге.';
+    return messageId ? edit(chatId, messageId, text, { inline_keyboard: [[{ text: 'Каталог уроков', callback_data: 'cat' }]] }) : send(chatId, text, { reply_markup: mainKeyboard });
+  }
+  const text = '<b>Курсы на учебный год.</b> Все уроки к учебнику для одного класса одной покупкой. Готовые уроки придут сразу, новые бот пришлёт сам, как только они выйдут.';
+  const markup = { inline_keyboard: list.map(c => [{ text: `${c.title} · ${priceText(c)}`, callback_data: `p:${c.sku}` }]) };
+  return messageId ? edit(chatId, messageId, text, markup) : send(chatId, text, { reply_markup: markup });
+}
+
 async function showProduct(chatId, messageId, userId, sku) {
   const p = catalog.product(sku);
   if (!p) return send(chatId, 'Такого урока нет в каталоге.');
   const { owned } = await ownership(userId);
   const lines = [`<b>${esc(p.title)}</b>`, '', esc(p.description), ''];
-  if (p.type === 'pack') {
+  if (catalog.isCourse(p)) {
+    const ls = catalog.lessonsOf(p);
+    const ready = ls.filter(l => l.status === 'available');
+    const tb = catalog.textbook(p.book);
+    const mods = [...new Set(ls.map(l => l.moduleTitle).filter(Boolean))];
+    lines.push(`Курс: все уроки к учебнику ${esc(tb ? tb.title : p.book)}, ${esc(catalog.gradeLabel(p.grade))}.`);
+    lines.push(`Готово уроков: <b>${ready.length}</b>${ls.length > ready.length ? `, ещё готовятся: ${ls.length - ready.length}` : ''}.`);
+    if (mods.length) lines.push('Модули: ' + mods.map(esc).join(', ') + '.');
+    lines.push('Новые уроки этого класса будут приходить сами, без доплаты.');
+  } else if (p.type === 'pack') {
     lines.push('Входит: ' + p.includes.map(s => {
       const x = catalog.product(s);
       return `${x.short || x.title}${x.status === 'available' ? '' : ' (скоро)'}`;
@@ -153,6 +176,7 @@ async function showProduct(chatId, messageId, userId, sku) {
   }
   const loc = catalog.moduleOf(sku);
   if (loc) rows.push([{ text: '← К модулю', callback_data: `md:${loc.module.id}` }]);
+  else if (catalog.isCourse(p)) rows.push([{ text: '← Все курсы', callback_data: 'crs' }]);
   const text = lines.join('\n');
   const markup = { inline_keyboard: rows };
   return messageId ? edit(chatId, messageId, text, markup) : send(chatId, text, { reply_markup: markup });
@@ -445,6 +469,7 @@ async function onMessage(msg) {
   }
   if (text === MENU.free || text === '/free') return showFree(chatId, msg.from);
   if (text === MENU.catalog || text === '/catalog') return showTextbooks(chatId);
+  if (text === MENU.courses || text === '/courses') return showCourses(chatId);
   if (text === MENU.mine || text === '/mine') return showMine(chatId, msg.from.id);
   if (text === MENU.help || text === '/help') return showHelp(chatId);
   return send(chatId, 'Выберите действие кнопками внизу.', { reply_markup: mainKeyboard });
@@ -459,6 +484,7 @@ async function onCallback(cq) {
   const [kind, a, b] = data.split(':');
   switch (kind) {
     case 'cat': return showTextbooks(chatId, mid);
+    case 'crs': return showCourses(chatId, mid);
     case 'tb': return showTextbook(chatId, mid, a);
     case 'gr': return showGrade(chatId, mid, a, b);
     case 'md': return showModule(chatId, mid, cq.from.id, a);

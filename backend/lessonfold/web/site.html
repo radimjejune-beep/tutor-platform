@@ -543,7 +543,7 @@ function renderShelf(){
   $("#shelf").innerHTML = [{id:"all", short:"Все учебники"}, ...BOOKS].map(b => `<button type="button" data-b="${esc(b.id)}" aria-pressed="${b.id === book}">${esc(b.short || b.title)}<small>${n(b.id) || "скоро"}</small></button>`).join("");
   $("#shelf").hidden = BOOKS.length < 2;
 }
-function where(p){ return [p.gradeLabel, p.unit || p.moduleTitle].filter(Boolean).join(" · ") }
+function where(p){ return p.course ? `Курс на учебный год · ${p.gradeLabel}` : [p.gradeLabel, p.unit || p.moduleTitle].filter(Boolean).join(" · ") }
 function buyBtn(p, cls){
   if (p.free) return p.demo ? `<a class="btn ${cls}" href="${esc(p.demo)}" target="_blank" rel="noopener">Открыть бесплатно</a>` : "";
   const t = p.status === "preorder" ? "Оформить предзаказ" : "Купить";
@@ -569,10 +569,11 @@ function rowCard(p){
   const act = p.status === "soon"
     ? `<span class="badge">Готовится</span><a class="btn btn-line"${ext(chan || botLink(""))}>Узнать о выходе</a>`
     : `${priceHtml(p)}${buyBtn(p, p.status === "preorder" ? "btn-ink" : "btn-amber")}`;
-  return `<div class="row"><div><span class="where">${esc(where(p))}${p.status === "preorder" ? " · предзаказ" : ""}</span><h4>${esc(p.title)}</h4><p>${esc(p.description)}</p></div><div class="act">${act}</div></div>`;
+  const course = p.course ? `<p class="where" style="margin-top:6px">Готово уроков: ${p.ready}${p.total > p.ready ? `, ещё готовятся: ${p.total - p.ready}` : ""}. Новые уроки этого класса приходят сами, без доплаты.</p>` : "";
+  return `<div class="row"><div><span class="where">${esc(where(p))}${p.status === "preorder" ? " · предзаказ" : ""}</span><h4>${esc(p.title)}</h4><p>${esc(p.description)}</p>${course}</div><div class="act">${act}</div></div>`;
 }
 function renderList(){
-  const order = p => p.status === "soon" ? 2 : (p.type === "pack" ? 1 : 0);
+  const order = p => p.course ? -1 : p.status === "soon" ? 2 : (p.type === "pack" ? 1 : 0);
   const books = book === "all" ? BOOKS : BOOKS.filter(b => b.id === book);
   let html = "";
   for (const b of books) {

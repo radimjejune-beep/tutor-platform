@@ -11,6 +11,7 @@ import LibraryItem from '../../components/LibraryItem';
 import { TaskPicker, PickedTasks } from './Library';
 import { ResultLine, byItem, GameResultsPanel, averageBest } from '../../components/GameResults';
 import { shortDate, fullDate, relativeDay, time, HW_STATUS, plural, todayISO } from '../../format';
+import WordPaste from '../../components/WordPaste';
 
 const orNull = (v) => (v && String(v).trim() ? String(v).trim() : null);
 const dueText = (d) => (d ? `Срок: ${shortDate(d)}` : 'Без срока');
@@ -86,7 +87,9 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
     vocab: assignment ? Boolean(assignment.vocab_practice) : false,
     vocabCount: assignment?.vocab_practice?.count || 12,
     items: assignment?.library_item_ids || presetItems || [],
+    setId: assignment?.word_set_id || null,
   });
+  const [newWords, setNewWords] = useState([]); // слова к уроку: новый набор из вставленного списка
   const [pendingFiles, setPendingFiles] = useState([]); // для нового задания — загрузим после создания
   const [showQuiz, setShowQuiz] = useState(Boolean(assignment?.questions?.length));
   const [picking, setPicking] = useState(false);
@@ -107,6 +110,19 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
       library_item_ids: f.items,
       vocab_practice: f.vocab ? { count: Number(f.vocabCount) } : null,
     };
+    // Слова к уроку: вставленный список становится набором карточек этого задания
+    if (newWords.length) {
+      const who = isNew ? [...f.students] : [...new Set([...(assignment.submissions || []).map((s) => s.student_id), ...f.students])];
+      if (f.setId) {
+        const cur = await api.wordSet(f.setId);
+        const have = new Set(cur.words.map((w) => w.term.toLowerCase()));
+        await api.updateWordSet(f.setId, { words: [...cur.words, ...newWords.filter((w) => !have.has(w.term.toLowerCase()))].slice(0, 500) });
+      } else {
+        const created = await api.createWordSet({ title: `Слова: ${f.title.trim()}`.slice(0, 200), words: newWords.slice(0, 500), for_all: false, student_ids: who.length ? who : undefined });
+        body.word_set_id = created.id;
+      }
+    }
+    if (!body.word_set_id) body.word_set_id = f.setId || null;
     if (isNew) {
       if (!f.students.size) throw new Error('Выберите хотя бы одного ученика');
       const created = await api.createAssignment({ ...body, student_ids: [...f.students] });
@@ -185,6 +201,8 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
                 onPick={(items) => { setPicking(false); setF({ ...f, items }); }} />
             )}
           </section>
+
+          <HomeworkWords setId={f.setId} onSetId={(setId) => setF({ ...f, setId })} words={newWords} onWords={setNewWords} />
 
           <section className="panel">
             <div className="panel-head">
@@ -293,6 +311,16 @@ export function AssignmentPage({ id }) {
 
           {d.library_item_ids?.length > 0 && <AssignmentTasks ids={d.library_item_ids} showPrivate />}
 
+          {d.word_set && (
+            <section style={{ marginTop: 24 }}>
+              <h2 className="section-title" style={{ marginBottom: 10 }}>Слова к уроку</h2>
+              <Link to={`/wordsets/${d.word_set.id}`} className="list-item clickable" style={{ color: 'inherit', textDecoration: 'none', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px' }}>
+                <div className="avatar" style={{ background: 'var(--surface-2)' }}><Icon name="cards" size={20} /></div>
+                <div className="list-main"><div className="list-title">{d.word_set.title}</div><div className="list-sub">{d.word_set.word_count} {plural(d.word_set.word_count, 'карточка', 'карточки', 'карточек')}. Ученик учит их прямо в задании</div></div>
+              </Link>
+            </section>
+          )}
+
           {d.questions.length > 0 && (
             <section style={{ marginTop: 24 }}>
               <h2 className="section-title" style={{ marginBottom: 12 }}>Тест и правильные ответы</h2>
@@ -314,6 +342,7 @@ export function AssignmentPage({ id }) {
                   <div className="list-sub">
                     {s.status === 'assigned' ? (d.due_on && d.due_on < todayISO() ? 'Просрочено' : 'Ещё не сдал') : `Сдано ${relativeDay(s.submitted_at).toLowerCase()} в ${time(s.submitted_at)}`}
                     {s.files_count ? `, файлов: ${s.files_count}` : ''}
+                    {d.word_set ? `. Слова: ${s.set_learned} из ${d.word_set.word_count}${s.set_sessions ? '' : ', не учил'}` : ''}
                   </div>
                 </div>
                 {s.status === 'checked' ? (
@@ -494,6 +523,59 @@ export function AssignmentTasks({ ids, showPrivate, homework, canPlay }) {
           ))}
         </div>
       </SheetContext.Provider>
+    </section>
+  );
+}
+
+/* ============================================================
+   Слова к уроку: набор карточек внутри задания
+   ============================================================ */
+function HomeworkWords({ setId, onSetId, words, onWords }) {
+  const sets = useLoad(() => api.wordSets(), []);
+  const [mode, setMode] = useState(setId ? 'set' : 'none');
+  const current = sets.data?.find((x) => x.id === setId);
+  return (
+    <section className="panel">
+      <div className="panel-head">
+        <div>
+          <h2 className="section-title">Слова к уроку</h2>
+          <div className="small muted">Карточки прямо в задании: ученик учит их как в Quizlet, вы видите, сколько выучено</div>
+        </div>
+      </div>
+      <div className="seg" style={{ marginBottom: 12 }}>
+        <button type="button" className={mode === 'none' ? 'on' : ''} onClick={() => { setMode('none'); onSetId(null); onWords([]); }}>Без слов</button>
+        <button type="button" className={mode === 'new' ? 'on' : ''} onClick={() => { setMode('new'); onSetId(null); }}>Вставить список</button>
+        <button type="button" className={mode === 'set' ? 'on' : ''} onClick={() => setMode('set')}>Готовый набор</button>
+      </div>
+      {mode === 'new' && (
+        <>
+          <WordPaste onWords={(w) => onWords(w)} rows={6} placeholder={'Слова к уроку: слово и перевод через Tab, тире или запятую\n\nhurry up - поторопиться\nbring - приносить\nalways - всегда'} />
+          <div className="small muted" style={{ marginTop: 8 }}>{words.length ? `Создастся набор «Слова: название задания» из ${words.length} карточек. Его можно поправить потом в разделе «Карточки».` : 'Набор создастся при сохранении задания.'}</div>
+        </>
+      )}
+      {mode === 'set' && (
+        sets.loading ? <Spinner /> : (
+          <>
+            <select className="select" value={setId || ''} onChange={(e) => onSetId(Number(e.target.value) || null)}>
+              <option value="">Выберите набор</option>
+              {(sets.data || []).map((x) => <option key={x.id} value={x.id}>{x.title} ({x.word_count})</option>)}
+            </select>
+            {!sets.data?.length && <div className="small muted" style={{ marginTop: 8 }}>Наборов пока нет. Выберите «Вставить список» или создайте набор в разделе «Карточки».</div>}
+            {current && (
+              <div className="row wrap" style={{ gap: 8, marginTop: 10 }}>
+                <span className="small muted">{current.word_count} {plural(current.word_count, 'карточка', 'карточки', 'карточек')}</span>
+                <Link to={`/wordsets/${current.id}`} className="btn btn-quiet btn-sm">Открыть набор</Link>
+              </div>
+            )}
+            {setId && (
+              <details style={{ marginTop: 12 }}>
+                <summary className="small" style={{ cursor: 'pointer' }}>Добавить в этот набор ещё слова</summary>
+                <div style={{ marginTop: 10 }}><WordPaste onWords={(w) => onWords(w)} rows={4} /></div>
+              </details>
+            )}
+          </>
+        )
+      )}
     </section>
   );
 }

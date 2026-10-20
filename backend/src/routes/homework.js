@@ -16,10 +16,13 @@ const tutorOnly = requireRole('tutor');
 const SELECT_HW = `
   SELECT h.*, a.title, a.description, a.links, a.due_on, a.library_item_ids, a.vocab_practice,
          jsonb_array_length(a.questions) AS question_count,
-         s.full_name AS student_name
+         s.full_name AS student_name,
+         a.word_set_id, ws.title AS word_set_title, jsonb_array_length(ws.words) AS word_set_count,
+         (SELECT COUNT(*)::int FROM word_set_progress p WHERE p.set_id = a.word_set_id AND p.student_id = h.student_id AND p.level = 3) AS word_set_learned
     FROM homework h
     JOIN assignments a ON a.id = h.assignment_id
-    JOIN students s ON s.id = h.student_id`;
+    JOIN students s ON s.id = h.student_id
+    LEFT JOIN word_sets ws ON ws.id = a.word_set_id`;
 
 // ------------------------------------------------------------
 // Список работ. ?student_id=5&status=assigned

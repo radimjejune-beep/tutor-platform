@@ -65,6 +65,7 @@ async function init() {
         { command: 'start', description: 'Главное меню' },
         { command: 'free', description: 'Бесплатный урок' },
         { command: 'catalog', description: 'Каталог уроков' },
+        { command: 'courses', description: 'Курсы на учебный год' },
         { command: 'mine', description: 'Мои уроки' },
         { command: 'help', description: 'Как открыть урок' }
       ]

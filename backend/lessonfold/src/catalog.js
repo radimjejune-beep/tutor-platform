@@ -39,18 +39,30 @@ function flattenLegacy(src) {
   return out;
 }
 
+// Курс: пакет со scope = 'course'. В него входят все уроки этого учебника и класса,
+// в том числе те, что выйдут позже: состав считается заново при каждой публикации каталога.
+const isCourse = p => p && p.type === 'pack' && p.scope === 'course';
+function courseLessons(products, p) {
+  return Object.entries(products)
+    .filter(([, x]) => x.type === 'lesson' && x.status !== 'hidden' && x.book === p.book && String(x.grade) === String(p.grade))
+    .sort(([a, x], [b, y]) => (x.order ?? 999) - (y.order ?? 999) || a.localeCompare(b))
+    .map(([sku]) => sku);
+}
+
 // Строит дерево для бота и сайта
 function build(src) {
   const c = JSON.parse(JSON.stringify(src));
   c.textbooks = (c.textbooks || []).map(t => ({ id: t.id, title: t.title, short: t.short || t.title, grades: [] }));
   const products = c.products || {};
+  for (const p of Object.values(products)) if (isCourse(p)) p.includes = courseLessons(products, p);
   const list = Object.entries(products).map(([sku, p]) => Object.assign(p, { sku }))
     .sort((a, b) => (a.order ?? 999) - (b.order ?? 999) || a.sku.localeCompare(b.sku));
   for (const p of list) {
     const t = c.textbooks.find(x => x.id === p.book);
     if (!t || p.status === 'hidden') continue;
     let g = t.grades.find(x => String(x.grade) === String(p.grade));
-    if (!g) { g = { grade: p.grade, label: gradeLabel(p.grade), modules: [] }; t.grades.push(g); }
+    if (!g) { g = { grade: p.grade, label: gradeLabel(p.grade), modules: [], courses: [] }; t.grades.push(g); }
+    if (isCourse(p)) { g.courses.push(p.sku); continue; }
     const mid = p.module || `${t.id}-${p.grade}`;
     let m = g.modules.find(x => x.id === mid);
     if (!m) { m = { id: mid, title: p.moduleTitle || mid, products: [] }; g.modules.push(m); }
@@ -72,7 +84,7 @@ async function validate(src, hasFile) {
     if (!['lesson', 'pack'].includes(p.type)) errors.push(`${name}: тип должен быть lesson или pack`);
     if (!['available', 'preorder', 'soon', 'hidden'].includes(p.status)) errors.push(`${name}: неизвестный статус ${p.status}`);
     if (p.status !== 'hidden' && (p.grade === '' || p.grade == null)) errors.push(`${name}: укажите класс или уровень`);
-    if (p.status !== 'hidden' && !p.moduleTitle) errors.push(`${name}: укажите модуль, в котором урок покажется в боте`);
+    if (p.status !== 'hidden' && !p.moduleTitle && !isCourse(p)) errors.push(`${name}: укажите модуль, в котором урок покажется в боте`);
     if (p.type === 'lesson' && p.status === 'preorder') errors.push(`${name}: предзаказ бывает только у пакета`);
     if (!p.free && (p.status === 'available' || p.status === 'preorder') && !(Number(p.price) > 0)) errors.push(`${name}: укажите цену или отметьте урок бесплатным`);
     if (p.type === 'lesson' && p.status === 'available') {
@@ -81,7 +93,10 @@ async function validate(src, hasFile) {
         if (f && !(await hasFile(f))) errors.push(`${name}: файл ${f} не найден`);
       }
     }
-    if (p.type === 'pack') {
+    if (isCourse(p)) {
+      const ls = courseLessons(src.products, p);
+      if (p.status === 'available' && !ls.some(s => src.products[s].status === 'available')) errors.push(`${name}: в курсе пока нет готовых уроков этого учебника и класса. Поставьте статус «Предзаказ» или «Скоро»`);
+    } else if (p.type === 'pack') {
       if (!(p.includes || []).length) errors.push(`${name}: в пакете нет уроков`);
       for (const s of p.includes || []) if (!src.products[s]) errors.push(`${name}: в пакете неизвестный урок ${s}`);
     }
@@ -103,7 +118,7 @@ function load() {
     if (p.type === 'lesson' && p.status === 'available') {
       for (const f of Object.values(p.files || {})) if (!diskHas(f)) throw new Error(`Каталог: у урока ${sku} нет файла ${f}`);
     }
-    if (p.type === 'pack') for (const s of p.includes || []) if (!src.products[s]) throw new Error(`Каталог: пакет ${sku} ссылается на неизвестный урок ${s}`);
+    if (p.type === 'pack' && !isCourse(p)) for (const s of p.includes || []) if (!src.products[s]) throw new Error(`Каталог: пакет ${sku} ссылается на неизвестный урок ${s}`);
   }
   raw = src;
   data = build(src);
@@ -187,6 +202,11 @@ function moduleOf(sku) {
   return null;
 }
 
+// Курсы: все или одного учебника и класса
+function courses(bookId, grade) {
+  return Object.values(get().products).filter(p => isCourse(p) && p.status !== 'hidden' && (!bookId || (p.book === bookId && String(p.grade) === String(grade))));
+}
+
 function freeProducts() {
   return Object.values(get().products).filter(p => p.free && p.status === 'available');
 }
@@ -204,5 +224,5 @@ function lessonsOf(p) {
 }
 
 module.exports = {
-  load, loadFromDb, save, validate, getRaw, get, product, textbook, moduleById, moduleOf, freeProducts, purchasable, lessonsOf, gradeLabel
+  load, loadFromDb, save, validate, getRaw, get, product, textbook, moduleById, moduleOf, freeProducts, purchasable, lessonsOf, gradeLabel, isCourse, courses
 };

@@ -156,13 +156,14 @@ function renderLessons() {
   const prods = Object.entries(c.products || {}).map(([sku, p]) => ({ ...p, sku })).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
   const groups = c.textbooks.map(t => [t, prods.filter(p => p.book === t.id)]);
   const orphan = prods.filter(p => !c.textbooks.some(t => t.id === p.book));
-  const item = p => `<div class="item ${state.sel === p.sku ? "on" : ""}" data-s="${esc(p.sku)}"><div><b>${esc(p.title || "Без названия")}</b><small>${esc(p.sku)} · ${p.type === "pack" ? "пакет" : "урок"}${p.free ? " · бесплатный" : p.price ? " · " + p.price + " ₽" : ""}${fileState(p)}</small></div><span class="pill ${p.status}">${STATUS[p.status] || p.status}</span></div>`;
-  m.innerHTML = errorsBox() + `<div class="grid2"><div class="panel"><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"><button class="btn sm dark" id="addL">+ Урок</button><button class="btn sm" id="addP">+ Пакет</button></div>
+  const item = p => `<div class="item ${state.sel === p.sku ? "on" : ""}" data-s="${esc(p.sku)}"><div><b>${esc(p.title || "Без названия")}</b><small>${esc(p.sku)} · ${p.scope === "course" ? "курс" : p.type === "pack" ? "пакет" : "урок"}${p.free ? " · бесплатный" : p.price ? " · " + p.price + " ₽" : ""}${fileState(p)}</small></div><span class="pill ${p.status}">${STATUS[p.status] || p.status}</span></div>`;
+  m.innerHTML = errorsBox() + `<div class="grid2"><div class="panel"><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"><button class="btn sm dark" id="addL">+ Урок</button><button class="btn sm" id="addP">+ Пакет</button><button class="btn sm" id="addC">+ Курс на год</button></div>
     <div class="list" id="lst">${groups.map(([t, ps]) => `<div class="group">${esc(t.title)}</div>${ps.map(item).join("") || '<p class="help" style="padding:0 12px">Пока пусто</p>'}`).join("")}${orphan.length ? `<div class="group">Без учебника</div>${orphan.map(item).join("")}` : ""}</div></div>
     <div class="panel" id="ed">${state.sel && c.products[state.sel] ? "" : '<p class="muted">Выберите урок слева или добавьте новый. Изменения появятся на сайте и в боте после кнопки «Опубликовать».</p>'}</div></div>`;
   $("#lst").onclick = e => { const it = e.target.closest(".item"); if (!it) return; state.sel = it.dataset.s; renderLessons() };
   $("#addL").onclick = () => addProduct("lesson");
   $("#addP").onclick = () => addProduct("pack");
+  if ($("#addC")) $("#addC").onclick = () => { addProduct("pack"); const p = state.cat.products[state.sel]; if (p) { p.scope = "course"; p.short = "Весь курс"; renderEditor(state.sel); renderLessons() } };
   if (state.sel && c.products[state.sel]) renderEditor(state.sel);
 }
 function fileState(p) {
@@ -193,7 +194,7 @@ function renderEditor(sku) {
   const lessons = Object.entries(c.products).filter(([k, x]) => x.type === "lesson" && k !== sku);
   const books = c.textbooks.map(t => `<option value="${esc(t.id)}" ${p.book === t.id ? "selected" : ""}>${esc(t.title)}</option>`).join("");
   const st = Object.entries(STATUS).filter(([k]) => p.type === "pack" || k !== "preorder").map(([k, v]) => `<option value="${k}" ${p.status === k ? "selected" : ""}>${v}</option>`).join("");
-  ed.innerHTML = `<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:14px"><h2 style="font-size:18px">${p.type === "pack" ? "Пакет" : "Урок"}: ${esc(p.name || p.title || "без названия")}</h2><button class="btn sm danger" id="del">Удалить</button></div>
+  ed.innerHTML = `<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:14px"><h2 style="font-size:18px">${p.scope === "course" ? "Курс" : p.type === "pack" ? "Пакет" : "Урок"}: ${esc(p.name || p.title || "без названия")}</h2><button class="btn sm danger" id="del">Удалить</button></div>
   <div class="form">
     <label class="c2">Код (для ссылок и бота)<input id="f_sku" value="${esc(sku)}" ${p._new ? "" : "readonly"}></label>
     <label class="c2">Статус<select id="f_status">${st}</select></label>
@@ -219,8 +220,9 @@ function renderEditor(sku) {
     <div class="c6" id="filesBox"></div>
     <div class="sec">Скриншоты экранов</div>
     <div class="c6"><p class="help">PNG, JPG или WebP. Перед загрузкой картинка уменьшается до 1600 пикселей и сохраняется в WebP. Первый скриншот становится обложкой.</p><div class="shots" id="shots"></div><div class="actions"><label class="btn sm dark" style="display:inline-flex;flex-direction:row;color:var(--panel)">+ Скриншоты<input type="file" id="shotIn" accept="image/png,image/jpeg,image/webp" multiple hidden></label></div></div>` : `
-    <div class="sec">Уроки в пакете</div>
-    <div class="c6" style="display:flex;flex-direction:column;gap:6px">${lessons.map(([k, x]) => `<label class="inline"><input type="checkbox" class="inc" value="${esc(k)}" ${(p.includes || []).includes(k) ? "checked" : ""}> ${esc(x.title || k)} <span class="muted">(${esc(k)}, ${STATUS[x.status]})</span></label>`).join("")}</div>`}
+    <label class="c6 inline"><input id="f_course" type="checkbox" ${p.scope === "course" ? "checked" : ""}> Курс на год: все уроки этого учебника и класса, включая будущие. Модуль указывать не нужно, курс покажется в боте над модулями и в разделе «Курсы на год».</label>
+    ${p.scope === "course" ? `<div class="sec">Уроки в курсе</div><p class="c6 help">Сейчас в курс входит: ${lessons.filter(([, x]) => x.book === p.book && String(x.grade) === String(p.grade) && x.status !== "hidden").length} уроков (${esc(p.book)}, ${esc(p.grade ?? "")}). Новые уроки этого учебника и класса добавятся сами, а купившие курс получат их автоматически.</p>` : `<div class="sec">Уроки в пакете</div>
+    <div class="c6" style="display:flex;flex-direction:column;gap:6px">${lessons.map(([k, x]) => `<label class="inline"><input type="checkbox" class="inc" value="${esc(k)}" ${(p.includes || []).includes(k) ? "checked" : ""}> ${esc(x.title || k)} <span class="muted">(${esc(k)}, ${STATUS[x.status]})</span></label>`).join("")}</div>`}`}
   </div>`;
   const bind = (id, fn) => { const el = $("#f_" + id); if (el) el.addEventListener(el.type === "checkbox" ? "change" : "input", () => { fn(el); markDirty() }) };
   for (const k of ["title", "name", "short", "description", "unit", "author"]) bind(k, el => p[k] = el.value);
@@ -240,6 +242,7 @@ function renderEditor(sku) {
     if (!p._new && $("#del").dataset.sure !== "1") { $("#del").dataset.sure = "1"; $("#del").textContent = "Точно удалить?"; return }
     delete c.products[sku]; state.sel = null; markDirty(); renderLessons();
   };
+  const cc = $("#f_course"); if (cc) cc.onchange = () => { if (cc.checked) { p.scope = "course"; p.includes = []; if (!p.short) p.short = "Весь курс" } else delete p.scope; markDirty(); renderEditor(sku) };
   ed.querySelectorAll(".inc").forEach(cb => cb.onchange = () => { p.includes = [...ed.querySelectorAll(".inc:checked")].map(x => x.value); markDirty() });
   if (p.type === "lesson") { renderFiles(sku); renderShots(sku) }
 }
