@@ -19,7 +19,7 @@ const config = {
   botToken: E('BOT_TOKEN') || '',
   apiBase: (E('TELEGRAM_API_BASE') || 'https://api.telegram.org').replace(/\/$/, ''),
   databaseUrl: E('DATABASE_URL') || '',
-  databaseSsl: E('DATABASE_SSL') === '1' || process.env.DB_SSL === 'true',
+  databaseSsl: E('DATABASE_SSL') === '1' || process.env['DB_SSL'] === 'true',
   // DB_SCHEMA=lessonfold: хранить таблицы в отдельной схеме, если база общая с другим проектом
   dbSchema: (E('DB_SCHEMA') || '').trim(),
   publicUrl: (E('PUBLIC_URL') || '').replace(/\/$/, ''),

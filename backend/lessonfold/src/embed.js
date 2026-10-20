@@ -9,9 +9,9 @@
 // Включается, только если задан LF_PUBLIC_URL. Настройки магазина берутся из переменных с префиксом LF_
 // (LF_BOT_TOKEN, LF_ADMIN_LOGIN, LF_YOOKASSA_SHOP_ID...). База: LF_DATABASE_URL или общая DATABASE_URL,
 // таблицы магазина лежат в отдельной схеме (по умолчанию lessonfold), чтобы не пересекаться с таблицами приложения.
-if (!process.env.LF_DB_SCHEMA && !process.env.DB_SCHEMA) process.env.LF_DB_SCHEMA = 'lessonfold';
+if (!process.env['LF_DB_SCHEMA'] && !process.env['DB_SCHEMA']) process.env['LF_DB_SCHEMA'] = 'lessonfold';
 
-const enabled = Boolean(process.env.LF_PUBLIC_URL);
+const enabled = Boolean(process.env['LF_PUBLIC_URL']);
 // Адреса /api/*, которые принадлежат магазину; остальные /api/* остаются приложению
 const OWN_API = new Set(['/api/order', '/api/yookassa', '/api/restore']);
 
