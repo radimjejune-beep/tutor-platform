@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { api } from '../api';
 import { useLoad, Link, Icon } from '../ui';
 import { BRAND } from '../config';
+import { useAuth } from '../auth';
 
 const rub = (n) => `${Number(n).toLocaleString('ru-RU')} ₽`;
 const where = (p) => (p.course ? `Курс на учебный год · ${p.gradeLabel}` : [p.gradeLabel, p.unit || p.moduleTitle].filter(Boolean).join(' · '));
@@ -51,6 +52,7 @@ export default function Landing() {
   const shop = useLoad(() => api.shop().catch(() => ({ enabled: false, products: [], textbooks: [] })), []);
   const reg = useLoad(() => api.registrationStatus().catch(() => ({ open: false })), []);
   const [book, setBook] = useState('all');
+  const { session } = useAuth();
   const s = shop.data || { enabled: false, products: [], textbooks: [] };
   const books = s.textbooks.filter((t) => s.products.some((p) => p.book === t.id));
   const list = useMemo(() => {
@@ -64,11 +66,11 @@ export default function Landing() {
     <div className="lp">
       <header className="lp-top">
         <div className="lp-wrap lp-top-in">
-          <a href="#/" className="lp-brand"><span className="brand-name">{BRAND.name}</span></a>
+          <a href={session ? '#/shop' : '#/'} className="lp-brand"><span className="brand-name">{BRAND.name}</span></a>
           <nav className="lp-nav">
             <a href="#lessons" onClick={(e) => { e.preventDefault(); document.getElementById('lessons')?.scrollIntoView({ behavior: 'smooth' }); }}>Уроки</a>
             <a href="#tutors" onClick={(e) => { e.preventDefault(); document.getElementById('tutors')?.scrollIntoView({ behavior: 'smooth' }); }}>Для репетиторов</a>
-            <Link to="/login" className="btn btn-sm">Войти</Link>
+            {session ? <Link to="/" className="btn btn-sm">Мой кабинет</Link> : <Link to="/login" className="btn btn-sm">Войти</Link>}
           </nav>
         </div>
       </header>
@@ -138,8 +140,8 @@ export default function Landing() {
           <div className="lp-login-box">
             <div className="serif" style={{ fontSize: 28, lineHeight: 1.1 }}>Уже занимаетесь?</div>
             <p>Ученики и родители входят по логину и паролю от преподавателя.</p>
-            <Link to="/login" className="btn btn-light">Войти в кабинет</Link>
-            {reg.data?.open && <Link to="/register" className="btn btn-ghost-light">Я репетитор: создать кабинет</Link>}
+            {session ? <Link to="/" className="btn btn-light">Открыть кабинет</Link> : <Link to="/login" className="btn btn-light">Войти в кабинет</Link>}
+            {!session && reg.data?.open && <Link to="/register" className="btn btn-ghost-light">Я репетитор: создать кабинет</Link>}
           </div>
         </div>
       </section>

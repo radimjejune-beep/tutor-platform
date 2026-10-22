@@ -5,7 +5,8 @@ const PROD_API = 'https://tutor-platform.relaxdev.ru';
 const RAW = String(import.meta.env.VITE_API_URL || '').trim();
 const onLocal = typeof location !== 'undefined' && /^(localhost|127\.|\[::1\])/.test(location.hostname);
 const rawOk = /^https?:\/\/[^\s${}]+$/.test(RAW) && (onLocal || !/\/\/(localhost|127\.)/.test(RAW));
-export const API_BASE = (rawOk ? RAW : onLocal ? 'http://localhost:3001' : PROD_API).replace(/\/$/, '');
+// Лишний «/api» или слеш на конце адреса убираем: пути запросов и так начинаются с /api
+export const API_BASE = (rawOk ? RAW : onLocal ? 'http://localhost:3001' : PROD_API).replace(/\/+$/, '').replace(/\/api$/, '');
 const BASE = API_BASE;
 const TOKEN_KEY = 'tp_token';
 
@@ -66,6 +67,8 @@ export const api = {
   adminTutors: () => request('GET', '/admin/tutors'),
   adminCreateTutor: (data) => request('POST', '/admin/tutors', data),
   adminSetTutorActive: (id, is_active) => request('PATCH', `/admin/tutors/${id}`, { is_active }),
+  adminSetTutorAdmin: (id, is_admin) => request('PATCH', `/admin/tutors/${id}`, { is_admin }),
+  shopAdminLink: () => request('POST', '/shop/admin-link', {}),
   adminResetTutor: (id) => request('POST', `/admin/tutors/${id}/reset-password`),
   adminSetRegistration: (open) => request('PUT', '/admin/registration', { open }),
   changePassword: (current_password, new_password) =>

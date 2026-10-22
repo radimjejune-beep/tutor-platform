@@ -56,11 +56,24 @@ router.post(
 
 // Отключить / включить репетитора. Себя отключить нельзя
 // Вместе с репетитором отключаются входы его учеников и родителей
+// is_admin: выдать или снять права сисадмина (у себя снять нельзя, чтобы не остаться без сисадмина)
 router.patch(
   '/tutors/:id',
-  validateBody(z.object({ is_active: z.boolean() }).strict()),
+  validateBody(z.object({ is_active: z.boolean().optional(), is_admin: z.boolean().optional() }).strict()),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
+    if (req.body.is_admin !== undefined) {
+      if (id === req.user.id) return res.status(400).json({ error: 'Свои права сисадмина снять нельзя' });
+      const { rows } = await query("UPDATE users SET is_admin = $2 WHERE id = $1 AND role = 'tutor' AND is_active RETURNING login", [id, req.body.is_admin]);
+      if (!rows[0]) return res.status(404).json({ error: 'Активный репетитор не найден' });
+      console.log(`${req.body.is_admin ? '✅ Сисадмин назначен' : '⚠️ Права сисадмина сняты'}: ${rows[0].login} (кем: ${req.user.login})`);
+      // Снятому сисадмину закрываем и админку магазина
+      if (!req.body.is_admin) {
+        try { await require('../../lessonfold/src/embed').revokeAdmin(rows[0].login); } catch (e) { console.error('Магазин: не удалось убрать админа', e.message); }
+      }
+      if (req.body.is_active === undefined) return res.json({ ok: true });
+    }
+    if (req.body.is_active === undefined) return res.status(400).json({ error: 'Нечего менять' });
     if (id === req.user.id) return res.status(400).json({ error: 'Свою учётку отключить нельзя' });
     const { rows } = await query("UPDATE users SET is_active = $2 WHERE id = $1 AND role = 'tutor' RETURNING login", [id, req.body.is_active]);
     if (!rows[0]) return res.status(404).json({ error: 'Репетитор не найден' });

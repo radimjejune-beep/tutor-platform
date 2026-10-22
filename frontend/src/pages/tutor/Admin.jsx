@@ -1,6 +1,7 @@
 // pages/tutor/Admin.jsx — сисадмин: репетиторы на платформе и регистрация
 // Здесь видна только сводка. Ученики, материалы и деньги репетиторов отсюда не открываются
 import { useState } from 'react';
+import { useAuth } from '../../auth';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Badge, Icon, Modal, Field, useSubmit, useToast } from '../../ui';
 import { relativeDay, shortDate } from '../../format';
@@ -10,6 +11,22 @@ export default function AdminPage() {
   const data = useLoad(() => api.adminTutors(), []);
   const [creating, setCreating] = useState(false);
   const [secret, setSecret] = useState(null);
+  const { user } = useAuth();
+  const [opening, setOpening] = useState(false);
+  // Админка магазина: одноразовая ссылка, вход без отдельного пароля
+  const openShopAdmin = async () => {
+    const w = window.open('', '_blank');
+    setOpening(true);
+    try {
+      const { url } = await api.shopAdminLink();
+      if (w) w.location.href = url; else window.location.href = url;
+    } catch (err) {
+      if (w) w.close();
+      toast(err.message, 'error');
+    } finally {
+      setOpening(false);
+    }
+  };
 
   if (data.loading) return <Spinner />;
   if (data.error) return <ErrorBox error={data.error} onRetry={data.reload} />;
@@ -35,6 +52,21 @@ export default function AdminPage() {
         </div>
         <button className="btn" onClick={() => setCreating(true)}><Icon name="plus" /> Репетитор</button>
       </div>
+
+      <section className="panel" style={{ marginBottom: 24 }}>
+        <div className="row-between wrap">
+          <div style={{ minWidth: 0 }}>
+            <h2 className="section-title">Магазин уроков</h2>
+            <div className="small muted" style={{ marginTop: 6 }}>
+              Уроки, курсы, цены, картинки и тексты на главной странице. Всё, что опубликуете там, сразу появится на витрине. Входят все сисадмины, отдельный пароль не нужен.
+            </div>
+          </div>
+          <div className="row" style={{ gap: 8 }}>
+            <a className="btn btn-secondary" href="#/shop">Посмотреть витрину</a>
+            <button className="btn" onClick={openShopAdmin} disabled={opening}><Icon name="grid" /> Открыть админку магазина</button>
+          </div>
+        </div>
+      </section>
 
       <section className="panel" style={{ marginBottom: 24 }}>
         <div className="row-between wrap">
@@ -67,6 +99,13 @@ export default function AdminPage() {
                   <td className="num">{t.lessons_30d}</td>
                   <td className="small muted">{t.last_login_at ? relativeDay(t.last_login_at) : 'не входил'}</td>
                   <td>
+                    {t.id !== user.id && t.is_active && (
+                      <div className="row" style={{ gap: 6, justifyContent: 'flex-end', marginBottom: t.is_admin ? 0 : 6 }}>
+                        <button className="btn btn-quiet btn-sm" onClick={act(() => api.adminSetTutorAdmin(t.id, !t.is_admin), t.is_admin ? 'Права сисадмина сняты' : 'Теперь это сисадмин: учителя и магазин уроков')}>
+                          {t.is_admin ? 'Снять права сисадмина' : 'Сделать сисадмином'}
+                        </button>
+                      </div>
+                    )}
                     {!t.is_admin && (
                       <div className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>
                         <button className="btn btn-quiet btn-sm" onClick={act(() => api.adminResetTutor(t.id))}>Новый пароль</button>

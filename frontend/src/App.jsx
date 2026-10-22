@@ -66,6 +66,8 @@ function Root() {
     if (path === '/' || path === '' || path === '/shop') return <Landing />;
     return <Login />;
   }
+  // Витрина уроков открывается и после входа (ссылка «Магазин уроков» в меню)
+  if (path === '/shop') return <Landing />;
   // После входа со страницы /login открываем главную кабинета
   if (path === '/login' || path === '/register') { window.location.hash = '#/'; return <Spinner />; }
   if (user.must_change_password) return <ChangePassword forced />;

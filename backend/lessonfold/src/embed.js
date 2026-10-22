@@ -88,4 +88,21 @@ async function publicData() {
   };
 }
 
-module.exports = { middleware, start, enabled, publicData };
+// Одноразовая ссылка входа в админку магазина для сисадмина платформы
+function adminLink(login) {
+  if (!enabled || !handler) return null;
+  const { config } = require('./config');
+  return `${config.publicUrl}/admin/sso?code=${require('./sso').issue(login)}`;
+}
+
+// Права сисадмина сняты: убираем его из админов магазина, его входы в админку закрываются
+async function revokeAdmin(login) {
+  if (!enabled || !handler) return false;
+  const store = require('./store');
+  const name = String(login || '').toLowerCase().replace(/[^a-z0-9_.-]/g, '').slice(0, 32);
+  await store.deleteAdmin(name);
+  await store.log('платформа', 'удалён админ (сняты права сисадмина)', name);
+  return true;
+}
+
+module.exports = { middleware, start, enabled, publicData, adminLink, revokeAdmin };

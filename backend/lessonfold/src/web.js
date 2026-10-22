@@ -437,6 +437,14 @@ function createHandler(hooks = {}) {
 
       if (p === '/health') return send(res, 200, 'ok', { 'content-type': 'text/plain' });
       if (p.startsWith('/admin/api/')) return await adminApi(req, res, url, hooks);
+      if (p === '/admin/sso' && req.method === 'GET') {
+        const who = require('./sso').take(url.searchParams.get('code'));
+        if (!who) return send(res, 302, '', { location: '/admin' });
+        const s = await store.sessionFor(who);
+        await store.log(s.login, 'вход из платформы', clientIp(req));
+        const secure = config.publicUrl.startsWith('https') ? '; Secure' : '';
+        return send(res, 302, '', { location: '/admin', 'set-cookie': `lf_s=${s.token}; Path=/admin; HttpOnly; SameSite=Lax; Max-Age=${14 * 86400}${secure}`, 'cache-control': 'no-store' });
+      }
 
       if (p.startsWith('/api/')) return await publicApi(req, res, p);
       const ord = p.match(/^\/o\/([A-Za-z0-9_-]{20,64})(?:\/([a-z0-9-]{2,41})\/(lesson\.html|view|teacher\.pdf))?$/);

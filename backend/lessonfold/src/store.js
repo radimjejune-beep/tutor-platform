@@ -134,6 +134,18 @@ async function login(loginName, password) {
   return token;
 }
 
+// Вход из платформы: сисадмин платформы попадает в админку без отдельного пароля.
+// Если такого админа в магазине нет, создаём его со случайным паролем (вход только через платформу).
+async function sessionFor(loginName) {
+  const name = String(loginName || '').toLowerCase().replace(/[^a-z0-9_.-]/g, '').slice(0, 32);
+  if (!LOGIN_RE.test(name)) throw new Error('Логин не подходит для админки магазина');
+  await db.q('INSERT INTO admins (login, pass) VALUES ($1, $2) ON CONFLICT (login) DO NOTHING', [name, hashPassword(crypto.randomBytes(24).toString('base64url'))]);
+  const token = crypto.randomBytes(32).toString('base64url');
+  await db.q(`INSERT INTO sessions (token, login, expires_at) VALUES ($1, $2, now() + interval '14 days')`, [token, name]);
+  await db.q('UPDATE admins SET last_login_at = now() WHERE login = $1', [name]);
+  return { token, login: name };
+}
+
 async function session(token) {
   if (!token) return null;
   const r = await db.q('SELECT login FROM sessions WHERE token = $1 AND expires_at > now()', [token]);
@@ -155,5 +167,5 @@ async function recentLog(limit = 30) {
 
 module.exports = {
   migrate, putFile, getFile, fileInfo, hasFile, deleteFile,
-  createAdmin, setPassword, listAdmins, deleteAdmin, ensureFirstAdmin, login, session, logout, log, recentLog
+  createAdmin, setPassword, sessionFor, listAdmins, deleteAdmin, ensureFirstAdmin, login, session, logout, log, recentLog
 };

@@ -1324,3 +1324,7 @@ a.rec-item:hover .rec-title { text-decoration: underline; text-underline-offset:
   .lp-cover.blank .serif { font-size: 24px; }
   .lp-foot { flex-direction: column; align-items: flex-start; }
 }
+/* Ссылка на главную страницу (витрину) из кабинета */
+a.brand-name { color: inherit; text-decoration: none; }
+.side-shop { display: flex; align-items: center; gap: 8px; margin: 10px 12px 0; padding: 8px 10px; font-size: 13px; color: var(--ink-2); border: 1px dashed var(--line, #ddd); border-radius: 8px; text-decoration: none; }
+.side-shop:hover { color: var(--ink); border-style: solid; }

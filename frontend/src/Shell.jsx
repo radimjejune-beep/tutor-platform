@@ -44,7 +44,7 @@ export function Shell({ nav, path, counts = {}, children }) {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-name">{BRAND.name}</div>
+          <Link to="/shop" className="brand-name" title="Главная страница Lessonfold">{BRAND.name}</Link>
           <div className="brand-rule" />
         </div>
 
@@ -65,6 +65,10 @@ export function Shell({ nav, path, counts = {}, children }) {
           ))}
         </nav>
 
+        <Link to="/shop" className="side-shop">
+          <Icon name="grid" size={16} /> Главная страница и уроки
+        </Link>
+
         <div className="sidebar-foot">
           <div className="who">{user.full_name}</div>
           <div className="who-role">
@@ -83,7 +87,7 @@ export function Shell({ nav, path, counts = {}, children }) {
 
       <div className="main">
         <header className="topbar">
-          <div className="brand-name">{BRAND.name}</div>
+          <Link to="/shop" className="brand-name">{BRAND.name}</Link>
           <div className="row" style={{ gap: 2 }}>
             <button className="icon-btn" onClick={() => setPalette(true)} aria-label="Поиск"><Icon name="search" size={20} /></button>
             <NotificationBell path={path} compact />

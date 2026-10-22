@@ -65,6 +65,15 @@ app.use('/api/legal/public', require('./routes/legal').publicRouter);
 // Страница записи для новых учеников — тоже без входа
 app.use('/api/public', require('./routes/leads').publicRouter);
 // Витрина уроков для главной страницы до входа (берётся из магазина Lessonfold, если он включён)
+// Сисадмин платформы открывает админку магазина без отдельного пароля
+app.post('/api/shop/admin-link', express.json(), authenticate, requirePasswordChanged, (req, res) => {
+  if (req.user.role !== 'tutor' || !req.user.is_admin) return res.status(403).json({ error: 'Недостаточно прав' });
+  const url = lessonfold.adminLink(req.user.login);
+  if (!url) return res.status(503).json({ error: 'Магазин сейчас не запущен' });
+  console.log(`Вход в админку магазина: ${req.user.login}`);
+  res.json({ url });
+});
+
 app.get('/api/shop', async (req, res) => {
   try {
     const data = await lessonfold.publicData();
