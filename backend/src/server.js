@@ -34,13 +34,16 @@ const BIG_BODY = ['/api/files', '/api/library'];
 app.use((req, res, next) => (BIG_BODY.some((p) => req.path.startsWith(p)) ? next() : smallJson(req, res, next)));
 
 // CORS: только адреса из FRONTEND_ORIGINS (через запятую)
-const origins = (process.env.FRONTEND_ORIGINS || 'http://localhost:5173')
+// Плюс любые адреса вида https://что-то.relaxdev.ru: фронтенд на RelaxDev работает без настройки.
+// Вход по токену в заголовке (не cookie), поэтому это безопасно.
+const origins = String(process.env['FRONTEND_ORIGINS'] || 'http://localhost:5173')
   .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
+  .map((s) => s.trim().replace(/\/$/, ''))
+  .filter((s) => /^https?:\/\//.test(s));
+const RELAXDEV = /^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.relaxdev\.ru$/i;
 app.use(
   cors({
-    origin: (origin, cb) => cb(null, !origin || origins.includes(origin)),
+    origin: (origin, cb) => cb(null, !origin || origins.includes(origin) || RELAXDEV.test(origin)),
   })
 );
 

@@ -1,5 +1,12 @@
 // api.js — все запросы к бэкенду в одном месте
-const BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/\/$/, '');
+// Адрес бэкенда. Берётся из VITE_API_URL; если переменная пустая, с ошибкой
+// или указывает на localhost при открытии сайта из интернета, используем адрес бэкенда на RelaxDev.
+const PROD_API = 'https://tutor-platform.relaxdev.ru';
+const RAW = String(import.meta.env.VITE_API_URL || '').trim();
+const onLocal = typeof location !== 'undefined' && /^(localhost|127\.|\[::1\])/.test(location.hostname);
+const rawOk = /^https?:\/\/[^\s${}]+$/.test(RAW) && (onLocal || !/\/\/(localhost|127\.)/.test(RAW));
+export const API_BASE = (rawOk ? RAW : onLocal ? 'http://localhost:3001' : PROD_API).replace(/\/$/, '');
+const BASE = API_BASE;
 const TOKEN_KEY = 'tp_token';
 
 export const getToken = () => localStorage.getItem(TOKEN_KEY);
@@ -32,7 +39,7 @@ async function request(method, path, body) {
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
-    throw new ApiError(0, { error: 'Нет связи с сервером. Проверьте интернет и попробуйте ещё раз' });
+    throw new ApiError(0, { error: `Нет связи с сервером (${BASE}). Проверьте интернет и попробуйте ещё раз` });
   }
 
   const data = await res.json().catch(() => ({}));
