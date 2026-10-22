@@ -643,6 +643,15 @@ $("#buyF").addEventListener("submit", async e => {
   } catch (x) { err.textContent = x.message; go.disabled = false; go.textContent = t }
 });
 
+/* ---------- ссылка «купить» с витрины платформы: /?buy=<код урока> ---------- */
+(() => {
+  const sku = new URLSearchParams(location.search).get("buy"); if (!sku) return;
+  const p = PRODUCTS.find(x => x.sku === sku); if (!p) return;
+  const b = document.querySelector(`[data-buy="${CSS.escape(sku)}"]`);
+  if (b) { b.scrollIntoView({ block: "center" }); b.click(); return }
+  if (LF.bot && !p.free) location.href = botLink("p_" + sku);
+})();
+
 /* ---------- documents ---------- */
 const M = (v, label) => v ? esc(v) : `<span class="miss">${label}</span>`;
 const SELLER = () => `${M(S.name, "ФИО")}, ИНН ${M(S.inn, "ИНН")}, применяющий специальный налоговый режим «Налог на профессиональный доход». Контакт: ${M(S.contact, "Telegram")}${S.email ? ", " + esc(S.email) : ""}`;

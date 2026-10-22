@@ -15,6 +15,7 @@ import { CoursesList, CourseEditor } from './pages/tutor/Courses';
 import { GroupsList, GroupPage } from './pages/tutor/Groups';
 import Words from './pages/client/Words';
 import Join from './pages/Join';
+import Landing from './pages/Landing';
 import Leads from './pages/tutor/Leads';
 import Pricing from './pages/tutor/Pricing';
 import { MarketPage } from './pages/tutor/Market';
@@ -59,7 +60,14 @@ function Root() {
   // Страница записи репетитора открывается без входа
   if (path.startsWith('/join/')) return <Join login={decodeURIComponent(path.split('/')[2] || '')} />;
   if (session === undefined) return <Spinner />;
-  if (!session) return path === '/register' ? <Register /> : <Login />;
+  if (!session) {
+    if (path === '/register') return <Register />;
+    // Главная до входа: витрина уроков; вход по кнопке или по любой другой ссылке кабинета
+    if (path === '/' || path === '' || path === '/shop') return <Landing />;
+    return <Login />;
+  }
+  // После входа со страницы /login открываем главную кабинета
+  if (path === '/login' || path === '/register') { window.location.hash = '#/'; return <Spinner />; }
   if (user.must_change_password) return <ChangePassword forced />;
   return user.role === 'tutor' ? <TutorApp path={path} params={params} /> : <ClientApp path={path} />;
 }

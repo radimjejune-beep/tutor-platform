@@ -57,6 +57,14 @@ async function init() {
   await orders.migrate();
   if (await store.ensureFirstAdmin(config.adminLogin, config.adminPassword)) console.log(`Создан первый админ сайта: ${config.adminLogin}`);
   if (config.botEnabled) {
+    // Если Telegram недоступен или токен неверный, сайт магазина всё равно запускается, а бот выключается
+    let me = null;
+    try { me = await tg.call('getMe'); } catch (e) {
+      console.error('Lessonfold: бот не подключился (' + String(e.message || e).replace(/bot\d+:[\w-]+/g, 'bot***') + '). Сайт работает без бота. Проверьте LF_BOT_TOKEN.');
+      config.botEnabled = false;
+    }
+  }
+  if (config.botEnabled) {
     const me = await tg.call('getMe');
     config.botUsername = me.username;
     await tg.call('deleteWebhook', { drop_pending_updates: false });

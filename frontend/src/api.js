@@ -53,6 +53,7 @@ export const api = {
   me: () => request('GET', '/auth/me'),
   register: (data) => request('POST', '/auth/register', data),
   registrationStatus: () => request('GET', '/auth/registration'),
+  shop: () => request('GET', '/shop'),
 
   // Сисадмин
   adminTutors: () => request('GET', '/admin/tutors'),

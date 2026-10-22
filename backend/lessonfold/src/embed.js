@@ -17,6 +17,8 @@ const OWN_API = new Set(['/api/order', '/api/yookassa', '/api/restore']);
 
 let handler = null;
 let starting = null;
+let failure = '';   // почему магазин не запустился (показываем на странице, без секретов)
+let retryTimer = null;
 
 function middleware() {
   return (req, res, next) => {
@@ -26,8 +28,11 @@ function middleware() {
     if (!handler) {
       res.statusCode = 503;
       res.setHeader('content-type', 'text/plain; charset=utf-8');
-      res.setHeader('retry-after', '5');
-      return res.end('Магазин запускается, обновите страницу через несколько секунд.');
+      res.setHeader('retry-after', '30');
+      if (p === '/health') return res.end('shop: ' + (failure ? 'error' : 'starting'));
+      return res.end(failure
+        ? 'Магазин не запустился: ' + failure + '\nПлатформа репетитора при этом работает. Следующая попытка запуска через минуту.'
+        : 'Магазин запускается, обновите страницу через несколько секунд.');
     }
     return handler(req, res);
   };
@@ -37,8 +42,16 @@ function middleware() {
 function start() {
   if (!enabled) return Promise.resolve(false);
   if (starting) return starting;
-  const app = require('./index');
-  const { createHandler } = require('./web');
+  // Ошибка загрузки кода магазина (например, не установлен pdf-lib) не должна ронять платформу
+  let app, createHandler;
+  try {
+    app = require('./index');
+    ({ createHandler } = require('./web'));
+  } catch (e) {
+    failure = 'не загрузился код магазина: ' + String(e.message || e).split('\n')[0].slice(0, 200);
+    console.error('Lessonfold не запустился:', failure);
+    return Promise.resolve(false);
+  }
   starting = app.init()
     .then(({ hooks }) => {
       handler = createHandler(hooks);
@@ -47,10 +60,32 @@ function start() {
       return true;
     })
     .catch(e => {
-      console.error('Lessonfold не запустился:', e.message);
+      failure = String(e.message || e).replace(/bot\d+:[\w-]+/g, 'bot***').slice(0, 300);
+      console.error('Lessonfold не запустился:', failure);
+      starting = null;
+      // Пробуем снова через минуту: например, база или Telegram были недоступны
+      if (!retryTimer) retryTimer = setTimeout(() => { retryTimer = null; start(); }, 60000);
+      if (retryTimer.unref) retryTimer.unref();
       return false;
     });
   return starting;
 }
 
-module.exports = { middleware, start, enabled };
+// Витрина для других страниц (например, главной платформы до входа): уроки, курсы и ссылки на покупку
+async function publicData() {
+  if (!enabled || !handler) return null;
+  const { config } = require('./config');
+  const { siteData } = require('./web');
+  const d = await siteData('home');
+  const abs = (u) => (u && u.startsWith('/') ? config.publicUrl + u : u);
+  return {
+    shop_url: config.publicUrl,
+    bot: d.bot || '',
+    pay: Boolean(d.pay),
+    channel: d.channel || '',
+    textbooks: d.textbooks,
+    products: d.products.map((p) => ({ ...p, demo: abs(p.demo), shots: p.shots.map((s) => ({ ...s, src: abs(s.src) })) })),
+  };
+}
+
+module.exports = { middleware, start, enabled, publicData };

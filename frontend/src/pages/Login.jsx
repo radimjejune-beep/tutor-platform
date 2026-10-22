@@ -38,6 +38,7 @@ export function Login() {
 
   return (
     <AuthLayout>
+      <Link to="/" className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 14 }}>← На главную</Link>
       <h1 className="page-title">Вход в кабинет</h1>
       <p className="muted" style={{ margin: '8px 0 28px' }}>
         Логин и пароль выдаёт преподаватель

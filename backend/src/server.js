@@ -61,6 +61,17 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/legal/public', require('./routes/legal').publicRouter);
 // Страница записи для новых учеников — тоже без входа
 app.use('/api/public', require('./routes/leads').publicRouter);
+// Витрина уроков для главной страницы до входа (берётся из магазина Lessonfold, если он включён)
+app.get('/api/shop', async (req, res) => {
+  try {
+    const data = await lessonfold.publicData();
+    res.set('Cache-Control', 'public, max-age=60');
+    res.json(data ? { enabled: true, ...data } : { enabled: false, products: [], textbooks: [] });
+  } catch (err) {
+    console.error('Витрина:', err.message);
+    res.json({ enabled: false, products: [], textbooks: [] });
+  }
+});
 
 // Всё остальное — только после входа и смены временного пароля
 const protectedApi = express.Router();
