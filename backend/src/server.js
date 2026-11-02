@@ -18,6 +18,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 const app = express();
+app.disable('x-powered-by');
 app.set('trust proxy', 1); // хостинг стоит за прокси — нужно для ограничения попыток входа
 
 // Магазин уроков Lessonfold: сайт, админка /admin, оплата ЮKassa и Telegram-бот.

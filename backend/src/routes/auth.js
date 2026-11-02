@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const { z } = require('zod');
 const { query } = require('../db');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, signToken } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 
 const router = express.Router();
@@ -55,9 +55,7 @@ router.post(
     }
 
     await query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [user.id]);
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
-      expiresIn: process.env['JWT_EXPIRES_IN'] || '7d',
-    });
+    const token = signToken(user);
 
     console.log(`✅ Вход: ${login} (${user.role})`);
     res.json({
@@ -106,11 +104,11 @@ router.post(
     const hash = await bcrypt.hash(b.password, 12);
     const { rows } = await query(
       `INSERT INTO users (role, login, password_hash, full_name, subject, last_login_at)
-       VALUES ('tutor', $1, $2, $3, $4, NOW()) RETURNING id, role, login, full_name, must_change_password, is_admin, subject`,
+       VALUES ('tutor', $1, $2, $3, $4, NOW()) RETURNING id, role, login, full_name, must_change_password, is_admin, subject, password_hash`,
       [b.login, hash, b.full_name, b.subject]
     );
-    const user = rows[0];
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: process.env['JWT_EXPIRES_IN'] || '7d' });
+    const { password_hash: _ph, ...user } = rows[0];
+    const token = signToken(rows[0]);
     console.log(`✅ Новый репетитор зарегистрировался: ${user.login}`);
     res.status(201).json({ token, user });
   })
@@ -176,7 +174,8 @@ router.post(
       req.user.id,
     ]);
     console.log(`📝 Пароль изменён: ${req.user.login}`);
-    res.json({ ok: true });
+    // Новый токен для этого устройства; на остальных устройствах вход сбросится
+    res.json({ ok: true, token: signToken({ id: req.user.id, password_hash: hash }) });
   })
 );
 

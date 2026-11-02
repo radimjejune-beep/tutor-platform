@@ -2,7 +2,13 @@
 const jwt = require('jsonwebtoken');
 const { query } = require('../db');
 
+const crypto = require('crypto');
 const JWT_SECRET = process.env.JWT_SECRET;
+
+// Отпечаток пароля в токене: после смены или сброса пароля старые входы перестают работать
+const pwStamp = (hash) => crypto.createHash('sha256').update(String(hash)).digest('base64url').slice(0, 12);
+const signToken = (user) =>
+  jwt.sign({ userId: user.id, pv: pwStamp(user.password_hash) }, JWT_SECRET, { expiresIn: process.env['JWT_EXPIRES_IN'] || '7d' });
 
 // Проверяем токен и каждый раз берём пользователя из базы:
 // роль и статус берутся из базы, а не из токена (заблокированный пользователь сразу теряет доступ)
@@ -20,7 +26,7 @@ async function authenticate(req, res, next) {
     }
 
     const { rows } = await query(
-      `SELECT u.id, u.role, u.login, u.full_name, u.is_active, u.must_change_password, u.is_admin, u.tutor_id,
+      `SELECT u.id, u.role, u.login, u.full_name, u.is_active, u.password_hash, u.must_change_password, u.is_admin, u.tutor_id,
               COALESCE(u.subject, t.subject, 'Английский язык') AS subject
          FROM users u LEFT JOIN users t ON t.id = u.tutor_id WHERE u.id = $1`,
       [payload.userId]
@@ -29,6 +35,11 @@ async function authenticate(req, res, next) {
     if (!user || !user.is_active) {
       return res.status(401).json({ error: 'Учётная запись недоступна' });
     }
+    // Токены старого формата (без pv) принимаем, пока не истекут
+    if (payload.pv && payload.pv !== pwStamp(user.password_hash)) {
+      return res.status(401).json({ error: 'Пароль изменён, войдите снова' });
+    }
+    delete user.password_hash;
 
     // tid — чей это кабинет: у репетитора он сам, у ученика и родителя — их репетитор
     user.tid = user.role === 'tutor' ? user.id : user.tutor_id;
@@ -144,6 +155,7 @@ function requireStudentAccess(param = 'studentId') {
 }
 
 module.exports = {
+  signToken,
   authenticate,
   requireRole,
   requirePasswordChanged,

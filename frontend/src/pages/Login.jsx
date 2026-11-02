@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useLoad } from '../ui';
 import { useAuth } from '../auth';
-import { api } from '../api';
+import { api, setToken } from '../api';
 import { BRAND } from '../config';
 import { Field, useSubmit, Link } from '../ui';
 import { LEGAL_LINKS } from './Legal';
@@ -94,7 +94,8 @@ export function ChangePassword({ forced, onDone }) {
       setError('Пароли не совпадают');
       return;
     }
-    await api.changePassword(form.current, form.next);
+    const r = await api.changePassword(form.current, form.next);
+    if (r?.token) setToken(r.token);
     await refresh();
     onDone?.();
   });

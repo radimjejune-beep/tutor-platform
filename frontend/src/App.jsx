@@ -1,43 +1,16 @@
 // App.jsx — выбор кабинета по роли и маршруты
-import { useEffect, useState } from 'react';
+// Главная, вход и документы в основном файле; кабинеты грузятся отдельно после входа,
+// поэтому главная страница открывается быстрее.
+import { lazy, Suspense } from 'react';
 import { AuthProvider, useAuth } from './auth';
-import { api } from './api';
-import { Shell, TUTOR_NAV, CLIENT_NAV } from './Shell';
-import { ToastProvider, Spinner, useRoute, Empty, Link, useLoad } from './ui';
+import { ToastProvider, Spinner, useRoute } from './ui';
 import { Login, ChangePassword, Register } from './pages/Login';
-import AdminPage from './pages/tutor/Admin';
-import { LegalPage, AcceptDocuments } from './pages/Legal';
-import Settings from './pages/tutor/Settings';
-import { LibraryPage, LibraryEditor } from './pages/tutor/Library';
-import LessonRoom from './pages/LessonRoom';
-import { TheoryList, TheoryView } from './pages/client/Theory';
-import { CoursesList, CourseEditor } from './pages/tutor/Courses';
-import { GroupsList, GroupPage } from './pages/tutor/Groups';
-import Words from './pages/client/Words';
+import { LegalPage } from './pages/Legal';
 import Join from './pages/Join';
 import Landing from './pages/Landing';
-import Leads from './pages/tutor/Leads';
-import Pricing from './pages/tutor/Pricing';
-import { MarketPage } from './pages/tutor/Market';
-import { WordSetsList, WordSetEditor } from './pages/tutor/WordSets';
-import SetStudy from './pages/client/SetStudy';
-import Generator from './pages/tutor/Generator';
 
-import TutorDashboard from './pages/tutor/Dashboard';
-import TutorSchedule from './pages/tutor/Schedule';
-import Students from './pages/tutor/Students';
-import StudentPage from './pages/tutor/StudentPage';
-import { AssignmentsList, AssignmentEditor, AssignmentPage, ReviewPage } from './pages/tutor/Assignments';
-import Finance from './pages/tutor/Finance';
-
-import ClientHome from './pages/client/Home';
-import ClientSchedule from './pages/client/Schedule';
-import ClientHomework from './pages/client/Homework';
-import ClientProgress from './pages/client/Progress';
-import ClientPayments from './pages/client/Payments';
-import ReportView from './pages/client/ReportView';
-import HomeworkPage from './pages/client/HomeworkPage';
-import { subjectInfo } from './subjects';
+const TutorApp = lazy(() => import('./cabinets/TutorApp'));
+const ClientApp = lazy(() => import('./cabinets/ClientApp'));
 
 export default function App() {
   return (
@@ -71,140 +44,9 @@ function Root() {
   // После входа со страницы /login открываем главную кабинета
   if (path === '/login' || path === '/register') { window.location.hash = '#/'; return <Spinner />; }
   if (user.must_change_password) return <ChangePassword forced />;
-  return user.role === 'tutor' ? <TutorApp path={path} params={params} /> : <ClientApp path={path} />;
-}
-
-const NotFound = () => (
-  <div className="panel">
-    <Empty title="Такой страницы нет" action={<Link to="/" className="btn">На главную</Link>} />
-  </div>
-);
-
-/* ---------- Кабинет преподавателя ---------- */
-function TutorApp({ path, params }) {
-  const { user } = useAuth();
-  const [counts, setCounts] = useState({});
-  const parts = path.split('/').filter(Boolean);
-
-  // Счётчик ДЗ на проверке в меню — обновляется при переходах
-  useEffect(() => {
-    api
-      .homework({ status: 'submitted' })
-      .then((list) => setCounts({ homework: list.length }))
-      .catch(() => {});
-  }, [path]);
-
-  let page;
-  if (parts.length === 0) page = <TutorDashboard />;
-  else if (parts[0] === 'schedule') page = <TutorSchedule />;
-  else if (parts[0] === 'students' && parts[1]) page = <StudentPage id={Number(parts[1])} tab={parts[2] || 'lessons'} />;
-  else if (parts[0] === 'students') page = <Students />;
-  else if (parts[0] === 'groups' && parts[1]) page = <GroupPage key={parts[1]} id={Number(parts[1])} />;
-  else if (parts[0] === 'groups') page = <GroupsList />;
-  else if (parts[0] === 'homework' && parts[1] === 'new') page = <AssignmentEditor key={`new-${params.toString()}`} presetStudentId={Number(params.get('student')) || undefined} presetStudents={(params.get('students') || '').split(',').map(Number).filter(Boolean)} presetItems={(params.get('items') || '').split(',').map(Number).filter(Boolean)} />;
-  else if (parts[0] === 'homework' && parts[2] === 'edit') page = <AssignmentEditor key={`edit-${parts[1]}`} id={Number(parts[1])} />;
-  else if (parts[0] === 'homework' && parts[2] === 'review' && parts[3]) page = <ReviewPage assignmentId={Number(parts[1])} homeworkId={Number(parts[3])} />;
-  else if (parts[0] === 'homework' && parts[1]) page = <AssignmentPage id={Number(parts[1])} />;
-  else if (parts[0] === 'homework') page = <AssignmentsList />;
-  else if (parts[0] === 'finance' && parts[1] === 'pricing') page = <Pricing />;
-  else if (parts[0] === 'finance') page = <Finance />;
-  else if (parts[0] === 'leads') page = <Leads />;
-  else if (parts[0] === 'market') page = <MarketPage key={parts[1] || 'all'} tab={parts[1] === 'mine' ? 'mine' : 'all'} />;
-  else if (parts[0] === 'settings') page = <Settings tab={parts[1] || 'booking'} />;
-  else if (parts[0] === 'library' && parts[1] === 'generate') page = <Generator />;
-  else if (parts[0] === 'library' && parts[1] === 'new') page = <LibraryEditor key={`new-${params.get('kind')}`} presetKind={params.get('kind') || 'task'} />;
-  else if (parts[0] === 'library' && /^\d+$/.test(parts[1] || '')) page = <LibraryEditor key={parts[1]} id={Number(parts[1])} />;
-  else if (parts[0] === 'library') page = <LibraryPage key={parts[1] || 'tasks'} kind={{ theory: 'theory', games: 'game', lessons: 'html' }[parts[1]] || 'task'} />;
-  else if (parts[0] === 'lesson' && parts[1]) page = <LessonRoom id={Number(parts[1])} />;
-  else if (parts[0] === 'wordsets' && parts[1] === 'new') page = <WordSetEditor key="new" />;
-  else if (parts[0] === 'wordsets' && /^\d+$/.test(parts[1] || '')) page = <WordSetEditor key={parts[1]} id={Number(parts[1])} />;
-  else if (parts[0] === 'wordsets') page = <WordSetsList />;
-  else if (parts[0] === 'courses' && parts[1]) page = <CourseEditor key={parts[1]} id={Number(parts[1])} />;
-  else if (parts[0] === 'courses') page = <CoursesList />;
-  else if (parts[0] === 'admin' && user.is_admin) page = <AdminPage />;
-  else if (parts[0] === 'password') page = <ChangePassword />;
-  else page = <NotFound />;
-
   return (
-    <Shell nav={user.is_admin ? [...TUTOR_NAV, { to: '/admin', label: 'Учителя', icon: 'shield', hideMobile: true }] : TUTOR_NAV} path={path} counts={counts}>
-      {page}
-    </Shell>
-  );
-}
-
-/* ---------- Кабинет ученика / родителя ---------- */
-function ClientApp({ path }) {
-  const pending = useLoad(() => api.legalPending(), []);
-  if (pending.loading) return <Spinner />;
-  if (pending.data?.length) return <AcceptDocuments docs={pending.data} onDone={pending.reload} />;
-  return <ClientCabinet path={path} />;
-}
-
-function ClientCabinet({ path }) {
-  const { students, user } = useAuth();
-  const [childId, setChildId] = useState(students[0]?.id);
-  const [counts, setCounts] = useState({});
-  const parts = path.split('/').filter(Boolean);
-
-  useEffect(() => {
-    if (!childId) return;
-    Promise.all([
-      api.homework({ student_id: childId, status: 'assigned' }).catch(() => []),
-      api.vocab(childId).catch(() => null),
-    ]).then(([list, vocab]) => setCounts({ homework: list.length, words: vocab?.stats.due || 0 }));
-  }, [path, childId]);
-
-  if (!students.length) {
-    return (
-      <Shell nav={CLIENT_NAV} path={path}>
-        <div className="panel">
-          <Empty title="Кабинет ещё настраивается">
-            {user.role === 'parent'
-              ? 'Преподаватель пока не привязал к вашему входу ни одного ученика.'
-              : 'Преподаватель скоро добавит ваше расписание.'}
-          </Empty>
-        </div>
-      </Shell>
-    );
-  }
-
-  const child = students.find((s) => s.id === childId) || students[0];
-  const props = { student: child, isParent: user.role === 'parent' };
-
-  let page;
-  if (parts.length === 0) page = <ClientHome {...props} />;
-  else if (parts[0] === 'schedule') page = <ClientSchedule {...props} />;
-  else if (parts[0] === 'homework' && parts[1]) page = <HomeworkPage id={Number(parts[1])} isParent={props.isParent} />;
-  else if (parts[0] === 'homework') page = <ClientHomework {...props} />;
-  else if (parts[0] === 'progress') page = <ClientProgress {...props} />;
-  else if (parts[0] === 'words' && parts[1] === 'set' && parts[2]) page = <SetStudy key={`${child.id}-${parts[2]}`} id={Number(parts[2])} {...props} />;
-  else if (parts[0] === 'words') page = <Words key={child.id} {...props} />;
-  else if (parts[0] === 'theory' && parts[1]) page = <TheoryView id={Number(parts[1])} />;
-  else if (parts[0] === 'theory') page = <TheoryList />;
-  else if (parts[0] === 'lesson' && parts[1]) page = <LessonRoom id={Number(parts[1])} />;
-  else if (parts[0] === 'payments') page = <ClientPayments {...props} />;
-  else if (parts[0] === 'reports' && parts[1]) page = <ReportView id={Number(parts[1])} />;
-  else if (parts[0] === 'password') page = <ChangePassword />;
-  else page = <NotFound />;
-
-  return (
-    <Shell nav={CLIENT_NAV.map((n) => (n.to === '/words' ? { ...n, label: subjectInfo(child.subject || user.subject).vocabTitle } : n))} path={path} counts={counts}>
-      {students.length > 1 && (
-        <div className="row wrap" style={{ marginBottom: 22 }} role="tablist" aria-label="Ребёнок">
-          {students.map((s) => (
-            <button
-              key={s.id}
-              role="tab"
-              aria-selected={s.id === child.id}
-              className={`btn btn-sm ${s.id === child.id ? '' : 'btn-secondary'}`}
-              onClick={() => setChildId(s.id)}
-            >
-              {s.full_name}
-            </button>
-          ))}
-        </div>
-      )}
-      {page}
-    </Shell>
+    <Suspense fallback={<Spinner />}>
+      {user.role === 'tutor' ? <TutorApp path={path} params={params} /> : <ClientApp path={path} />}
+    </Suspense>
   );
 }
