@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../auth';
 import { api } from '../api';
-import { Shell, TUTOR_NAV, CLIENT_NAV } from '../Shell';
+import { Shell, TUTOR_NAV, CLIENT_NAV, MoreMenu } from '../Shell';
 import { Spinner, Empty, Link, useLoad } from '../ui';
 import { ChangePassword } from '../pages/Login';
 import { NotFound } from './NotFound';
@@ -38,6 +38,7 @@ export default function TutorApp({ path, params }) {
       .catch(() => {});
   }, [path]);
 
+  const tutorNav = user.is_admin ? [...TUTOR_NAV, { to: '/admin', label: 'Учителя', icon: 'shield', hideMobile: true }] : TUTOR_NAV;
   let page;
   if (parts.length === 0) page = <TutorDashboard />;
   else if (parts[0] === 'schedule') page = <TutorSchedule />;
@@ -55,6 +56,7 @@ export default function TutorApp({ path, params }) {
   else if (parts[0] === 'leads') page = <Leads />;
   else if (parts[0] === 'market') page = <MarketPage key={parts[1] || 'all'} tab={parts[1] === 'mine' ? 'mine' : 'all'} />;
   else if (parts[0] === 'settings') page = <Settings tab={parts[1] || 'booking'} />;
+  else if (parts[0] === 'more') page = <MoreMenu nav={tutorNav} counts={counts} />;
   else if (parts[0] === 'library' && parts[1] === 'generate') page = <Generator />;
   else if (parts[0] === 'library' && parts[1] === 'new') page = <LibraryEditor key={`new-${params.get('kind')}`} presetKind={params.get('kind') || 'task'} />;
   else if (parts[0] === 'library' && /^\d+$/.test(parts[1] || '')) page = <LibraryEditor key={parts[1]} id={Number(parts[1])} />;
@@ -70,7 +72,7 @@ export default function TutorApp({ path, params }) {
   else page = <NotFound />;
 
   return (
-    <Shell nav={user.is_admin ? [...TUTOR_NAV, { to: '/admin', label: 'Учителя', icon: 'shield', hideMobile: true }] : TUTOR_NAV} path={path} counts={counts}>
+    <Shell nav={tutorNav} path={path} counts={counts}>
       {page}
     </Shell>
   );

@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../auth';
 import { api } from '../api';
-import { Shell, TUTOR_NAV, CLIENT_NAV } from '../Shell';
+import { Shell, TUTOR_NAV, CLIENT_NAV, MoreMenu } from '../Shell';
 import { Spinner, Empty, Link, useLoad } from '../ui';
 import { ChangePassword } from '../pages/Login';
 import { NotFound } from './NotFound';
@@ -59,6 +59,7 @@ function ClientCabinet({ path }) {
   const child = students.find((s) => s.id === childId) || students[0];
   const props = { student: child, isParent: user.role === 'parent' };
 
+  const clientNav = CLIENT_NAV.map((n) => (n.to === '/words' ? { ...n, label: subjectInfo(child.subject || user.subject).vocabTitle } : n));
   let page;
   if (parts.length === 0) page = <ClientHome {...props} />;
   else if (parts[0] === 'schedule') page = <ClientSchedule {...props} />;
@@ -73,10 +74,11 @@ function ClientCabinet({ path }) {
   else if (parts[0] === 'payments') page = <ClientPayments {...props} />;
   else if (parts[0] === 'reports' && parts[1]) page = <ReportView id={Number(parts[1])} />;
   else if (parts[0] === 'password') page = <ChangePassword />;
+  else if (parts[0] === 'more') page = <MoreMenu nav={clientNav} counts={counts} />;
   else page = <NotFound />;
 
   return (
-    <Shell nav={CLIENT_NAV.map((n) => (n.to === '/words' ? { ...n, label: subjectInfo(child.subject || user.subject).vocabTitle } : n))} path={path} counts={counts}>
+    <Shell nav={clientNav} path={path} counts={counts}>
       {students.length > 1 && (
         <div className="row wrap" style={{ marginBottom: 22 }} role="tablist" aria-label="Ребёнок">
           {students.map((s) => (

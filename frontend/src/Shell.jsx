@@ -18,7 +18,7 @@ export const TUTOR_NAV = [
   { to: '/courses', label: 'Курсы', icon: 'layers', hideMobile: true },
   { to: '/finance', label: 'Доход', icon: 'wallet', hideMobile: true },
   { to: '/market', label: 'Каталог', icon: 'grid', hideMobile: true },
-  { to: '/settings', label: 'Настройки', short: 'Ещё', icon: 'settings' },
+  { to: '/settings', label: 'Настройки', icon: 'settings', hideMobile: true },
 ];
 
 export const CLIENT_NAV = [
@@ -28,7 +28,7 @@ export const CLIENT_NAV = [
   { to: '/words', label: 'Словарь', icon: 'cards', countKey: 'words' },
   { to: '/theory', label: 'Теория', icon: 'library', hideMobile: true },
   { to: '/progress', label: 'Прогресс', short: 'Успехи', icon: 'chart' },
-  { to: '/payments', label: 'Оплата', icon: 'wallet' },
+  { to: '/payments', label: 'Оплата', icon: 'wallet', hideMobile: true },
 ];
 
 // Активный пункт: точное совпадение для главной, по началу пути для остальных
@@ -111,8 +111,36 @@ export function Shell({ nav, path, counts = {}, children }) {
               {counts[item.countKey] > 0 && <span className="dot" />}
             </Link>
           ))}
+          {/* На телефоне всё, что не поместилось в нижнее меню, открывается через «Ещё» */}
+          <Link to="/more" className={path === '/more' || nav.some((i) => i.hideMobile && isActive(path, i.to)) ? 'active' : ''}>
+            <Icon name="grid" />
+            Ещё
+            {nav.some((i) => i.hideMobile && counts[i.countKey] > 0) && <span className="dot" />}
+          </Link>
         </nav>
       </div>
     </div>
+  );
+}
+
+// «Ещё» на телефоне: разделы, которые не поместились в нижнее меню, и выход
+export function MoreMenu({ nav, counts = {} }) {
+  const { user, logout } = useAuth();
+  const items = [...nav.filter((i) => i.hideMobile), { to: '/shop', label: 'Главная страница и уроки', icon: 'grid' }, { to: '/password', label: 'Сменить пароль', icon: 'key' }];
+  return (
+    <>
+      <div className="page-head"><h1 className="page-title">Ещё</h1></div>
+      <nav className="panel more-menu" aria-label="Остальные разделы">
+        {items.map((i) => (
+          <Link key={i.to} to={i.to}>
+            <Icon name={i.icon} size={20} />
+            <span>{i.label}</span>
+            {counts[i.countKey] > 0 && <span className="count">{counts[i.countKey]}</span>}
+          </Link>
+        ))}
+        <button type="button" onClick={logout}><Icon name="logout" size={20} /><span>Выйти</span></button>
+      </nav>
+      <p className="small muted" style={{ marginTop: 14 }}>{user.full_name}, логин {user.login}</p>
+    </>
   );
 }
