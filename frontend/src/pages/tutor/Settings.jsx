@@ -16,12 +16,13 @@ export default function Settings({ tab }) {
       <div className="page-head"><h1 className="page-title">Настройки</h1></div>
       <div className="tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'subject'} className={tab === 'subject' ? 'active' : ''} onClick={() => navigate('/settings/subject')}>Предмет</button>
+        <button role="tab" aria-selected={tab === 'lessons'} className={tab === 'lessons' ? 'active' : ''} onClick={() => navigate('/settings/lessons')}>Списание</button>
         <button role="tab" aria-selected={tab === 'booking'} className={tab === 'booking' ? 'active' : ''} onClick={() => navigate('/settings/booking')}>Запись учеников</button>
         <button role="tab" aria-selected={tab === 'page'} className={tab === 'page' ? 'active' : ''} onClick={() => navigate('/settings/page')}>Страница записи</button>
         <button role="tab" aria-selected={tab === 'documents'} className={tab === 'documents' ? 'active' : ''} onClick={() => navigate('/settings/documents')}>Документы</button>
         <button role="tab" aria-selected={tab === 'telegram'} className={tab === 'telegram' ? 'active' : ''} onClick={() => navigate('/settings/telegram')}>Telegram</button>
       </div>
-      {tab === 'subject' ? <SubjectTab /> : tab === 'page' ? <PageSettings /> : tab === 'documents' ? <DocumentsTab /> : tab === 'telegram' ? <TelegramTab /> : <BookingTab />}
+      {tab === 'subject' ? <SubjectTab /> : tab === 'lessons' ? <AutoTab /> : tab === 'page' ? <PageSettings /> : tab === 'documents' ? <DocumentsTab /> : tab === 'telegram' ? <TelegramTab /> : <BookingTab />}
     </>
   );
 }
@@ -318,6 +319,50 @@ function SubjectTab() {
         {info.isLang
           ? `Раздел «Словарь»: слово и перевод, карточки${info.speech ? ', озвучка' : ''}, тренировки.${info.english ? ' На странице записи есть тест уровня A1–B2.' : ''}`
           : 'Раздел «Термины»: термин и определение, карточки и тренировки. Подойдёт для формул, дат, правил и понятий.'}
+      </div>
+      {save.error && <div className="alert">{save.error}</div>}
+      <div><button className="btn" disabled={save.busy}>{save.busy ? 'Сохраняем…' : 'Сохранить'}</button></div>
+    </form>
+  );
+}
+
+/* ============================================================
+   Автосписание: урок закончился — сам отмечается проведённым
+   ============================================================ */
+const DELAY_LABEL = { 0: 'сразу после конца урока', 15: 'через 15 минут', 30: 'через 30 минут', 60: 'через час', 180: 'через 3 часа', 720: 'через 12 часов' };
+
+function AutoTab() {
+  const data = useLoad(() => api.autoSettings(), []);
+  if (data.loading) return <Spinner />;
+  if (data.error) return <ErrorBox error={data.error} onRetry={data.reload} />;
+  return <AutoForm initial={data.data} />;
+}
+
+function AutoForm({ initial }) {
+  const toast = useToast();
+  const [f, setF] = useState({ enabled: initial.enabled, delay_min: initial.delay_min });
+  const save = useSubmit(async () => {
+    await api.saveAutoSettings({ enabled: f.enabled, delay_min: Number(f.delay_min) });
+    toast(f.enabled ? 'Автосписание включено' : 'Автосписание выключено');
+  });
+  return (
+    <form className="panel form" style={{ maxWidth: 640 }} onSubmit={save.submit}>
+      <h2 className="section-title">Автосписание уроков</h2>
+      <label className="check">
+        <input type="checkbox" checked={f.enabled} onChange={(e) => setF({ ...f, enabled: e.target.checked })} />
+        <span>Когда время урока закончилось, отмечать его проведённым и списывать с абонемента</span>
+      </label>
+      {f.enabled && (
+        <Field label="Когда списывать">
+          <select className="input" value={f.delay_min} onChange={(e) => setF({ ...f, delay_min: Number(e.target.value) })}>
+            {Object.entries(DELAY_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </Field>
+      )}
+      <div className="note">
+        Если абонемента нет, урок спишется как разовый по своей цене. Про каждое списание придёт уведомление.
+        Если урок не состоялся, откройте его в расписании и поставьте «Отменено»: списание снимется само. «Пропуск» и «Поздняя отмена» остаются списанными, как и раньше.
+        Уроки, которые закончились больше двух дней назад, автоматически не списываются.
       </div>
       {save.error && <div className="alert">{save.error}</div>}
       <div><button className="btn" disabled={save.busy}>{save.busy ? 'Сохраняем…' : 'Сохранить'}</button></div>

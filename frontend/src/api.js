@@ -120,6 +120,8 @@ export const api = {
   unsubmitHomework: (id) => request('POST', `/homework/${id}/unsubmit`),
 
   // Запись и перенос
+  autoSettings: () => request('GET', '/lessons/auto-settings'),
+  saveAutoSettings: (data) => request('PUT', '/lessons/auto-settings', data),
   bookingSettings: () => request('GET', '/booking/settings'),
   saveBookingSettings: (data) => request('PUT', '/booking/settings', data),
   bookingInfo: () => request('GET', '/booking/info'),

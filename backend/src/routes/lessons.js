@@ -27,6 +27,18 @@ async function sameSession(lessonId) {
 }
 
 // ------------------------------------------------------------
+// Автосписание: урок закончился — сам отмечается проведённым и списывается
+// ------------------------------------------------------------
+const autoclose = require('../services/autoclose');
+router.get('/auto-settings', tutorOnly, asyncHandler(async (req, res) => res.json(await autoclose.getSettings(req.user.tid))));
+router.put(
+  '/auto-settings',
+  tutorOnly,
+  validateBody(z.object({ enabled: z.boolean(), delay_min: z.number().int().refine((n) => autoclose.DELAYS.includes(n), 'Неверная задержка') }).strict()),
+  asyncHandler(async (req, res) => res.json(await autoclose.saveSettings(req.user.tid, req.body)))
+);
+
+// ------------------------------------------------------------
 // Расписание за период. Репетитор видит всех, ученик/родитель — только своих
 // ?from=2026-10-01T00:00:00+03:00&to=...&student_id=5
 // ------------------------------------------------------------

@@ -130,6 +130,7 @@ const PORT = Number(process.env['PORT']) || 3001;
 if (require.main === module) {
   app.listen(PORT, () => console.log(`✅ API запущен на порту ${PORT}`));
   require('./services/telegram').start();
+  require('./services/autoclose').start();
   lessonfold.start();
 }
 
