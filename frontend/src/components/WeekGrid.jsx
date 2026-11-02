@@ -1,6 +1,6 @@
 // components/WeekGrid.jsx — неделя сеткой: перетащить урок = перенести, клик по пустому месту = новый урок
 import { useMemo, useRef, useState } from 'react';
-import { time, LESSON_STATUS } from '../format';
+import { time, LESSON_STATUS, givenName } from '../format';
 
 const HOUR = 56; // высота часа, px
 const SNAP = 15; // шаг переноса, минут
@@ -137,7 +137,7 @@ export default function WeekGrid({ from, lessons, onOpen, onCreate, onMove }) {
                   onKeyDown={(e) => e.key === 'Enter' && onOpen(b)}
                   aria-label={`${b.group ? l.group_name : l.student_name}, ${time(start)}`}>
                   <span className="wl-time">{time(start)}</span>
-                  <span className="wl-name">{b.group ? l.group_name : l.student_name.split(' ')[0]}</span>
+                  <span className="wl-name">{b.group ? l.group_name : givenName(l.student_name)}</span>
                   {b.group && <span className="wl-sub">{b.members.length} уч.</span>}
                   {st !== 'scheduled' && <span className="wl-sub">{LESSON_STATUS[st]?.label}</span>}
                 </button>

@@ -9,7 +9,7 @@ import { ClientAnnouncements } from '../../components/Announcements';
 import { SelfStudyStrip } from './SelfStudy';
 import Recommendations from '../../components/Recommendations';
 import { MotivationCard, WarmupBanner } from '../../components/Motivation';
-import { time, dayMonth, relativeDay, rub, shortDate, monthName, lessonsWord, HW_STATUS, plural } from '../../format';
+import { time, dayMonth, relativeDay, rub, shortDate, monthName, lessonsWord, HW_STATUS, plural, givenName } from '../../format';
 
 export default function ClientHome({ student, isParent }) {
   const subj = useSubject(student.subject);
@@ -22,7 +22,7 @@ export default function ClientHome({ student, isParent }) {
   const s = d.students.find((x) => x.student.id === student.id) || d.students[0];
   const next = s.upcoming[0];
   const activeSub = fin.subscriptions.find((x) => x.status === 'active');
-  const firstName = s.student.full_name.split(/\s+/)[0];
+  const firstName = givenName(s.student.full_name);
   const openHw = s.homework.filter((h) => h.status === 'assigned');
 
   return (

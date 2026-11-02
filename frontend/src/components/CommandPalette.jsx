@@ -1,4 +1,5 @@
 // components/CommandPalette.jsx — быстрый поиск и действия (Ctrl+K / ⌘K или «/»)
+import { givenName } from '../format';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api';
 import { Icon, navigate } from '../ui';
@@ -71,7 +72,7 @@ export default function CommandPalette({ open, onClose, role, nav }) {
         );
       }
       for (const g of data.groups) {
-        out.push({ group: 'Группы', icon: 'users', label: g.name, hint: g.members.map((m) => m.full_name.split(' ')[0]).join(', '), run: go(`/groups/${g.id}`) });
+        out.push({ group: 'Группы', icon: 'users', label: g.name, hint: g.members.map((m) => givenName(m.full_name)).join(', '), run: go(`/groups/${g.id}`) });
       }
     } else {
       out.push(

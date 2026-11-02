@@ -1,4 +1,5 @@
 // pages/Join.jsx — открытая страница записи к репетитору: о себе, тест уровня, заявка
+import { givenName } from '../format';
 import { useState } from 'react';
 import { api } from '../api';
 import { BRAND } from '../config';
@@ -121,7 +122,7 @@ export default function Join({ login }) {
               </>
             )}
             <h2 className="join-sub serif">Заявка отправлена</h2>
-            <p>{t.full_name.split(' ')[0]} свяжется с вами, чтобы договориться о пробном занятии.</p>
+            <p>{givenName(t.full_name)} свяжется с вами, чтобы договориться о пробном занятии.</p>
           </div>
         )}
       </div>

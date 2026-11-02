@@ -97,3 +97,12 @@ export const SKILLS = {
 export const CATEGORY = { adult: 'Взрослый', teen: 'Подросток', child: 'Ребёнок' };
 
 export const METHOD = { transfer: 'Перевод', cash: 'Наличные', card: 'Карта', other: 'Другое' };
+
+// Имя для обращения из «ФИО» в любом порядке: «Иванов Иван» → «Иван», «Иван Иванов» → «Иван».
+// Если первое слово похоже на фамилию (Иванов, Петрова, Ковальчук, Шевченко...), берём второе.
+const SURNAME_END = /(ов|ев|ёв|ин|ын|ова|ева|ёва|ина|ына|ский|ская|цкий|цкая|ой|ко|ук|юк|ич|ян|дзе|швили|енко)$/i;
+export function givenName(full) {
+  const w = String(full || '').trim().split(/\s+/).filter(Boolean);
+  if (w.length >= 2 && SURNAME_END.test(w[0]) && !SURNAME_END.test(w[1])) return w[1];
+  return w[0] || '';
+}

@@ -7,7 +7,7 @@ import { useLoad, Spinner, ErrorBox, Empty, Icon, Link, useToast } from '../ui';
 import LibraryItem from '../components/LibraryItem';
 import { TaskPicker } from './tutor/Library';
 import { ResultLine, byItem } from '../components/GameResults';
-import { relativeDay, dayMonth, time } from '../format';
+import { relativeDay, dayMonth, time, givenName } from '../format';
 import FinishLessonModal, { unitLabel } from '../components/FinishLesson';
 import { WarmupBanner } from '../components/Motivation';
 
@@ -149,7 +149,7 @@ export default function LessonRoom({ id }) {
           {l.items.map((it, i) => (
             <LibraryItem key={it.id} item={it} index={i} showPrivate={isTutor}
               onGameFinish={isTutor ? undefined : saveGame(it.id)}
-              gameExtra={<ResultLine results={resultsByItem[it.id]} who={isTutor ? `${l.student_name.split(' ')[0]}:` : 'Ваш'} />}
+              gameExtra={<ResultLine results={resultsByItem[it.id]} who={isTutor ? `${givenName(l.student_name)}:` : 'Ваш'} />}
               actions={isTutor && (
                 <button className="icon-btn" aria-label="Убрать из урока" onClick={() => saveItems(ids.filter((x) => x !== it.id))}>
                   <Icon name="close" size={18} />

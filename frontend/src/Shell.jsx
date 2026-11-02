@@ -44,7 +44,7 @@ export function Shell({ nav, path, counts = {}, children }) {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <Link to="/shop" className="brand-name" title="Главная страница Lessonfold">{BRAND.name}</Link>
+          {user.role === 'tutor' ? <Link to="/shop" className="brand-name" title="Главная страница Lessonfold">{BRAND.name}</Link> : <div className="brand-name">{BRAND.name}</div>}
           <div className="brand-rule" />
         </div>
 
@@ -65,9 +65,11 @@ export function Shell({ nav, path, counts = {}, children }) {
           ))}
         </nav>
 
-        <Link to="/shop" className="side-shop">
-          <Icon name="grid" size={16} /> Главная страница и уроки
-        </Link>
+        {user.role === 'tutor' && (
+          <Link to="/shop" className="side-shop">
+            <Icon name="grid" size={16} /> Главная страница и уроки
+          </Link>
+        )}
 
         <div className="sidebar-foot">
           <div className="who">{user.full_name}</div>
@@ -87,7 +89,7 @@ export function Shell({ nav, path, counts = {}, children }) {
 
       <div className="main">
         <header className="topbar">
-          <Link to="/shop" className="brand-name">{BRAND.name}</Link>
+          {user.role === 'tutor' ? <Link to="/shop" className="brand-name">{BRAND.name}</Link> : <div className="brand-name">{BRAND.name}</div>}
           <div className="row" style={{ gap: 2 }}>
             <button className="icon-btn" onClick={() => setPalette(true)} aria-label="Поиск"><Icon name="search" size={20} /></button>
             <NotificationBell path={path} compact />
@@ -126,7 +128,12 @@ export function Shell({ nav, path, counts = {}, children }) {
 // «Ещё» на телефоне: разделы, которые не поместились в нижнее меню, и выход
 export function MoreMenu({ nav, counts = {} }) {
   const { user, logout } = useAuth();
-  const items = [...nav.filter((i) => i.hideMobile), { to: '/shop', label: 'Главная страница и уроки', icon: 'grid' }, { to: '/password', label: 'Сменить пароль', icon: 'key' }];
+  // Витрина уроков нужна репетиторам; ученикам и родителям её не показываем
+  const items = [
+    ...nav.filter((i) => i.hideMobile),
+    ...(user.role === 'tutor' ? [{ to: '/shop', label: 'Главная страница и уроки', icon: 'grid' }] : []),
+    { to: '/password', label: 'Сменить пароль', icon: 'key' },
+  ];
   return (
     <>
       <div className="page-head"><h1 className="page-title">Ещё</h1></div>

@@ -4,7 +4,7 @@ import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Link, navigate, Modal, Field, useSubmit, useToast } from '../../ui';
 import { NewLessonModal } from './modals';
 import { GroupFinishModal } from '../../components/GroupLesson';
-import { rub, relativeDay, time, dayMonth, shortDate, LESSON_STATUS, plural } from '../../format';
+import { rub, relativeDay, time, dayMonth, shortDate, LESSON_STATUS, plural, givenName } from '../../format';
 
 export function PeopleTabs({ active }) {
   return (
@@ -43,7 +43,7 @@ export function GroupsList() {
             <div className="list-main">
               <div className="list-title">{g.name}</div>
               <div className="list-sub truncate">
-                {g.members.map((m) => m.full_name.split(' ')[0]).join(', ') || 'Пока никого'}
+                {g.members.map((m) => givenName(m.full_name)).join(', ') || 'Пока никого'}
                 {g.next_lesson_at && `. Следующее: ${relativeDay(g.next_lesson_at).toLowerCase()} в ${time(g.next_lesson_at)}`}
               </div>
             </div>
@@ -191,7 +191,7 @@ export function GroupPage({ id }) {
                     <div className="list-main">
                       <div className="list-title">{shortDate(l.starts_at)}, {time(l.starts_at)}{l.topic ? ` · ${l.topic}` : ''}</div>
                       <div className="list-sub">
-                        {l.students.map((s) => `${s.student_name.split(' ')[0]}: ${LESSON_STATUS[s.status]?.label.toLowerCase()}`).join(', ')}
+                        {l.students.map((s) => `${givenName(s.student_name)}: ${LESSON_STATUS[s.status]?.label.toLowerCase()}`).join(', ')}
                       </div>
                     </div>
                   </div>

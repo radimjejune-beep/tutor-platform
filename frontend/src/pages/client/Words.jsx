@@ -9,14 +9,14 @@ import Study, { wordsCount } from '../../components/Study';
 import WordPaste from '../../components/WordPaste';
 import { SetProgress } from './SetStudy';
 import { useSubject } from '../../subjects';
-import { shortDate, plural } from '../../format';
+import { shortDate, plural, givenName } from '../../format';
 
 export default function Words({ student, isParent }) {
   const data = useLoad(() => Promise.all([api.vocab(student.id), api.mySets(student.id).catch(() => []), api.practiceActivity(student.id).catch(() => null)]), [student.id]);
   const [session, setSession] = useState(false);
   const [adding, setAdding] = useState(false);
   const subj = useSubject(student.subject);
-  const name = student.full_name.split(' ')[0];
+  const name = givenName(student.full_name);
 
   if (data.loading) return <Spinner />;
   if (data.error) return <ErrorBox error={data.error} onRetry={data.reload} />;
