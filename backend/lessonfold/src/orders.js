@@ -72,8 +72,19 @@ function lessonsOf(order) {
   return { ready: all.filter(l => l.status === 'available' && l.files && l.files.html), waiting: all.filter(l => !(l.status === 'available' && l.files && l.files.html)) };
 }
 
+// Продавать можно только когда на сайте указан продавец: ФИО, ИНН и контакт для претензий
+// (закон о защите прав потребителей требует, чтобы покупатель видел эти сведения до покупки)
+async function sellerReady() {
+  const raw = await db.kvGet('settings');
+  let s = {};
+  try { s = (raw && JSON.parse(raw).seller) || {}; } catch (e) {}
+  return !!(String(s.name || '').trim().split(/\s+/).length >= 2 && /^\d{12}$/.test(s.inn || '') && (s.email || s.contact));
+}
+const SELLER_MISSING = 'Продажи откроются, как только мы опубликуем сведения о продавце. Попробуйте чуть позже.';
+
 async function create({ sku, email, news, ip }) {
   if (!config.payEnabled) throw Object.assign(new Error('Оплата на сайте пока не подключена'), { status: 503 });
+  if (!(await sellerReady())) throw Object.assign(new Error(SELLER_MISSING), { status: 503 });
   const p = catalog.product(sku);
   if (!p || !catalog.purchasable(p)) throw Object.assign(new Error('Этот урок сейчас нельзя купить'), { status: 409 });
   email = String(email || '').trim().toLowerCase();
@@ -98,6 +109,7 @@ async function create({ sku, email, news, ip }) {
 // Заказ из Telegram-бота: без почты, файлы выдаёт бот, после оплаты ЮKassa возвращает в бот
 async function createTg({ sku, from, botUsername }) {
   if (!config.payEnabled) throw Object.assign(new Error('Оплата пока не подключена'), { status: 503 });
+  if (!(await sellerReady())) throw Object.assign(new Error(SELLER_MISSING), { status: 503 });
   const p = catalog.product(sku);
   if (!p || !catalog.purchasable(p)) throw Object.assign(new Error('Этот урок сейчас нельзя купить'), { status: 409 });
   const recent = await db.q(`SELECT count(*)::int AS n FROM orders WHERE tg_user_id = $1 AND created_at > now() - interval '1 hour'`, [from.id]);
@@ -273,4 +285,4 @@ async function opened(order) {
   await db.q('UPDATE orders SET opened = opened + 1 WHERE id = $1', [order.id]);
 }
 
-module.exports = { migrate, create, createTg, onTgPaid, sync, webhook, byToken, byId, lessonsOf, label, pdfLabel, shortId, sendMail, restore, releases, syncStale, refund, list, stats, opened, productTitle, EMAIL_RE };
+module.exports = { sellerReady, migrate, create, createTg, onTgPaid, sync, webhook, byToken, byId, lessonsOf, label, pdfLabel, shortId, sendMail, restore, releases, syncStale, refund, list, stats, opened, productTitle, EMAIL_RE };

@@ -178,12 +178,7 @@ function DocumentsTab() {
   const unfinished = docs.data.filter((d) => d.has_placeholders);
   return (
     <>
-      {unfinished.length > 0 && (
-        <div className="note" style={{ marginBottom: 18 }}>
-          В документах остались поля в [квадратных скобках]: ФИО, ИНН, контакты. Заполните их до того, как давать доступ ученикам.
-          Тексты — черновики: проверьте их как юрист под свою ситуацию.
-        </div>
-      )}
+      {unfinished.length > 0 && <FillPlaceholders docs={docs.data} onDone={docs.reload} />}
       <section className="panel">
         {docs.data.map((d) => (
           <div key={d.kind} className="assign-row" onClick={() => setEditing(d)}>
@@ -201,6 +196,59 @@ function DocumentsTab() {
         <Link to="/legal/offer">оферта</Link>, <Link to="/legal/privacy">политика</Link>. Кто и когда принял документы — во вкладке «Доступ» каждого ученика.
       </p>
     </>
+  );
+}
+
+// Пропуски вида [ФИО полностью] во всех документах заполняются одной формой
+const PH_HINT = {
+  '[ФИО полностью]': { label: 'ФИО полностью', placeholder: 'Кочка Радим Отчество' },
+  '[ИНН]': { label: 'ИНН (12 цифр)', placeholder: '123456789012', inputMode: 'numeric' },
+  '[e-mail или Telegram]': { label: 'Почта или Telegram для связи и претензий', placeholder: 'name@mail.ru или @username' },
+  '[предварительно / после Занятия]': { label: 'Когда ученик платит за занятие', options: ['предварительно', 'после Занятия'] },
+  '[проверить у хостинга и указать]': { label: 'Где хранятся данные', value: 'на серверах хостинга RelaxDev в Российской Федерации', hint: 'Сервер должен быть в России (ч. 5 ст. 18 152-ФЗ). Город и юрлицо хостинга уточните в поддержке RelaxDev.' },
+  '[3 года]': { label: 'Сколько хранить данные после окончания занятий', value: '3 года' },
+};
+
+function FillPlaceholders({ docs, onDone }) {
+  const toast = useToast();
+  const all = [...new Set(docs.flatMap((d) => (d.body + ' ' + d.title).match(/\[[^\]]+\]/g) || []))];
+  const [vals, setVals] = useState(() => Object.fromEntries(all.map((p) => [p, PH_HINT[p]?.value || ''])));
+  const filled = all.filter((p) => vals[p].trim());
+  const { busy, error, submit } = useSubmit(async () => {
+    if (vals['[ИНН]'] && !/^\d{12}$/.test(vals['[ИНН]'].trim())) throw new Error('ИНН физического лица состоит из 12 цифр');
+    const fix = (t) => filled.reduce((acc, p) => acc.split(p).join(vals[p].trim()), t);
+    const touched = docs.filter((d) => fix(d.body) !== d.body || fix(d.title) !== d.title);
+    if (!touched.length) return;
+    if (touched.some((d) => d.accepted_count > 0) && !window.confirm('Сохранятся новые редакции документов. Те, кто уже принимал их, примут заново при следующем входе. Продолжить?')) return;
+    for (const d of touched) await api.saveLegalDoc(d.kind, { title: fix(d.title).trim(), body: fix(d.body).trim() });
+    toast(`Обновлено документов: ${touched.length}`);
+    onDone();
+  });
+  return (
+    <form className="panel form" style={{ marginBottom: 18 }} onSubmit={submit}>
+      <h2 className="section-title">Заполните пропуски в документах</h2>
+      <div className="small muted">
+        Это поля в [квадратных скобках] из всех четырёх документов. Впишите один раз, и они подставятся везде. Пока пропуски есть, документы
+        неполные, и давать их ученикам на подпись рано. Тексты остаются черновиками: проверьте их как юрист под свою ситуацию.
+      </div>
+      {all.map((p) => {
+        const h = PH_HINT[p] || { label: p.slice(1, -1) };
+        return (
+          <Field key={p} label={h.label} hint={h.hint}>
+            {h.options ? (
+              <select className="input" value={vals[p]} onChange={(e) => setVals({ ...vals, [p]: e.target.value })}>
+                <option value="">Выберите</option>
+                {h.options.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            ) : (
+              <input className="input" value={vals[p]} placeholder={h.placeholder} inputMode={h.inputMode} onChange={(e) => setVals({ ...vals, [p]: e.target.value })} />
+            )}
+          </Field>
+        );
+      })}
+      {error && <div className="alert">{error}</div>}
+      <div><button className="btn" disabled={busy || !filled.length}>{busy ? 'Сохраняем…' : `Подставить в документы (${filled.length} из ${all.length})`}</button></div>
+    </form>
   );
 }
 

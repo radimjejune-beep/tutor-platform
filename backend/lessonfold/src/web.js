@@ -97,6 +97,43 @@ async function getSettings() {
 // ---------- публичные данные для сайта ----------
 const fileUrl = ref => (ref && ref.startsWith('db:') ? '/f/' + ref.slice(3) : null);
 
+// Короткий отпечаток JSON: версия каталога и отдельных товаров (такой же считает админка)
+function djb(s) { let h = 5381; for (const c of String(s)) h = (h * 33 + c.charCodeAt(0)) >>> 0; return h.toString(36); }
+const catalogVersion = raw => djb(JSON.stringify(raw || {}));
+
+// Факты урока из HTML: сколько экранов и озвученных фраз (для карточки на сайте)
+function lessonFacts(text) {
+  const screens = (text.match(/<section[^>]*class=["'][^"']*\bslide\b/g) || []).length || (text.match(/<section\b/g) || []).length;
+  const audio = (text.match(/data:audio\/[a-z0-9.+-]+;base64/gi) || []).length;
+  return { screens, audio };
+}
+
+// Выручка за месяц по авторам. Пакет и курс делятся поровну между входящими уроками.
+async function authorReport(month) {
+  const from = `${month}-01`;
+  const site = await db.q(`SELECT sku, amount_rub FROM orders WHERE status = 'paid' AND paid_at >= $1::date AND paid_at < ($1::date + interval '1 month')`, [from]);
+  const bot = await db.q(`SELECT sku, amount_rub FROM purchases WHERE kind = 'paid' AND created_at >= $1::date AND created_at < ($1::date + interval '1 month')`, [from]);
+  const authors = new Map();
+  const add = (author, title, rub, share) => {
+    const a = authors.get(author) || { author, rub: 0, items: new Map() };
+    a.rub += rub;
+    const it = a.items.get(title) || { title, n: 0, rub: 0 };
+    it.n += share; it.rub += rub;
+    a.items.set(title, it); authors.set(author, a);
+  };
+  let total = 0, count = 0;
+  for (const r of [...site.rows, ...bot.rows]) {
+    total += r.amount_rub; count += 1;
+    const p = catalog.product(r.sku);
+    const lessons = p ? catalog.lessonsOf(p) : [];
+    if (!lessons.length) { add('без автора', p ? p.title : r.sku, r.amount_rub, 1); continue; }
+    const part = r.amount_rub / lessons.length;
+    for (const l of lessons) add((l.author || '').trim() || 'без автора', l.title + (p.type === 'pack' ? ` (в составе «${p.title}»)` : ''), part, 1 / lessons.length);
+  }
+  const list = [...authors.values()].map(a => ({ author: a.author, rub: Math.round(a.rub), items: [...a.items.values()].map(i => ({ ...i, rub: Math.round(i.rub), n: Math.round(i.n * 100) / 100 })).sort((x, y) => y.rub - x.rub) })).sort((x, y) => y.rub - x.rub);
+  return { month, total, count, authors: list };
+}
+
 function publicProduct(p) {
   return {
     sku: p.sku, type: p.type, title: p.name || p.title, short: p.short || p.title, description: p.description || '',
@@ -117,7 +154,7 @@ async function siteData(view) {
   return {
     view,
     bot: config.botEnabled ? config.botUsername : '',
-    pay: config.payEnabled,
+    pay: config.payEnabled && (await orders.sellerReady()),
     channel: settings.channel,
     seller: settings.seller,
     hosting: settings.hosting,
@@ -137,8 +174,13 @@ function sitePage(data) {
 
 // ---------- статические файлы ----------
 const STATIC = {
-  '/assets/unbounded.woff': ['fonts/unbounded.woff', 'font/woff'],
-  '/assets/nunito.woff': ['fonts/nunito.woff', 'font/woff'],
+  // Шрифты платформы: Inter и LF Serif (Lora), лицензия в web/fonts/OFL.txt
+  '/assets/inter-regular.woff': ['fonts/inter-regular.woff', 'font/woff'],
+  '/assets/inter-medium.woff': ['fonts/inter-medium.woff', 'font/woff'],
+  '/assets/inter-semibold.woff': ['fonts/inter-semibold.woff', 'font/woff'],
+  '/assets/lf-serif.woff': ['fonts/lf-serif.woff', 'font/woff'],
+  '/assets/lf-serif-italic.woff': ['fonts/lf-serif-italic.woff', 'font/woff'],
+  '/assets/fonts-license.txt': ['fonts/OFL.txt', 'text/plain; charset=utf-8'],
   '/admin': ['admin.html', 'text/html; charset=utf-8']
 };
 
@@ -212,19 +254,59 @@ async function adminApi(req, res, url, hooks) {
   if (route === '/catalog' && method === 'GET') {
     const raw = catalog.getRaw();
     const files = await store.fileInfo(refsOf(raw));
-    return json(res, 200, { catalog: raw, files });
+    return json(res, 200, { catalog: raw, files, version: catalogVersion(raw) });
   }
   if (route === '/catalog' && method === 'PUT') {
     if (config.catalogMode !== 'db') return json(res, 409, { error: 'Каталог читается из файла (CATALOG_FILE). Уберите эту переменную, чтобы править каталог в админке.' });
     const body = await readJson(req);
     const before = catalog.getRaw();
-    const r = await catalog.save(body.catalog, hasRef);
+    const bp = before.products || {};
+    let next = body.catalog;
+    let merged = false;
+    // Пока админ правил, другой админ мог опубликовать свои изменения. Тогда накладываем только то,
+    // что менял этот админ, а если оба правили один и тот же урок, ничего не сохраняем и объясняем.
+    if (body.base && body.base !== catalogVersion(before)) {
+      const hashes = body.baseHashes || {};
+      const conflicts = [];
+      for (const sku of [...(body.changed || []), ...(body.deleted || [])]) {
+        const now = bp[sku];
+        if (!(sku in hashes)) { if (now) conflicts.push(now.title || sku); continue; }
+        if (!now || djb(JSON.stringify(now)) !== hashes[sku]) conflicts.push((now && now.title) || sku);
+      }
+      if (body.books && djb(JSON.stringify(before.textbooks || [])) !== hashes.__books) conflicts.push('список учебников');
+      if (conflicts.length) {
+        const last = (await store.recentLog(20)).find(l => l.action === 'каталог опубликован' && l.login !== who);
+        return json(res, 409, { error: 'Эти уроки уже изменил другой администратор', conflicts, by: last ? last.login : null, at: last ? last.at : null });
+      }
+      next = JSON.parse(JSON.stringify(before));
+      for (const sku of body.changed || []) next.products[sku] = body.catalog.products[sku];
+      for (const sku of body.deleted || []) delete next.products[sku];
+      if (body.books) next.textbooks = body.catalog.textbooks;
+      merged = true;
+    }
+    // Кто и когда последним менял урок: видно в списке уроков
+    const stamp = new Date().toISOString();
+    for (const [k, p] of Object.entries(next.products || {})) {
+      const old = bp[k];
+      const strip = x => { if (!x) return x; const { editedBy, editedAt, ...rest } = x; return JSON.stringify(rest); };
+      if (strip(old) !== strip(p)) { p.editedBy = who; p.editedAt = stamp; } else if (old) { p.editedBy = old.editedBy; p.editedAt = old.editedAt; }
+    }
+    const r = await catalog.save(next, hasRef);
     if (!r.ok) return json(res, 422, { error: 'Каталог не сохранён', errors: r.errors });
     delivery.clearCache();
-    const changed = Object.keys(body.catalog.products || {}).filter(k => JSON.stringify((before.products || {})[k]) !== JSON.stringify(body.catalog.products[k]));
-    await store.log(who, 'каталог опубликован', changed.join(', ') || 'без изменений в товарах');
+    const changed = Object.keys(next.products || {}).filter(k => JSON.stringify(bp[k]) !== JSON.stringify(next.products[k]));
+    await store.log(who, 'каталог опубликован', (changed.join(', ') || 'без изменений в товарах') + (merged ? ' (вместе с правками другого админа)' : ''));
     if (hooks.onCatalogChange) hooks.onCatalogChange();
-    return json(res, 200, { ok: true });
+    return json(res, 200, { ok: true, merged, version: catalogVersion(catalog.getRaw()) });
+  }
+  if (route === '/catalog/version' && method === 'GET') {
+    const raw = catalog.getRaw();
+    const last = (await store.recentLog(20)).find(l => l.action === 'каталог опубликован');
+    return json(res, 200, { version: catalogVersion(raw), by: last ? last.login : null, at: last ? last.at : null });
+  }
+  if (route === '/authors' && method === 'GET') {
+    const month = /^\d{4}-\d{2}$/.test(url.searchParams.get('month') || '') ? url.searchParams.get('month') : new Date().toISOString().slice(0, 7);
+    return json(res, 200, await authorReport(month));
   }
 
   const fm = route.match(/^\/files\/(.+)$/);
@@ -241,17 +323,22 @@ async function adminApi(req, res, url, hooks) {
       const buf = await readBody(req, MAX_FILE);
       if (!buf.length) return json(res, 400, { error: 'Пустой файл' });
       const warnings = [];
+      let facts = null;
       if (kind === 'html') {
         const text = buf.toString('utf8');
+        facts = lessonFacts(text);
         if (!/<html|<!doctype/i.test(text.slice(0, 2000))) return json(res, 422, { error: 'Это не похоже на HTML-урок' });
         if (!text.includes('{{BUYER}}')) warnings.push('В файле нет метки {{BUYER}}: имя покупателя не будет вшито в урок. Соберите урок командой build.py \'{{BUYER}}\'.');
         if (/<script[^>]+src=["']https?:/i.test(text) || /url\(["']?https?:/i.test(text)) warnings.push('Урок подгружает что-то из интернета. На уроке без сети это не откроется, а для покупателей это передача данных третьим лицам.');
       }
       if (kind === 'pdf' && buf.slice(0, 5).toString() !== '%PDF-') return json(res, 422, { error: 'Это не PDF' });
+      if (kind === 'pdf') {
+        try { const { PDFDocument } = require('pdf-lib'); facts = { pages: (await PDFDocument.load(buf, { ignoreEncryption: true })).getPageCount() }; } catch (e) { warnings.push('Не получилось прочитать PDF: проверьте, что он открывается.'); }
+      }
       const info = await store.putFile(key, okMime, buf, who);
       delivery.clearCache();
       await store.log(who, 'файл загружен', `${key} (${Math.round(buf.length / 1024)} КБ)`);
-      return json(res, 200, { ok: true, ...info, warnings });
+      return json(res, 200, { ok: true, ...info, warnings, facts });
     }
     if (method === 'GET') {
       const f = await store.getFile(key);
@@ -317,6 +404,7 @@ async function adminApi(req, res, url, hooks) {
   }
 
   if (route === '/stats') return json(res, 200, { stats: await db.stats(), site: await orders.stats(), log: await store.recentLog(40), bot: config.botEnabled, pay: config.payEnabled, mail: config.mailEnabled });
+  if (route === '/ready' && method === 'GET') return json(res, 200, { seller: await orders.sellerReady(), pay: config.payEnabled, bot: config.botEnabled, mail: config.mailEnabled });
 
   if (route === '/orders' && method === 'GET') return json(res, 200, { orders: await orders.list({ q: url.searchParams.get('q') || '' }), pay: config.payEnabled, mail: config.mailEnabled });
   const om = route.match(/^\/orders\/([0-9a-f-]{36})\/(resend|refund|sync)$/);

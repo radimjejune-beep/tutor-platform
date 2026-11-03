@@ -6,24 +6,26 @@
 <meta name="robots" content="noindex,nofollow">
 <title>Lessonfold · админка</title>
 <style>
-@font-face{font-family:"Unb";src:url(/assets/unbounded.woff) format("woff");font-weight:200 900}
-@font-face{font-family:"Nun";src:url(/assets/nunito.woff) format("woff");font-weight:200 1000}
-:root{--bg:#f3f1ec;--panel:#ffffff;--ink:#141c2a;--muted:#647083;--line:#e1ddd3;--amber:#ffb703;--ok:#13804f;--bad:#c63c32;--warn:#9a6400;--warn-bg:#fff4d6;--sel:#eef3fd;--f:"Nun",system-ui,sans-serif}
-@media (prefers-color-scheme:dark){:root{--bg:#0f141c;--panel:#171e29;--ink:#e9ecf1;--muted:#98a2b3;--line:#2a3343;--ok:#47c98f;--bad:#ff7b70;--warn:#ffc642;--warn-bg:#3a2e10;--sel:#1c2a44;color-scheme:dark}}
+@font-face{font-family:"Inter";src:url(/assets/inter-regular.woff) format("woff");font-weight:400;font-display:swap}
+@font-face{font-family:"Inter";src:url(/assets/inter-medium.woff) format("woff");font-weight:500;font-display:swap}
+@font-face{font-family:"Inter";src:url(/assets/inter-semibold.woff) format("woff");font-weight:600 900;font-display:swap}
+@font-face{font-family:"LF Serif";src:url(/assets/lf-serif.woff) format("woff");font-weight:400 700;font-display:swap;size-adjust:88%}
+@font-face{font-family:"LF Serif";src:url(/assets/lf-serif-italic.woff) format("woff");font-weight:400 700;font-style:italic;font-display:swap;size-adjust:88%}
+:root{--bg:#f3f1ec;--panel:#fdfcfa;--ink:#151515;--muted:#7d7c77;--line:#e8e5de;--amber:#151515;--ok:#3d6b55;--bad:#9c4a40;--warn:#83734f;--warn-bg:#f3efe6;--sel:#f0eee8;--f:"Inter",system-ui,sans-serif}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:500 15px/1.5 var(--f)}
-h1,h2,h3{font-family:"Unb",var(--f);font-weight:600;letter-spacing:-.02em;margin:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.5 var(--f)}
+h1,h2,h3{font-family:"LF Serif",Georgia,serif;font-weight:600;letter-spacing:-.02em;margin:0}
 button,input,select,textarea{font:inherit;color:inherit}
-input,select,textarea{width:100%;background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:9px 11px}
+input,select,textarea{width:100%;background:var(--bg);border:1.5px solid var(--line);border-radius:6px;padding:9px 11px}
 textarea{min-height:76px;resize:vertical}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ink)}
-label{display:flex;flex-direction:column;gap:5px;font-weight:800;font-size:13px;color:var(--muted)}
+label{display:flex;flex-direction:column;gap:5px;font-weight:600;font-size:13px;color:var(--muted)}
 label.inline{flex-direction:row;align-items:center;gap:8px;color:var(--ink);font-size:14px}
 label.inline input{width:auto}
-.btn{border:1.5px solid var(--line);background:var(--panel);border-radius:999px;padding:9px 16px;font-weight:800;cursor:pointer;white-space:nowrap}
+.btn{border:1.5px solid var(--line);background:var(--panel);border-radius:999px;padding:9px 16px;font-weight:600;cursor:pointer;white-space:nowrap}
 .btn:hover{border-color:var(--ink)}
 a.btn{text-decoration:none;color:inherit;display:inline-flex;align-items:center}
-.btn.main{background:var(--amber);border-color:var(--amber);color:#251900}
+.btn.main{background:var(--amber);border-color:var(--amber);color:#151515}
 .btn.dark{background:var(--ink);border-color:var(--ink);color:var(--panel)}
 .btn.danger{color:var(--bad)}
 .btn.sm{padding:5px 11px;font-size:13px}
@@ -32,56 +34,69 @@ a.btn{text-decoration:none;color:inherit;display:inline-flex;align-items:center}
 .top .l{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
 .top h1{font-size:17px}
 .tabs{display:flex;gap:4px;flex-wrap:wrap}
-.tabs button{border:0;background:none;padding:8px 12px;border-radius:999px;font-weight:800;color:var(--muted);cursor:pointer}
+.tabs button{border:0;background:none;padding:8px 12px;border-radius:999px;font-weight:600;color:var(--muted);cursor:pointer}
 .tabs button.on{background:var(--ink);color:var(--panel)}
 .top .r{display:flex;gap:10px;align-items:center}
-.dirty{font-weight:800;color:var(--warn);font-size:13px}
+.dirty{font-weight:600;color:var(--warn);font-size:13px}
 main{max-width:1280px;margin:0 auto;padding:22px 20px 80px}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:20px}
 .grid2{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:20px;align-items:start}
 @media(max-width:900px){.grid2{grid-template-columns:1fr}}
 .list{display:flex;flex-direction:column}
-.item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:11px 12px;border-radius:10px;cursor:pointer;border:1px solid transparent}
+.item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:11px 12px;border-radius:6px;cursor:pointer;border:1px solid transparent}
 .item:hover{background:var(--bg)}
 .item.on{background:var(--sel);border-color:var(--line)}
 .item b{display:block}
 .item small{color:var(--muted)}
-.pill{font-size:11px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;padding:4px 8px;border-radius:999px;border:1px solid var(--line);align-self:start}
+.pill{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:4px 8px;border-radius:999px;border:1px solid var(--line);align-self:start}
 .pill.available{color:var(--ok);border-color:currentColor}
 .pill.preorder{color:var(--warn);border-color:currentColor}
 .pill.hidden{opacity:.6}
-.group{font-size:12px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:14px 12px 6px}
+.group{font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:14px 12px 6px}
 .form{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px 14px}
 .c2{grid-column:span 2}.c3{grid-column:span 3}.c6{grid-column:span 6}.c4{grid-column:span 4}
 @media(max-width:700px){.form{grid-template-columns:1fr}.c2,.c3,.c4,.c6{grid-column:auto}}
-.sec{grid-column:1/-1;border-top:1px solid var(--line);padding-top:14px;margin-top:4px;font-family:"Unb",var(--f);font-weight:600;font-size:14px}
-.file{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 12px;border:1.5px dashed var(--line);border-radius:12px}
+.sec{grid-column:1/-1;border-top:1px solid var(--line);padding-top:14px;margin-top:4px;font-family:"LF Serif",Georgia,serif;font-weight:600;font-size:14px}
+.file{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 12px;border:1.5px dashed var(--line);border-radius:6px}
 .file .name{flex:1;min-width:160px}
 .file .name b{display:block}
 .file .name small{color:var(--muted)}
-.ok{color:var(--ok);font-weight:800}
-.bad{color:var(--bad);font-weight:800}
-.warn{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:10px 12px;font-weight:700}
+.ok{color:var(--ok);font-weight:600}
+.bad{color:var(--bad);font-weight:600}
+.warn{background:var(--warn-bg);color:var(--warn);border-radius:6px;padding:10px 12px;font-weight:500}
 .shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-.shot{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--bg)}
-.shot img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:#121a28}
+.shot{border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--bg)}
+.shot img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:#151515}
 .shot .b{padding:8px;display:flex;flex-direction:column;gap:6px}
 .shot .row{display:flex;gap:6px}
 .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
-.errors{border:1.5px solid var(--bad);color:var(--bad);border-radius:12px;padding:12px 14px;margin-bottom:16px}
+.errors{border:1.5px solid var(--bad);color:var(--bad);border-radius:6px;padding:12px 14px;margin-bottom:16px}
 .errors ul{margin:6px 0 0;padding-left:20px}
 table{width:100%;border-collapse:collapse}
 td,th{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
 th{font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
 .muted{color:var(--muted)}
 .login{max-width:380px;margin:12vh auto;display:flex;flex-direction:column;gap:14px}
-.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:12px 18px;border-radius:999px;font-weight:800;opacity:0;transition:.2s;pointer-events:none;z-index:20;max-width:calc(100vw - 32px)}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:12px 18px;border-radius:999px;font-weight:600;opacity:0;transition:.2s;pointer-events:none;z-index:20;max-width:calc(100vw - 32px)}
 .toast.on{opacity:1}
 .help{color:var(--muted);font-size:13px;font-weight:600}
 .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px}
-.kpi div{border:1px solid var(--line);border-radius:12px;padding:12px 14px}
-.kpi b{display:block;font:600 24px/1.1 "Unb",var(--f);font-variant-numeric:tabular-nums}
-.kpi small{color:var(--muted);font-weight:700}
+.kpi div{border:1px solid var(--line);border-radius:6px;padding:12px 14px}
+.kpi b{display:block;font:600 24px/1.1 "LF Serif",Georgia,serif;font-variant-numeric:tabular-nums}
+.kpi small{color:var(--muted);font-weight:500}
+
+/* ---------- стиль платформы Lessonfold ---------- */
+h1,h2,h3{font-family:"LF Serif",Georgia,serif;font-weight:500;letter-spacing:-.01em}
+.top h1{font-size:24px}
+.btn{font-weight:500}
+.btn.main{color:#fff}
+.btn.main:hover{background:#000;border-color:#000}
+.tabs button{font-weight:500}
+.sec{font-family:"Inter",system-ui,sans-serif;font-weight:500;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+label{font-weight:500}
+.kpi b{font-family:"LF Serif",Georgia,serif;font-weight:500}
+.item small.ok{color:var(--ok)}
+.item small.bad{color:var(--bad)}
 </style>
 </head>
 <body>
@@ -99,7 +114,7 @@ async function api(path, opts = {}) {
   return data;
 }
 const STATUS = { available: "В продаже", preorder: "Предзаказ", soon: "Готовится", hidden: "Скрыт" };
-const state = { me: null, tab: "orders", cat: null, files: {}, sel: null, dirty: false, errors: [], warnings: {} };
+const state = { me: null, tab: "orders", cat: null, files: {}, sel: null, dirty: false, errors: [], warnings: {}, facts: {}, version: null, baseline: null, remote: null, conflicts: null };
 
 function djb(s) { let h = 5381; for (const c of String(s)) h = (h * 33 + c.charCodeAt(0)) >>> 0; return h.toString(36) }
 function markDirty() { state.dirty = true; $("#dirty") && ($("#dirty").textContent = "Есть неопубликованные изменения") }
@@ -113,7 +128,19 @@ async function boot() {
 async function loadCatalog() {
   const r = await api("/catalog");
   state.cat = r.catalog; state.files = r.files; state.dirty = false;
+  state.version = r.version; state.baseline = JSON.parse(JSON.stringify(r.catalog)); state.remote = null; state.conflicts = null;
 }
+// Раз в минуту проверяем, не опубликовал ли каталог другой администратор
+setInterval(async () => {
+  if (!state.me || !state.version || document.hidden) return;
+  try {
+    const v = await api("/catalog/version");
+    if (v.version === state.version) return;
+    if (!state.dirty) { await loadCatalog(); if (["lessons", "books"].includes(state.tab)) render(); toast(`Каталог обновлён: изменения от ${v.by || "другого администратора"}`); }
+    else { state.remote = v; const b = $("#remote"); if (b) b.outerHTML = remoteBox(); else if (["lessons", "books"].includes(state.tab)) render(); }
+  } catch (e) {}
+}, 60000);
+const remoteBox = () => state.remote ? `<div class="warn" id="remote" style="margin-bottom:14px">${esc(state.remote.by || "Другой администратор")} опубликовал изменения${state.remote.at ? " в " + new Date(state.remote.at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) : ""}. Ваши правки можно опубликовать как обычно: если вы правили разные уроки, всё сохранится вместе.</div>` : '<span id="remote" hidden></span>';
 
 function render() {
   const app = $("#app");
@@ -127,14 +154,14 @@ function render() {
       catch (err) { $("#lerr").textContent = err.message } };
     return;
   }
-  const tabs = [["orders", "Заказы"], ["lessons", "Уроки"], ["books", "Учебники"], ["settings", "Реквизиты и ссылки"], ["admins", "Администраторы"], ["stats", "Статистика"]];
+  const tabs = [["orders", "Заказы"], ["lessons", "Уроки"], ["books", "Учебники"], ["settings", "Реквизиты и ссылки"], ["admins", "Администраторы"], ["stats", "Статистика"], ["authors", "Авторы"]];
   app.innerHTML = `<div class="top"><div class="l"><h1>Lessonfold</h1><div class="tabs">${tabs.map(([k, t]) => `<button data-t="${k}" class="${state.tab === k ? "on" : ""}">${t}</button>`).join("")}</div></div>
     <div class="r"><span class="dirty" id="dirty">${state.dirty ? "Есть неопубликованные изменения" : ""}</span><button class="btn main" id="pub">Опубликовать</button><a class="btn" href="/" target="_blank">Сайт</a><button class="btn" id="out">Выйти (${esc(state.me.login)})</button></div></div><main id="m"></main>`;
   $(".tabs").onclick = e => { const b = e.target.closest("button"); if (!b) return; state.tab = b.dataset.t; render() };
   $("#out").onclick = async () => { await api("/logout", { method: "POST", json: {} }); state.me = null; render() };
   $("#pub").onclick = publish;
   $("#pub").hidden = !["lessons", "books"].includes(state.tab);
-  ({ orders: renderOrders, lessons: renderLessons, books: renderBooks, settings: renderSettings, admins: renderAdmins, stats: renderStats })[state.tab]();
+  ({ orders: renderOrders, lessons: renderLessons, books: renderBooks, settings: renderSettings, admins: renderAdmins, stats: renderStats, authors: renderAuthors })[state.tab]();
 }
 
 async function publish() {
@@ -142,13 +169,27 @@ async function publish() {
   try {
     const clean = JSON.parse(JSON.stringify(state.cat));
     for (const p of Object.values(clean.products)) { delete p._new; delete p.sku }
-    await api("/catalog", { method: "PUT", json: { catalog: clean } });
-    state.errors = []; state.dirty = false; toast("Опубликовано. Бот уже видит изменения.");
+    // Что поменял именно этот админ: сервер наложит только это, если каталог уже обновил коллега
+    const base = state.baseline || { products: {}, textbooks: [] };
+    const changed = Object.keys(clean.products).filter(k => JSON.stringify(base.products[k]) !== JSON.stringify(clean.products[k]));
+    const deleted = Object.keys(base.products).filter(k => !(k in clean.products));
+    const books = JSON.stringify(base.textbooks) !== JSON.stringify(clean.textbooks);
+    const baseHashes = { __books: djb(JSON.stringify(base.textbooks || [])) };
+    for (const k of [...changed, ...deleted]) if (base.products[k]) baseHashes[k] = djb(JSON.stringify(base.products[k]));
+    const r = await api("/catalog", { method: "PUT", json: { catalog: clean, base: state.version, changed, deleted, books, baseHashes } });
+    state.errors = []; state.dirty = false; state.conflicts = null;
+    toast(r.merged ? "Опубликовано вместе с правками другого администратора." : "Опубликовано. Сайт и бот уже видят изменения.");
     await loadCatalog(); render();
-  } catch (e) { state.errors = (e.data && e.data.errors) || [e.message]; render(); window.scrollTo(0, 0) }
+  } catch (e) {
+    if (e.data && e.data.conflicts) { state.conflicts = e.data; state.errors = [] }
+    else state.errors = (e.data && e.data.errors) || [e.message];
+    render(); window.scrollTo(0, 0);
+  }
   finally { btn.disabled = false }
 }
-const errorsBox = () => state.errors.length ? `<div class="errors"><b>Не опубликовано. Исправьте:</b><ul>${state.errors.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : "";
+const errorsBox = () => (state.conflicts ? `<div class="errors"><b>Не опубликовано: ${esc(state.conflicts.by || "другой администратор")} уже изменил${state.conflicts.at ? " в " + new Date(state.conflicts.at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) : ""} то же самое:</b><ul>${state.conflicts.conflicts.map(x => `<li>${esc(x)}</li>`).join("")}</ul><p style="margin:10px 0 0">Чтобы не затереть его работу, перепишите себе свои правки по этим урокам, нажмите «Загрузить свежий каталог» и внесите их снова.</p><div class="actions"><button class="btn dark" id="reloadCat">Загрузить свежий каталог</button></div></div>` : "")
+  + (state.errors.length ? `<div class="errors"><b>Не опубликовано. Исправьте:</b><ul>${state.errors.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : "") + (["lessons", "books"].includes(state.tab) ? remoteBox() : "");
+document.addEventListener("click", async e => { if (e.target && e.target.id === "reloadCat") { await loadCatalog(); state.errors = []; render(); toast("Загружен свежий каталог") } });
 
 /* ---------- уроки ---------- */
 function renderLessons() {
@@ -156,7 +197,7 @@ function renderLessons() {
   const prods = Object.entries(c.products || {}).map(([sku, p]) => ({ ...p, sku })).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
   const groups = c.textbooks.map(t => [t, prods.filter(p => p.book === t.id)]);
   const orphan = prods.filter(p => !c.textbooks.some(t => t.id === p.book));
-  const item = p => `<div class="item ${state.sel === p.sku ? "on" : ""}" data-s="${esc(p.sku)}"><div><b>${esc(p.title || "Без названия")}</b><small>${esc(p.sku)} · ${p.scope === "course" ? "курс" : p.type === "pack" ? "пакет" : "урок"}${p.free ? " · бесплатный" : p.price ? " · " + p.price + " ₽" : ""}${fileState(p)}</small></div><span class="pill ${p.status}">${STATUS[p.status] || p.status}</span></div>`;
+  const item = p => { const miss = missing(p); return `<div class="item ${state.sel === p.sku ? "on" : ""}" data-s="${esc(p.sku)}"><div><b>${esc(p.title || "Без названия")}</b><small>${esc(p.sku)} · ${p.scope === "course" ? "курс" : p.type === "pack" ? "пакет" : "урок"}${p.free ? " · бесплатный" : p.price ? " · " + p.price + " ₽" : ""}${p.author ? " · " + esc(p.author) : ""}</small><small class="${miss.length ? "bad" : "ok"}" style="display:block">${miss.length ? "Не хватает: " + miss.join(", ") : "Всё готово к продаже"}</small>${p.editedBy ? `<small style="display:block">изменил ${esc(p.editedBy)}, ${when(p.editedAt)}</small>` : ""}</div><span class="pill ${p.status}">${STATUS[p.status] || p.status}</span></div>` };
   m.innerHTML = errorsBox() + `<div class="grid2"><div class="panel"><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"><button class="btn sm dark" id="addL">+ Урок</button><button class="btn sm" id="addP">+ Пакет</button><button class="btn sm" id="addC">+ Курс на год</button></div>
     <div class="list" id="lst">${groups.map(([t, ps]) => `<div class="group">${esc(t.title)}</div>${ps.map(item).join("") || '<p class="help" style="padding:0 12px">Пока пусто</p>'}`).join("")}${orphan.length ? `<div class="group">Без учебника</div>${orphan.map(item).join("")}` : ""}</div></div>
     <div class="panel" id="ed">${state.sel && c.products[state.sel] ? "" : '<p class="muted">Выберите урок слева или добавьте новый. Изменения появятся на сайте и в боте после кнопки «Опубликовать».</p>'}</div></div>`;
@@ -165,6 +206,33 @@ function renderLessons() {
   $("#addP").onclick = () => addProduct("pack");
   if ($("#addC")) $("#addC").onclick = () => { addProduct("pack"); const p = state.cat.products[state.sel]; if (p) { p.scope = "course"; p.short = "Весь курс"; renderEditor(state.sel); renderLessons() } };
   if (state.sel && c.products[state.sel]) renderEditor(state.sel);
+}
+// Чего не хватает, чтобы товар можно было продавать
+function missing(p) {
+  const m = [];
+  const has = kind => { const r = p.files && p.files[kind]; return !!(r && (!r.startsWith("db:") || state.files[r.slice(3)])) };
+  if (!(p.name || p.title)) m.push("название");
+  if (!p.description) m.push("описание");
+  if (!p.free && !(p.price > 0)) m.push("цена");
+  if (p.type === "lesson") {
+    if (!has("html")) m.push("HTML");
+    if (!has("pdf")) m.push("PDF");
+    if (!(p.shots || []).length) m.push("скриншоты");
+    if (!p.author) m.push("автор");
+  } else if (p.scope !== "course" && !(p.includes || []).length) m.push("уроки в пакете");
+  return m;
+}
+const when = iso => iso ? new Date(iso).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+const plural = (n, one, few, many) => { const a = Math.abs(n) % 100, b = a % 10; return a > 10 && a < 20 ? many : b > 1 && b < 5 ? few : b === 1 ? one : many };
+// Копия урока: те же учебник, модуль, цена и автор, без файлов
+function copyProduct(sku) {
+  const src = state.cat.products[sku];
+  const nsku = "new-" + Math.random().toString(36).slice(2, 7);
+  const c = JSON.parse(JSON.stringify(src));
+  delete c.files; delete c.shots; delete c.editedBy; delete c.editedAt; delete c.fileName;
+  Object.assign(c, { title: (src.title || "") + " (копия)", name: src.name ? src.name + " (копия)" : "", status: "soon", free: false, files: {}, shots: [], order: Object.keys(state.cat.products).length, _new: true });
+  if (c.type === "lesson") c.unit = "";
+  state.cat.products[nsku] = c; state.sel = nsku; markDirty(); renderLessons(); toast("Копия создана. Поменяйте название и код, загрузите файлы.");
 }
 function fileState(p) {
   if (p.type !== "lesson") return "";
@@ -194,7 +262,9 @@ function renderEditor(sku) {
   const lessons = Object.entries(c.products).filter(([k, x]) => x.type === "lesson" && k !== sku);
   const books = c.textbooks.map(t => `<option value="${esc(t.id)}" ${p.book === t.id ? "selected" : ""}>${esc(t.title)}</option>`).join("");
   const st = Object.entries(STATUS).filter(([k]) => p.type === "pack" || k !== "preorder").map(([k, v]) => `<option value="${k}" ${p.status === k ? "selected" : ""}>${v}</option>`).join("");
-  ed.innerHTML = `<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:14px"><h2 style="font-size:18px">${p.scope === "course" ? "Курс" : p.type === "pack" ? "Пакет" : "Урок"}: ${esc(p.name || p.title || "без названия")}</h2><button class="btn sm danger" id="del">Удалить</button></div>
+  ed.innerHTML = `<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:14px"><h2 style="font-size:18px">${p.scope === "course" ? "Курс" : p.type === "pack" ? "Пакет" : "Урок"}: ${esc(p.name || p.title || "без названия")}</h2><div style="display:flex;gap:8px"><button class="btn sm" id="copy">Копия</button><button class="btn sm danger" id="del">Удалить</button></div></div>
+  ${(() => { const m = missing(p); return m.length ? `<div class="warn" style="margin-bottom:14px">Чтобы продавать, добавьте: ${m.join(", ")}.${p.status === "available" ? " Сейчас стоит статус «В продаже»." : ""}</div>` : `<p class="ok" style="margin:0 0 14px">Всё готово к продаже${p.status !== "available" && p.status !== "preorder" ? ": поставьте статус «В продаже» и опубликуйте." : "."}</p>` })()}
+  ${p.editedBy ? `<p class="help" style="margin:-6px 0 14px">Последним изменял ${esc(p.editedBy)}, ${when(p.editedAt)}</p>` : ""}
   <div class="form">
     <label class="c2">Код (для ссылок и бота)<input id="f_sku" value="${esc(sku)}" ${p._new ? "" : "readonly"}></label>
     <label class="c2">Статус<select id="f_status">${st}</select></label>
@@ -237,6 +307,7 @@ function renderEditor(sku) {
   bind("grade", el => { p.grade = /^\d+$/.test(el.value) ? Number(el.value) : el.value; modSync() });
   bind("moduleTitle", el => { p.moduleTitle = el.value; modSync() });
   $("#f_sku").addEventListener("change", e => { if (renameSku(sku, e.target.value.trim())) { markDirty(); renderLessons() } else e.target.value = sku });
+  $("#copy").onclick = () => copyProduct(sku);
   $("#del").onclick = () => {
     if (!p._new && p.status !== "hidden") { toast("Сначала поставьте статус «Скрыт»: у этого товара могут быть покупатели. Скрытый товар не виден на сайте, но остаётся у купивших."); return }
     if (!p._new && $("#del").dataset.sure !== "1") { $("#del").dataset.sure = "1"; $("#del").textContent = "Точно удалить?"; return }
@@ -259,7 +330,19 @@ function fileRow(sku, kind, label, accept) {
 }
 function renderFiles(sku) {
   const box = $("#filesBox");
-  box.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px">${fileRow(sku, "html", "HTML-урок (собран с меткой {{BUYER}})", ".html,text/html")}${fileRow(sku, "pdf", "PDF для учителя", ".pdf,application/pdf")}</div><p class="help" style="margin-top:8px">Имя файла у покупателя: ${esc(state.cat.products[sku].fileName || autoName(state.cat.products[sku]))}.html</p>`;
+  const p = state.cat.products[sku], f = state.facts[sku];
+  let sugg = "";
+  if (f) {
+    const lines = [...(p.meta || [])];
+    const put = (re, text) => { const i = lines.findIndex(l => re.test(l)); if (i >= 0) lines[i] = text; else lines.push(text) };
+    if (f.screens) put(/экран/i, `${f.screens} ${plural(f.screens, "экран", "экрана", "экранов")}`);
+    if (f.audio) put(/аудио/i, `${f.audio} аудио`);
+    if (f.pages) put(/PDF/i, `${f.pages} ${plural(f.pages, "страница", "страницы", "страниц")} PDF`);
+    if (JSON.stringify(lines) !== JSON.stringify(p.meta || [])) sugg = `<div class="warn" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:10px"><span style="flex:1;min-width:200px">В файлах: ${lines.filter(l => /экран|аудио|PDF/i.test(l)).map(esc).join(", ")}. В карточке сейчас: ${(p.meta || []).map(esc).join(", ") || "пусто"}.</span><button class="btn sm dark" id="putFacts">Подставить в карточку</button></div>`;
+    state.factLines = lines;
+  }
+  box.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px">${fileRow(sku, "html", "HTML-урок (собран с меткой {{BUYER}})", ".html,text/html")}${fileRow(sku, "pdf", "PDF для учителя", ".pdf,application/pdf")}</div>${sugg}<p class="help" style="margin-top:8px">Имя файла у покупателя: ${esc(p.fileName || autoName(p))}.html</p>`;
+  if ($("#putFacts")) $("#putFacts").onclick = () => { p.meta = state.factLines; markDirty(); renderEditor(sku); toast("Факты подставлены. Нажмите «Опубликовать».") };
   box.querySelectorAll("input[type=file]").forEach(inp => inp.onchange = async () => {
     const f = inp.files[0]; if (!f) return;
     const kind = inp.dataset.kind;
@@ -271,6 +354,7 @@ function renderFiles(sku) {
       const p = state.cat.products[sku]; p.files = p.files || {}; p.files[kind] = "db:" + key; p.fileName = p.fileName || autoName(p);
       state.files[key] = { size: r.size, updated_at: new Date().toISOString(), updated_by: state.me.login };
       state.warnings[sku + kind] = r.warnings && r.warnings.length ? r.warnings : null;
+      if (r.facts) state.facts[sku] = { ...(state.facts[sku] || {}), ...r.facts };
       markDirty(); toast("Файл загружен. Нажмите «Опубликовать», чтобы он ушёл в продажу."); renderFiles(sku);
     } catch (e) { toast(e.message) }
   });
@@ -364,7 +448,8 @@ async function renderOrders(q) {
   q = q ?? (state.oq || "");
   const r = await api("/orders?q=" + encodeURIComponent(q));
   state.oq = q;
-  const warn = [!r.pay ? "Оплата на сайте выключена: задайте YOOKASSA_SHOP_ID и YOOKASSA_SECRET_KEY." : "", !r.mail ? "Почта не настроена: письма покупателям не уходят, ссылку на заказ можно скопировать и отправить вручную." : ""].filter(Boolean);
+  const ready = await api("/ready").catch(() => ({ seller: true }));
+  const warn = [!ready.seller ? "Продажи закрыты: заполните во вкладке «Реквизиты и ссылки» ФИО полностью, ИНН и почту или Telegram для претензий. Без этих сведений продавать нельзя по закону о защите прав потребителей." : "", !r.pay ? "Оплата на сайте выключена: задайте YOOKASSA_SHOP_ID и YOOKASSA_SECRET_KEY." : "", !r.mail ? "Почта не настроена: письма покупателям не уходят, ссылку на заказ можно скопировать и отправить вручную." : ""].filter(Boolean);
   m.innerHTML = `${warn.map(w => `<div class="warn" style="margin-bottom:12px">${esc(w)}</div>`).join("")}<div class="panel">
     <form id="oqf" style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap"><input id="oq" value="${esc(q)}" placeholder="Почта или номер заказа" style="max-width:340px"><button class="btn dark" type="submit">Найти</button></form>
     <div style="overflow-x:auto"><table><thead><tr><th>Дата</th><th>Заказ</th><th>Почта</th><th>Урок</th><th>Сумма</th><th>Статус</th><th>Письмо</th><th></th></tr></thead><tbody>
@@ -394,6 +479,31 @@ async function renderOrders(q) {
       if (a === "sync") { const r = await api(`/orders/${id}/sync`, { method: "POST", json: {} }); toast("Статус: " + (OST[r.order.status] || [r.order.status])[0]); return renderOrders() }
     } catch (e) { toast(e.message) }
   });
+}
+
+/* ---------- авторы ---------- */
+async function renderAuthors(month) {
+  const m = $("#m");
+  month = month || state.am || new Date().toISOString().slice(0, 7);
+  state.am = month;
+  const r = await api("/authors?month=" + month);
+  const rub = n => Number(n).toLocaleString("ru-RU") + " ₽";
+  const months = []; const d = new Date(); d.setDate(1);
+  for (let i = 0; i < 12; i++) { months.push(d.toISOString().slice(0, 7)); d.setMonth(d.getMonth() - 1) }
+  const name = ym => new Date(ym + "-01T12:00:00").toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
+  m.innerHTML = `<div class="panel"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:16px">
+    <label style="max-width:240px">Месяц<select id="am">${months.map(x => `<option value="${x}" ${x === month ? "selected" : ""}>${name(x)}</option>`).join("")}</select></label>
+    <button class="btn" id="csv" ${r.authors.length ? "" : "disabled"}>Скачать таблицу (CSV)</button></div>
+    <div class="kpi"><div><b>${rub(r.total)}</b><small>оплачено за месяц</small></div><div><b>${r.count}</b><small>покупок</small></div><div><b>${r.authors.length}</b><small>авторов с продажами</small></div></div>
+    ${r.authors.map(a => `<h3 style="font-size:18px;margin:18px 0 8px">${esc(a.author)}: ${rub(a.rub)}</h3><table><thead><tr><th>Урок</th><th>Продаж</th><th>Выручка</th></tr></thead><tbody>${a.items.map(i => `<tr><td>${esc(i.title)}</td><td>${i.n}</td><td>${rub(i.rub)}</td></tr>`).join("")}</tbody></table>`).join("") || '<p class="muted">В этом месяце продаж не было.</p>'}
+    <p class="help" style="margin-top:16px">Автор берётся из поля «Автор урока» в карточке. Пакет и курс делятся поровну между входящими в них уроками. Суммы без комиссии ЮKassa и налога. Отчёт можно приложить к договору с соавтором как основание для выплаты.</p></div>`;
+  $("#am").onchange = e => renderAuthors(e.target.value);
+  $("#csv").onclick = () => {
+    const rows = [["Автор", "Урок", "Продаж", "Выручка, руб."]];
+    for (const a of r.authors) for (const i of a.items) rows.push([a.author, i.title, String(i.n).replace(".", ","), i.rub]);
+    const csv = "\ufeff" + rows.map(x => x.map(v => `"${String(v).replace(/"/g, '""')}"`).join(";")).join("\r\n");
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = `lessonfold-avtory-${month}.csv`; a.click();
+  };
 }
 
 /* ---------- статистика ---------- */
