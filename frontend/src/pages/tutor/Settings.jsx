@@ -8,6 +8,7 @@ import SubjectInput from '../../components/SubjectInput';
 import { subjectInfo } from '../../subjects';
 import { useAuth } from '../../auth';
 import TelegramCard from '../../components/TelegramCard';
+import { PlanTab } from '../../components/Plans';
 
 const DAYS = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
 
@@ -22,8 +23,9 @@ export default function Settings({ tab }) {
         <button role="tab" aria-selected={tab === 'page'} className={tab === 'page' ? 'active' : ''} onClick={() => navigate('/settings/page')}>Страница записи</button>
         <button role="tab" aria-selected={tab === 'documents'} className={tab === 'documents' ? 'active' : ''} onClick={() => navigate('/settings/documents')}>Документы</button>
         <button role="tab" aria-selected={tab === 'telegram'} className={tab === 'telegram' ? 'active' : ''} onClick={() => navigate('/settings/telegram')}>Telegram</button>
+        <button role="tab" aria-selected={tab === 'plan'} className={tab === 'plan' ? 'active' : ''} onClick={() => navigate('/settings/plan')}>Тариф</button>
       </div>
-      {tab === 'subject' ? <SubjectTab /> : tab === 'lessons' ? <AutoTab /> : tab === 'page' ? <PageSettings /> : tab === 'documents' ? <DocumentsTab /> : tab === 'telegram' ? <TelegramTab /> : <BookingTab />}
+      {tab === 'subject' ? <SubjectTab /> : tab === 'lessons' ? <AutoTab /> : tab === 'page' ? <PageSettings /> : tab === 'documents' ? <DocumentsTab /> : tab === 'telegram' ? <TelegramTab /> : tab === 'plan' ? <PlanTab /> : <BookingTab />}
     </>
   );
 }

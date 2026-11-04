@@ -1421,3 +1421,27 @@ a.brand-name { color: inherit; text-decoration: none; }
 .book-progress { display: flex; flex-direction: column; gap: 6px; }
 .book-progress .bar { height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
 .book-progress .bar i { display: block; height: 100%; background: var(--ink); transition: width .3s; }
+
+/* Тарифы */
+.plan-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.plan-card { display: flex; flex-direction: column; gap: 10px; padding: 22px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+.plan-card.accent { border-color: var(--ink); box-shadow: 0 1px 0 var(--ink); }
+.plan-card.current { border-color: var(--ok); }
+.plan-name { font-family: var(--serif); font-weight: 500; font-size: 26px; margin: 0; }
+.plan-price { font-family: var(--serif); font-size: 34px; line-height: 1; }
+.plan-price small { font-family: inherit; font-size: 15px; color: var(--muted); }
+.plan-tag { margin: 0; }
+.plan-list { list-style: none; margin: 4px 0 8px; padding: 0; display: flex; flex-direction: column; gap: 0; flex: 1; }
+.plan-list li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+.plan-list li b { font-weight: 500; text-align: right; white-space: nowrap; }
+.plan-yes { color: var(--ok); }
+.plan-no { color: var(--muted); }
+.plan-now { display: grid; grid-template-columns: 1fr 1.2fr; gap: 28px; align-items: start; margin-bottom: 20px; }
+.plan-usage { display: flex; flex-direction: column; gap: 12px; }
+.plan-usage .bar { height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; margin-top: 4px; }
+.plan-usage .bar i { display: block; height: 100%; background: var(--ink); }
+.plan-usage .bar i.full { background: var(--danger); }
+.note-ok { display: flex; gap: 10px; align-items: center; background: var(--ok-soft); border-color: transparent; margin-bottom: 20px; }
+.plan-cell { display: flex; flex-direction: column; gap: 6px; min-width: 200px; }
+.select-sm, .input-sm { height: 32px; font-size: 13px; padding: 0 8px; }
+@media (max-width: 900px) { .plan-cards { grid-template-columns: 1fr; } .plan-now { grid-template-columns: 1fr; } }

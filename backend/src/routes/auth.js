@@ -102,10 +102,11 @@ router.post(
     const { rows: exists } = await query('SELECT 1 FROM users WHERE login = $1', [b.login]);
     if (exists[0]) return res.status(409).json({ error: `Логин «${b.login}» уже занят` });
     const hash = await bcrypt.hash(b.password, 12);
+    await require('../services/plans').ensure();
     const { rows } = await query(
-      `INSERT INTO users (role, login, password_hash, full_name, subject, last_login_at)
-       VALUES ('tutor', $1, $2, $3, $4, NOW()) RETURNING id, role, login, full_name, must_change_password, is_admin, subject, password_hash`,
-      [b.login, hash, b.full_name, b.subject]
+      `INSERT INTO users (role, login, password_hash, full_name, subject, last_login_at, plan, plan_until)
+       VALUES ('tutor', $1, $2, $3, $4, NOW(), 'trial', NOW() + make_interval(days => $5)) RETURNING id, role, login, full_name, must_change_password, is_admin, subject, password_hash`,
+      [b.login, hash, b.full_name, b.subject, require('../services/plans').TRIAL_DAYS]
     );
     const { password_hash: _ph, ...user } = rows[0];
     const token = signToken(rows[0]);

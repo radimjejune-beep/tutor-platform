@@ -1,5 +1,6 @@
 // pages/Landing.jsx — главная до входа: витрина интерактивных уроков Lessonfold и вход на платформу.
 // Уроки берутся из магазина (бэкенд /api/shop). Покупка идёт на сайте магазина или в Telegram-боте.
+import { PlanTable } from '../components/Plans';
 import { useMemo, useState } from 'react';
 import { api } from '../api';
 import { useLoad, Link, Icon } from '../ui';
@@ -51,6 +52,7 @@ function Card({ p, shop }) {
 export default function Landing() {
   const shop = useLoad(() => api.shop().catch(() => ({ enabled: false, products: [], textbooks: [] })), []);
   const reg = useLoad(() => api.registrationStatus().catch(() => ({ open: false })), []);
+  const plans = useLoad(() => api.publicPlans().catch(() => null), []);
   const [book, setBook] = useState('all');
   const { session } = useAuth();
   const raw = shop.data || {};
@@ -120,7 +122,7 @@ export default function Landing() {
         <h2 className="lp-h2">Как это работает</h2>
         <div className="lp-steps">
           <div><span className="serif">1</span><b>Выберите урок</b><p>По учебнику, классу и модулю. Начните с бесплатного, чтобы посмотреть, как всё устроено.</p></div>
-          <div><span className="serif">2</span><b>Оплатите</b><p>Картой или СБП через ЮKassa. Ссылка на урок придёт на почту и в Telegram, файлы навсегда ваши.</p></div>
+          <div><span className="serif">2</span><b>Оплатите</b><p>Картой или СБП через ЮKassa прямо на сайте. Ссылка на урок придёт на почту, файлы навсегда ваши.</p></div>
           <div><span className="serif">3</span><b>Проведите урок</b><p>Откройте файл урока в браузере и выведите на доску или экран. Ничего устанавливать не нужно.</p></div>
         </div>
       </section>
@@ -146,6 +148,15 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      {plans.data?.plans?.length > 0 && (
+        <section className="lp-wrap lp-section" id="pricing">
+          <div className="lp-kicker" style={{ color: 'var(--brass)' }}>Для преподавателей</div>
+          <h2 className="lp-h2">Тарифы платформы</h2>
+          <PlanTable data={plans.data} />
+          {!session && reg.data?.open && <div style={{ marginTop: 18 }}><Link to="/register" className="btn">Попробовать бесплатно</Link></div>}
+        </section>
+      )}
 
       <footer className="lp-wrap lp-foot">
         <span className="brand-name" style={{ fontSize: 20 }}>{BRAND.name}</span>

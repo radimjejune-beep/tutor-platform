@@ -9,6 +9,14 @@ import { GAME_TYPES, gameSize } from '../../games/logic';
 import { plural } from '../../format';
 
 const KIND = { game: 'Упражнение', task: 'Задача', theory: 'Теория' };
+
+// Подписи зависят от учебника: у языковых юниты и слова с переводом, у остальных главы и термины
+function labels(book) {
+  const lang = !book?.subject || book.subject === 'Английский язык';
+  return lang
+    ? { Unit: 'Юнит', unitPrep: 'юните', unitGen: 'юнита', unitsDat: 'юнитам', w: ['слово', 'слова', 'слов'], Words: 'Слова', words: 'слова', meaning: 'с переводом', vocab: 'Словарь учебника', vocabSub: 'все слова по юнитам и поиск', vocabShort: 'Словарь', search: 'Найти слово или перевод', main: 'Грамматика и речь', show: 'Показать слова' }
+    : { Unit: 'Глава', unitPrep: 'главе', unitGen: 'главы', unitsDat: 'главам', w: ['термин', 'термина', 'терминов'], Words: 'Термины', words: 'термины', meaning: 'с определениями', vocab: 'Термины учебника', vocabSub: 'все термины по главам и поиск', vocabShort: 'Термины', search: 'Найти термин или определение', main: 'Задачи', show: 'Показать термины' };
+}
 const kindLabel = (it) => (it.kind === 'game' && it.game ? GAME_TYPES[it.game.type]?.label || 'Упражнение' : KIND[it.kind]);
 
 export default function BankPage({ book, unit }) {
@@ -17,9 +25,18 @@ export default function BankPage({ book, unit }) {
   const [sharing, setSharing] = useState(false);
   if (books.loading) return <Spinner />;
   if (books.error) return <ErrorBox error={books.error} onRetry={books.reload} />;
+  if (!books.data.length) {
+    return (
+      <>
+        <div className="page-head"><div><h1 className="page-title">Банк заданий</h1></div></div>
+        <div className="panel"><Empty title="Для вашего предмета банк пока готовится">Сейчас в банке задания по английскому и по геометрии 7–9. Предмет можно поменять в настройках.</Empty></div>
+      </>
+    );
+  }
   const b = books.data.find((x) => x.id === book) || books.data[0];
   const u = b.units.find((x) => x.code === unit) || b.units.find((x) => x.count) || b.units[0];
   const totalWords = b.units.reduce((n, x) => n + (x.words || 0), 0);
+  const L = labels(b);
 
   return (
     <>
@@ -27,7 +44,7 @@ export default function BankPage({ book, unit }) {
         <div>
           <Link to="/library" className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 6 }}><Icon name="back" /> Библиотека</Link>
           <h1 className="page-title">Банк заданий</h1>
-          <div className="lead">Готовые упражнения по юнитам учебников и по темам грамматики от Lessonfold и других репетиторов. Посмотрите, пройдите сами и возьмите себе в библиотеку: оттуда их можно выдать в задании или открыть на уроке.</div>
+          <div className="lead">Готовые задания по разделам учебников от Lessonfold и других репетиторов. Посмотрите, пройдите сами и возьмите себе в библиотеку: оттуда их можно выдать в задании или открыть на уроке.</div>
         </div>
         <button className="btn" onClick={() => setSharing(true)}><Icon name="plus" /> Поделиться своим</button>
       </div>
@@ -46,12 +63,12 @@ export default function BankPage({ book, unit }) {
       </div>
 
       <div className="bank-layout">
-        <nav className="panel bank-units" aria-label="Юниты">
+        <nav className="panel bank-units" aria-label={L.Unit}>
           <div className="meta-label" style={{ marginBottom: 8 }}>{b.title}</div>
           {totalWords > 0 && (
             <Link to={`/bank/${b.id}/words`} className={`bank-unit ${wordsView ? 'active' : ''}`}>
-              <span className="bank-code serif">Aa</span>
-              <span className="bank-unit-main"><b>Словарь учебника</b><small>все слова по юнитам и поиск</small></span>
+              <span className="bank-code serif">{b.subject && b.subject !== 'Английский язык' ? 'Тт' : 'Aa'}</span>
+              <span className="bank-unit-main"><b>{L.vocab}</b><small>{L.vocabSub}</small></span>
               <span className="bank-count">{totalWords}</span>
             </Link>
           )}
@@ -114,7 +131,7 @@ function UnitItems({ book, unit, onShare }) {
       </div>
       {!list.data.length && (
         <div className="panel"><Empty title="Пока пусто" action={<button className="btn btn-secondary" onClick={onShare}>Поделиться своим заданием</button>}>
-          В этом юните ещё нет заданий. Добавьте своё: так банк растёт для всех.
+          В этой {labels(book).Unit === 'Глава' ? 'главе' : 'части'} ещё нет заданий. Добавьте своё: так банк растёт для всех.
         </Empty></div>
       )}
       {(() => {
@@ -123,8 +140,8 @@ function UnitItems({ book, unit, onShare }) {
         return (
           <div className="seg bank-filter" role="tablist" aria-label="Какие задания показать">
             <button type="button" className={part === 'all' ? 'on' : ''} onClick={() => setPart('all')}>Все {list.data.length}</button>
-            <button type="button" className={part === 'main' ? 'on' : ''} onClick={() => setPart('main')}>Грамматика и речь {n.main}</button>
-            <button type="button" className={part === 'words' ? 'on' : ''} onClick={() => setPart('words')}>Слова {n.words}</button>
+            <button type="button" className={part === 'main' ? 'on' : ''} onClick={() => setPart('main')}>{labels(book).main} {n.main}</button>
+            <button type="button" className={part === 'words' ? 'on' : ''} onClick={() => setPart('words')}>{labels(book).Words} {n.words}</button>
           </div>
         );
       })()}
@@ -194,7 +211,7 @@ function ShareModal({ books, book, unit, onClose, onDone }) {
             {books.map((x) => <option key={x.id} value={x.id}>{x.title}</option>)}
           </select>
         </Field>
-        <Field label="Юнит">
+        <Field label={labels(b).Unit}>
           <select className="input" value={f.unit} onChange={(e) => setF({ ...f, unit: e.target.value })}>
             {b.units.map((x) => <option key={x.code} value={x.code}>{x.code}. {x.title}</option>)}
           </select>
@@ -233,11 +250,11 @@ function UnitWords({ book, unit }) {
     <section className="panel">
       <div className="row-between wrap" style={{ gap: 10 }}>
         <div>
-          <h2 className="section-title">Слова юнита</h2>
-          <div className="small muted" style={{ marginTop: 4 }}>{list.length} {plural(list.length, 'слово', 'слова', 'слов')} с переводом{topics.length ? `: ${topics.join(', ').toLowerCase()}` : ''}</div>
+          <h2 className="section-title">{labels(book).Words} {labels(book).unitGen}</h2>
+          <div className="small muted" style={{ marginTop: 4 }}>{list.length} {plural(list.length, ...labels(book).w)} {labels(book).meaning}{topics.length ? `: ${topics.join(', ').toLowerCase()}` : ''}</div>
         </div>
         <div className="row" style={{ gap: 8 }}>
-          <button className="btn btn-secondary btn-sm" onClick={() => setOpen(!open)}>{open ? 'Свернуть' : 'Показать слова'}</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setOpen(!open)}>{open ? 'Свернуть' : labels(book).show}</button>
           <button className="btn btn-sm" onClick={() => setMaking(true)}><Icon name="cards" /> Сделать карточки</button>
         </div>
       </div>
@@ -273,7 +290,7 @@ function MakeSet({ book, unit, words, onClose }) {
     // одинаковые слова из разных тем в набор попадают один раз
     const seen = new Set();
     const chosen = words.filter((w) => picked.has(w.i) && !seen.has(w.term.toLowerCase()) && seen.add(w.term.toLowerCase())).map((w) => ({ term: w.term, translation: w.translation }));
-    if (!chosen.length) throw new Error('Выберите хотя бы одно слово');
+    if (!chosen.length) throw new Error(labels(book).Unit === 'Глава' ? 'Выберите хотя бы один термин' : 'Выберите хотя бы одно слово');
     if (who === 'some' && !ids.length) throw new Error('Отметьте учеников или выберите «Пока никому»');
     const r = await api.createWordSet({ title: title.trim(), words: chosen, for_all: who === 'all', student_ids: who === 'some' ? ids : undefined });
     toast(`Набор создан: ${chosen.length} ${plural(chosen.length, 'карточка', 'карточки', 'карточек')}`);
@@ -288,7 +305,7 @@ function MakeSet({ book, unit, words, onClose }) {
     if (t) setTitle(only ? `${book.short} ${unit.code}: ${unit.title}` : `${book.short} ${unit.code}: ${t}`);
   };
   return (
-    <Modal title="Набор карточек из слов юнита" onClose={onClose} wide>
+    <Modal title={`Набор карточек: ${labels(book).words} ${labels(book).unitGen}`} onClose={onClose} wide>
       <form className="form" onSubmit={save.submit}>
         <Field label="Название набора"><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} required /></Field>
         {groups.length > 1 && (
@@ -302,7 +319,7 @@ function MakeSet({ book, unit, words, onClose }) {
           </Field>
         )}
         <div className="row-between">
-          <span className="meta-label">Слова: {picked.size} из {words.length}</span>
+          <span className="meta-label">{labels(book).Words}: {picked.size} из {words.length}</span>
           <span className="row" style={{ gap: 6 }}>
             <button type="button" className="btn btn-quiet btn-sm" onClick={() => setPicked(new Set(words.map((w) => w.i)))}>Все</button>
             <button type="button" className="btn btn-quiet btn-sm" onClick={() => setPicked(new Set())}>Ни одного</button>
@@ -358,17 +375,17 @@ function BookWords({ book }) {
   return (
     <section className="bank-items stack">
       <div className="row-between wrap" style={{ gap: 10 }}>
-        <h2 className="section-title">Словарь: {book.short}</h2>
-        <input className="input" style={{ maxWidth: 300 }} placeholder="Найти слово или перевод" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Поиск по словарю" />
+        <h2 className="section-title">{labels(book).vocabShort}: {book.short}</h2>
+        <input className="input" style={{ maxWidth: 300 }} placeholder={labels(book).search} value={q} onChange={(e) => setQ(e.target.value)} aria-label="Поиск по словарю" />
       </div>
-      <p className="small muted" style={{ margin: 0 }}>{total} {plural(total, 'слово', 'слова', 'слов')} по юнитам и темам, перевод Lessonfold. Из любого юнита или темы можно сделать набор карточек и выдать ученикам.</p>
+      <p className="small muted" style={{ margin: 0 }}>{total} {plural(total, ...labels(book).w)} по {labels(book).unitsDat} и темам, {labels(book).Unit === 'Глава' ? 'определения' : 'перевод'} Lessonfold. Из любого юнита или темы можно сделать набор карточек и выдать ученикам.</p>
       {!shown.length && <div className="panel"><Empty title="Ничего не нашлось">Попробуйте другое слово.</Empty></div>}
       {shown.map((g) => (
         <section key={g.unit.code} className="panel">
           <div className="row-between wrap" style={{ gap: 10 }}>
             <h3 className="lib-title">{g.unit.code}. {g.unit.title}</h3>
             <div className="row" style={{ gap: 8 }}>
-              <Link to={`/bank/${book.id}/${encodeURIComponent(g.unit.code)}`} className="btn btn-quiet btn-sm">Задания юнита</Link>
+              <Link to={`/bank/${book.id}/${encodeURIComponent(g.unit.code)}`} className="btn btn-quiet btn-sm">Задания {labels(book).unitGen}</Link>
               <button className="btn btn-sm" onClick={() => setMaking(g.unit)}><Icon name="cards" /> Сделать карточки</button>
             </div>
           </div>

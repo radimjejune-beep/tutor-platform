@@ -7,6 +7,7 @@ const { query } = require('../db');
 const { requireRole, requireAdmin } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { generateTempPassword, uniqueLogin } = require('../utils');
+const plans = require('../services/plans');
 
 const router = express.Router();
 router.use(requireRole('tutor'), requireAdmin);
@@ -14,8 +15,9 @@ router.use(requireRole('tutor'), requireAdmin);
 router.get(
   '/tutors',
   asyncHandler(async (req, res) => {
+    await plans.ensure();
     const { rows } = await query(
-      `SELECT u.id, u.login, u.full_name, u.is_active, u.is_admin, u.created_at, u.last_login_at, u.must_change_password,
+      `SELECT u.id, u.login, u.full_name, u.is_active, u.is_admin, u.created_at, u.last_login_at, u.must_change_password, u.plan, u.plan_until,
               (SELECT COUNT(*)::int FROM students s WHERE s.tutor_id = u.id AND s.status = 'active') AS students,
               (SELECT COUNT(*)::int FROM lessons l JOIN students s ON s.id = l.student_id
                 WHERE s.tutor_id = u.id AND l.status = 'done' AND l.starts_at > NOW() - INTERVAL '30 days') AS lessons_30d
@@ -23,7 +25,7 @@ router.get(
         ORDER BY u.is_admin DESC, u.created_at`
     );
     const { rows: reg } = await query("SELECT value FROM settings WHERE key = 'registration'");
-    res.json({ tutors: rows, registration_open: Boolean(reg[0]?.value?.open) });
+    res.json({ tutors: rows.map((t) => ({ ...t, plan_now: plans.effective(t).name })), registration_open: Boolean(reg[0]?.value?.open), plans: Object.values(plans.PLANS).map((p) => ({ id: p.id, name: p.name, price: p.price })) });
   })
 );
 
@@ -45,9 +47,9 @@ router.post(
     const password = generateTempPassword(10);
     const hash = await bcrypt.hash(password, 12);
     const { rows } = await query(
-      `INSERT INTO users (role, login, password_hash, full_name, must_change_password)
-       VALUES ('tutor', $1, $2, $3, TRUE) RETURNING id, login, full_name`,
-      [login, hash, req.body.full_name]
+      `INSERT INTO users (role, login, password_hash, full_name, must_change_password, plan, plan_until)
+       VALUES ('tutor', $1, $2, $3, TRUE, 'trial', NOW() + make_interval(days => $4)) RETURNING id, login, full_name`,
+      [login, hash, req.body.full_name, plans.TRIAL_DAYS]
     );
     console.log(`✅ Сисадмин создал репетитора: ${login}`);
     res.status(201).json({ ...rows[0], password });
@@ -108,6 +110,22 @@ router.put(
       [JSON.stringify({ open: req.body.open })]
     );
     res.json({ open: req.body.open });
+  })
+);
+
+// Выдать тариф: plan = start | tutor | pro | trial, until — дата окончания (без даты — бессрочно)
+router.put(
+  '/tutors/:id/plan',
+  validateBody(z.object({ plan: z.enum(['start', 'tutor', 'pro', 'trial']), until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional() }).strict()),
+  asyncHandler(async (req, res) => {
+    await plans.ensure();
+    const id = Number(req.params.id);
+    const until = req.body.until ? `${req.body.until}T23:59:59+03:00` : null;
+    const { rows } = await query("UPDATE users SET plan = $2, plan_until = $3 WHERE id = $1 AND role = 'tutor' RETURNING login", [id, req.body.plan, until]);
+    if (!rows[0]) return res.status(404).json({ error: 'Репетитор не найден' });
+    plans.forget(id);
+    console.log(`💳 Тариф ${req.body.plan} для ${rows[0].login}${until ? ` до ${req.body.until}` : ' бессрочно'}`);
+    res.json({ ok: true });
   })
 );
 

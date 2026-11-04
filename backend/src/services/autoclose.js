@@ -46,7 +46,12 @@ async function run() {
       LIMIT 300`
   );
   const byTutor = new Map();
+  const plans = require('./plans');
+  const allowed = new Map();
   for (const r of rows) {
+    // автосписание входит в тарифы «Репетитор» и «Про»
+    if (!allowed.has(r.tutor_id)) allowed.set(r.tutor_id, await plans.allows(r.tutor_id, 'autocharge').catch(() => true));
+    if (!allowed.get(r.tutor_id)) continue;
     const done = await transaction(async (client) => {
       const { rows: cur } = await client.query("SELECT * FROM lessons WHERE id = $1 AND status = 'scheduled' FOR UPDATE", [r.id]);
       if (!cur[0]) return null; // репетитор уже отметил сам

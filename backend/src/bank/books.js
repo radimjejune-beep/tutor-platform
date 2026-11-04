@@ -4,6 +4,7 @@
 const BOOKS = [
   {
     id: 'solutions-elem-3',
+    subject: 'Английский язык',
     title: 'Solutions Elementary, 3rd edition',
     short: 'Solutions Elementary',
     units: [
@@ -21,6 +22,7 @@ const BOOKS = [
   },
   {
     id: 'speakout-a1-3',
+    subject: 'Английский язык',
     title: 'Speakout A1, 3rd edition',
     short: 'Speakout A1',
     units: [
@@ -36,6 +38,7 @@ const BOOKS = [
   },
   {
     id: 'round-up-3',
+    subject: 'Английский язык',
     title: 'Грамматика по темам, A1–A2 (темы совпадают с New Round-Up 3)',
     short: 'Грамматика A1–A2',
     grammar: true,
@@ -64,6 +67,7 @@ const BOOKS = [
   },
   {
     id: 'round-up-4',
+    subject: 'Английский язык',
     title: 'Грамматика по темам, A2–B1 (темы совпадают с New Round-Up 4)',
     short: 'Грамматика A2–B1',
     grammar: true,
@@ -88,9 +92,40 @@ const BOOKS = [
       { code: '18', title: 'Articles', topics: 'артикли' },
     ],
   },
+  {
+    id: 'atanasyan-geom-7-9',
+    subject: 'Математика',
+    unitWord: 'глава',
+    title: 'Геометрия, 7–9 классы (Атанасян и др.)',
+    short: 'Геометрия 7–9',
+    units: [
+      { code: 'I', title: 'Начальные геометрические сведения', topics: '7 класс: отрезки, лучи, углы, смежные и вертикальные углы' },
+      { code: 'II', title: 'Треугольники', topics: '7 класс: признаки равенства, медиана, биссектриса, высота, равнобедренный треугольник' },
+      { code: 'III', title: 'Параллельные прямые', topics: '7 класс: признаки параллельности, углы при параллельных прямых' },
+      { code: 'IV', title: 'Соотношения между сторонами и углами треугольника', topics: '7 класс: сумма углов, неравенство треугольника, прямоугольный треугольник' },
+      { code: 'V', title: 'Четырёхугольники', topics: '8 класс: параллелограмм, трапеция, прямоугольник, ромб, квадрат' },
+      { code: 'VI', title: 'Площадь', topics: '8 класс: площади многоугольников, теорема Пифагора' },
+      { code: 'VII', title: 'Подобные треугольники', topics: '8 класс: признаки подобия, средняя линия, синус, косинус, тангенс' },
+      { code: 'VIII', title: 'Окружность', topics: '8 класс: касательная, вписанный угол, вписанная и описанная окружности' },
+      { code: 'IX', title: 'Векторы', topics: '9 класс: сложение и вычитание векторов, умножение на число' },
+      { code: 'X', title: 'Метод координат', topics: '9 класс: координаты вектора, уравнения окружности и прямой' },
+      { code: 'XI', title: 'Соотношения в треугольнике. Скалярное произведение', topics: '9 класс: теоремы синусов и косинусов, скалярное произведение' },
+      { code: 'XII', title: 'Длина окружности и площадь круга', topics: '9 класс: правильные многоугольники, длина окружности, площадь круга' },
+      { code: 'XIII', title: 'Движения', topics: '9 класс: симметрии, параллельный перенос, поворот' },
+      { code: 'XIV', title: 'Начальные сведения из стереометрии', topics: '9 класс: многогранники, тела вращения, объёмы' },
+    ],
+  },
 ];
 
 const bookById = (id) => BOOKS.find((b) => b.id === id) || null;
 const unitOf = (bookId, code) => bookById(bookId)?.units.find((u) => u.code === code) || null;
 
-module.exports = { BOOKS, bookById, unitOf };
+// Какие учебники показывать репетитору: по его предмету
+function bankSubject(subject) {
+  const s = String(subject || 'Английский язык');
+  if (/англ/i.test(s)) return 'Английский язык';
+  if (/матем|геометр|алгебр/i.test(s)) return 'Математика';
+  return null;
+}
+
+module.exports = { BOOKS, bookById, unitOf, bankSubject };

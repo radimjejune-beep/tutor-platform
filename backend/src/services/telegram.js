@@ -105,6 +105,7 @@ async function handleUpdate(u) {
   // Преподаватель: свои команды, остальное (покупка уроков) магазину
   if (user.role === 'tutor') {
     if (cmd === '/today') { await say(chatId, await cmdToday(user)); return true; }
+    if (cmd === '/check') { await say(chatId, await cmdCheck(user)); return true; }
     if (SHARED) return false;
     await say(chatId, helpText(user));
     return true;
@@ -170,7 +171,10 @@ async function linkByCode(chatId, msg, code) {
       '· записи и переносы уроков',
       '· новые заявки со страницы записи',
       '',
-      '/today покажет уроки на сегодня. Всё остальное в боте, как раньше: каталог и покупка уроков.',
+      '· утром в 8:00 сводку: уроки, проверка, оплаты',
+      '· после урока напоминание написать итоги',
+      '',
+      '/today уроки на сегодня, /check задания на проверку. Всё остальное в боте, как раньше: каталог уроков.',
     ].join('\n'));
     console.log(`✅ Telegram подключён (преподаватель #${userId})`);
     return;
@@ -205,6 +209,7 @@ const COMMANDS = [
   { command: 'homework', description: 'Что задано' },
   { command: 'words', description: 'Слова на повторение' },
   { command: 'today', description: 'Уроки сегодня (для преподавателя)' },
+  { command: 'check', description: 'Задания на проверку (для преподавателя)' },
   { command: 'stop', description: 'Отключить уведомления' },
 ];
 
@@ -233,7 +238,7 @@ async function studentsOf(user) {
 
 function helpText(user) {
   if (user.role === 'tutor') {
-    return { text: '<b>Уведомления Lessonfold</b>\nСюда приходят сданные задания, записи и заявки.\n\n/today уроки на сегодня\n/stop отключить уведомления' };
+    return { text: '<b>Уведомления Lessonfold</b>\nСюда приходят сданные задания, записи и заявки. Каждое утро в 8:00 сводка на день.\n\n/today уроки на сегодня\n/check задания на проверку\n/stop отключить уведомления' };
   }
   return {
     text: '<b>Что я умею</b>\n· присылаю итоги уроков и новые задания\n· напоминаю об уроке за час и о сроке домашки\n\nКнопки внизу: расписание, домашка, слова.\n/stop отключить уведомления',
@@ -315,7 +320,24 @@ async function cmdToday(user) {
   };
 }
 
-const COMMAND_HANDLERS = { '/lessons': cmdLessons, '/homework': cmdHomework, '/words': cmdWords, '/today': cmdToday, '/help': async (u) => helpText(u) };
+// Преподаватель: сданные задания, которые ждут проверки
+async function cmdCheck(user) {
+  if (user.role !== 'tutor') return helpText(user);
+  const { rows: list } = await query(
+    `SELECT h.id, h.assignment_id, a.title, s.full_name, h.submitted_at
+       FROM homework h JOIN assignments a ON a.id = h.assignment_id JOIN students s ON s.id = h.student_id
+      WHERE s.tutor_id = $1 AND h.status = 'submitted'
+      ORDER BY h.submitted_at NULLS LAST, h.id LIMIT 10`,
+    [user.id]
+  );
+  if (!list.length) return { text: '<b>Проверять нечего</b> ✓\nВсе сданные задания проверены.', buttons: rows(btn('Задания', cabinetUrl('/homework'))) };
+  const lines = [`<b>Ждут проверки: ${list.length}${list.length === 10 ? '+' : ''}</b>`, ''];
+  for (const h of list) lines.push(`· ${esc(h.full_name)}: ${esc(h.title)}`);
+  const first = list.slice(0, 4).map((h) => [btn(`${h.full_name.split(' ')[0]}: ${h.title}`.slice(0, 40), cabinetUrl(`/homework/${h.assignment_id}/review/${h.id}`))]);
+  return { text: lines.join('\n'), buttons: rows(...first, btn('Все задания', cabinetUrl('/homework'))) };
+}
+
+const COMMAND_HANDLERS = { '/check': cmdCheck, '/lessons': cmdLessons, '/homework': cmdHomework, '/words': cmdWords, '/today': cmdToday, '/help': async (u) => helpText(u) };
 
 // ------------------------------------------------------------
 // Уведомления кабинета → Telegram (кто подключил бота)
@@ -332,9 +354,26 @@ function linkLabel(link) {
   return 'Открыть в кабинете';
 }
 
+// Telegram-уведомления входят в тариф преподавателя: оставляем тех, чей преподаватель может ими пользоваться
+async function byPlan(list) {
+  const plans = require('./plans');
+  const ok = new Map();
+  const out = [];
+  for (const r of list) {
+    if (!ok.has(r.tutor_id)) ok.set(r.tutor_id, await plans.allows(r.tutor_id, 'telegram').catch(() => true));
+    if (ok.get(r.tutor_id)) out.push(r);
+  }
+  return out;
+}
+
 async function forward(userIds, { title, body = null, link = null }) {
   if (!enabled() || !botUsername || !userIds.length) return 0;
-  const { rows: list } = await query('SELECT user_id, chat_id FROM telegram_links WHERE user_id = ANY($1::int[])', [[...new Set(userIds)]]);
+  const { rows: all } = await query(
+    `SELECT tl.user_id, tl.chat_id, CASE WHEN u.role = 'tutor' THEN u.id ELSE u.tutor_id END AS tutor_id
+       FROM telegram_links tl JOIN users u ON u.id = tl.user_id WHERE tl.user_id = ANY($1::int[])`,
+    [[...new Set(userIds)]]
+  );
+  const list = await byPlan(all);
   let sent = 0;
   for (const r of list) {
     const text = [`<b>${esc(title)}</b>`, body ? esc(body) : ''].filter(Boolean).join('\n\n');
@@ -449,6 +488,8 @@ async function sendLessonSummary(lessonId) {
   );
   const l = rows[0];
   if (!l) return { error: 'Занятие не найдено' };
+  const { rows: tut } = await query('SELECT tutor_id FROM students WHERE id = $1', [l.student_id]);
+  if (!(await require('./plans').allows(tut[0]?.tutor_id, 'telegram'))) return { error: 'Telegram-бот входит в тарифы «Репетитор» и «Про». Настройки → Тариф' };
   if (!l.summary && !l.topic) return { error: 'Сначала напишите, что сделали на уроке' };
 
   // Свежие задания этому ученику (выданы за последние 2 дня)
@@ -495,4 +536,4 @@ async function sendLessonSummary(lessonId) {
   return { sent, not_connected: notConnected, failed };
 }
 
-module.exports = { enabled, username, start, createLinkCode, sendLessonSummary, lessonRecipients, handleUpdate, forward, sendMessage, say, btn, rows, esc, cabinetUrl, studentsOf };
+module.exports = { byPlan, enabled, username, start, createLinkCode, sendLessonSummary, lessonRecipients, handleUpdate, forward, sendMessage, say, btn, rows, esc, cabinetUrl, studentsOf };

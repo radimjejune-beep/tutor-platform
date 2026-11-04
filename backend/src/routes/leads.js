@@ -168,6 +168,8 @@ router.post(
   asyncHandler(async (req, res) => {
     const l = req.lead;
     if (l.student_id) return res.json({ student_id: l.student_id });
+    const over = await require('../services/plans').studentLimit(req.user.id);
+    if (over) return require('../services/plans').upgradeError(res, over);
     const notes = [`Контакт: ${l.contact}`, l.preferred_time && `Удобное время: ${l.preferred_time}`,
       l.level && `Тест уровня: ${l.level}, ${l.test_score}/${l.test_total}`].filter(Boolean).join('\n');
     const { rows } = await query(

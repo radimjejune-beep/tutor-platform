@@ -48,6 +48,8 @@ router.post(
   '/',
   validateBody(z.object({ ...fields, student_ids: z.array(z.number().int().positive()).max(30) }).partial().required({ name: true }).strict()),
   asyncHandler(async (req, res) => {
+    const plans = require('../services/plans');
+    if (!(await plans.allows(req.user.id, 'groups'))) return plans.upgradeError(res, 'Групповые занятия есть на тарифе «Про».');
     const b = req.body;
     const group = await transaction(async (client) => {
       const { rows } = await client.query(

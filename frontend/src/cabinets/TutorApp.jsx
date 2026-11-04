@@ -1,5 +1,5 @@
 // cabinets/TutorApp.jsx — кабинет преподавателя (грузится отдельно, после входа)
-import { subjectInfo } from '../subjects';
+import { subjectInfo, hasBank } from '../subjects';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../auth';
 import { api } from '../api';
@@ -41,7 +41,7 @@ export default function TutorApp({ path, params }) {
   }, [path]);
 
   // Банк заданий пока по учебникам английского: показываем его тем, кто преподаёт язык
-  const baseNav = subjectInfo(user.subject).isLang ? TUTOR_NAV : TUTOR_NAV.filter((n) => n.to !== '/bank');
+  const baseNav = hasBank(user.subject) ? TUTOR_NAV : TUTOR_NAV.filter((n) => n.to !== '/bank');
   const tutorNav = user.is_admin ? [...baseNav, { to: '/admin', label: 'Учителя', icon: 'shield', hideMobile: true }] : baseNav;
   let page;
   if (parts.length === 0) page = <TutorDashboard />;

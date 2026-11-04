@@ -1,4 +1,5 @@
 // routes/students.js — карточки учеников, доступы ученика и родителей
+const plans = require('../services/plans');
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { z } = require('zod');
@@ -70,6 +71,8 @@ router.post(
   tutorOnly,
   validateBody(createSchema),
   asyncHandler(async (req, res) => {
+    const over = await plans.studentLimit(req.user.id);
+    if (over) return plans.upgradeError(res, over);
     const data = { ...req.body, tutor_id: req.user.id };
     const keys = Object.keys(data);
     const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
@@ -124,6 +127,14 @@ router.patch(
   requireStudentAccess(),
   validateBody(updateSchema),
   asyncHandler(async (req, res) => {
+    // вернуть из архива можно, если тариф позволяет ещё одного активного ученика
+    if (req.body.status === 'active') {
+      const { rows: cur } = await query('SELECT status FROM students WHERE id = $1', [req.studentId]);
+      if (cur[0] && cur[0].status !== 'active') {
+        const over = await plans.studentLimit(req.user.id);
+        if (over) return plans.upgradeError(res, over);
+      }
+    }
     const upd = buildUpdate('students', req.studentId, req.body);
     if (!upd) return res.status(400).json({ error: 'Нет изменений' });
     const { rows } = await query(upd.text, upd.values);

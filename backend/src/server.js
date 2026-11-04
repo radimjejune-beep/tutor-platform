@@ -65,6 +65,8 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/legal/public', require('./routes/legal').publicRouter);
 // Страница записи для новых учеников — тоже без входа
 app.use('/api/public', require('./routes/leads').publicRouter);
+// Тарифы для главной страницы
+app.use('/api/plans', require('./routes/plans').publicRouter);
 // Витрина уроков для главной страницы до входа (берётся из магазина Lessonfold, если он включён)
 // Сисадмин платформы открывает админку магазина без отдельного пароля
 app.post('/api/shop/admin-link', express.json(), authenticate, requirePasswordChanged, (req, res) => {
@@ -116,6 +118,7 @@ protectedApi.use('/announcements', require('./routes/announcements'));
 protectedApi.use('/bank', require('./routes/bank'));
 protectedApi.use('/library-folders', require('./routes/folders'));
 protectedApi.use('/library-books', require('./routes/books'));
+protectedApi.use('/plan', require('./routes/plans').router);
 app.use('/api', protectedApi);
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Не найдено' }));
@@ -138,6 +141,7 @@ if (require.main === module) {
   require('./services/autoclose').start();
   require('./services/bank').start();
   require('./services/folders').start();
+  require('./services/plans').ensure().catch((err) => console.error('Тарифы не запустились:', err.message));
   lessonfold.start();
 }
 

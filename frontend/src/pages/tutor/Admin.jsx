@@ -86,7 +86,7 @@ export default function AdminPage() {
         <div className="table-scroll">
           <table className="admin-table">
             <thead>
-              <tr><th>Репетитор</th><th>Учеников</th><th>Уроков за 30 дней</th><th>Последний вход</th><th /></tr>
+              <tr><th>Репетитор</th><th>Тариф</th><th>Учеников</th><th>Уроков за 30 дней</th><th>Последний вход</th><th /></tr>
             </thead>
             <tbody>
               {tutors.map((t) => (
@@ -95,6 +95,7 @@ export default function AdminPage() {
                     <div className="list-title">{t.full_name} {t.is_admin && <Badge>сисадмин</Badge>} {!t.is_active && <Badge tone="red">отключён</Badge>}</div>
                     <div className="list-sub">{t.login} · с {shortDate(t.created_at)}{t.must_change_password ? ' · ещё не сменил временный пароль' : ''}</div>
                   </td>
+                  <td>{t.is_admin ? <span className="small muted">без ограничений</span> : <PlanCell t={t} onSaved={data.reload} />}</td>
                   <td className="num">{t.students}</td>
                   <td className="num">{t.lessons_30d}</td>
                   <td className="small muted">{t.last_login_at ? relativeDay(t.last_login_at) : 'не входил'}</td>
@@ -125,6 +126,38 @@ export default function AdminPage() {
       {creating && <CreateTutorModal onClose={() => setCreating(false)} onCreated={(r) => { setCreating(false); setSecret(r); data.reload(); }} />}
       {secret && <SecretModal data={secret} onClose={() => setSecret(null)} />}
     </>
+  );
+}
+
+// Тариф репетитора: выбрать и до какой даты. Без даты — бессрочно
+function PlanCell({ t, onSaved }) {
+  const toast = useToast();
+  const [plan, setPlan] = useState(t.plan || 'start');
+  const [until, setUntil] = useState(t.plan_until ? String(t.plan_until).slice(0, 10) : '');
+  const changed = plan !== (t.plan || 'start') || until !== (t.plan_until ? String(t.plan_until).slice(0, 10) : '');
+  const save = async () => {
+    try { await api.adminSetPlan(t.id, plan, until); toast('Тариф сохранён'); onSaved(); } catch (err) { toast(err.message, 'error'); }
+  };
+  const month = () => { const d = new Date(); d.setMonth(d.getMonth() + 1); setUntil(d.toISOString().slice(0, 10)); };
+  const year = () => { const d = new Date(); d.setFullYear(d.getFullYear() + 1); setUntil(d.toISOString().slice(0, 10)); };
+  return (
+    <div className="plan-cell">
+      <div className="small"><b>{t.plan_now}</b></div>
+      <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+        <select className="select select-sm" value={plan} onChange={(e) => setPlan(e.target.value)} aria-label="Тариф">
+          <option value="start">Старт</option>
+          <option value="tutor">Репетитор</option>
+          <option value="pro">Про</option>
+          <option value="trial">Пробный</option>
+        </select>
+        <input type="date" className="input input-sm" value={until} onChange={(e) => setUntil(e.target.value)} aria-label="До даты" />
+      </div>
+      <div className="row" style={{ gap: 4 }}>
+        <button type="button" className="btn btn-quiet btn-sm" onClick={month}>+ месяц</button>
+        <button type="button" className="btn btn-quiet btn-sm" onClick={year}>+ год</button>
+        {changed && <button type="button" className="btn btn-sm" onClick={save}>Сохранить</button>}
+      </div>
+    </div>
   );
 }
 

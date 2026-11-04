@@ -445,5 +445,7 @@ const { vocabTasks } = require('./vocab-tasks');
 SEED.push(...vocabTasks());
 // Грамматика: учебники Round-Up и дополнительные упражнения к юнитам Solutions и Speakout
 SEED.push(...require('./grammar-roundup'), ...require('./grammar-units'));
+// Математика: геометрия 7–9
+SEED.push(...require('./math-geometry'));
 
 module.exports = { SEED };

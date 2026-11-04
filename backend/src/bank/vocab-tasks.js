@@ -34,15 +34,16 @@ function vocabTasks() {
       const topics = topicsOf(book.id, unit.code);
       topics.forEach(({ topic, words }, ti) => {
         const parts = chunks(words);
+        const lang = (book.subject || 'Английский язык') === 'Английский язык';
         parts.forEach((part, pi) => {
-          const name = (topic || 'Слова юнита') + (parts.length > 1 ? `, часть ${pi + 1}` : '');
+          const name = (topic || (lang ? 'Слова юнита' : 'Термины главы')) + (parts.length > 1 ? `, часть ${pi + 1}` : '');
           const base = `voc-${book.id}-${unit.code}-${ti + 1}-${pi + 1}`;
           out.push({
             key: `${base}-m`, book: book.id, unit: unit.code, title: `${name}: найди пару`,
             game: { type: 'match', pairs: part.map((w) => ({ a: w.term, b: w.translation })) },
           });
           out.push({
-            key: `${base}-w`, book: book.id, unit: unit.code, title: `${name}: напиши слово`,
+            key: `${base}-w`, book: book.id, unit: unit.code, title: `${name}: ${lang ? 'напиши слово' : 'напиши термин'}`,
             game: { type: 'gaps', mode: 'type', distractors: [], text: part.map((w) => `${w.translation}: [${safe(w.term)}]`).join('\n') },
           });
         });
@@ -57,7 +58,7 @@ function vocabTasks() {
           .filter((g) => g.items.length >= 2)
           .slice(0, 5);
         if (groups.length >= 2) {
-          out.push({ key: `voc-${book.id}-${unit.code}-groups`, book: book.id, unit: unit.code, title: 'Разложи слова по темам', game: { type: 'groups', groups } });
+          out.push({ key: `voc-${book.id}-${unit.code}-groups`, book: book.id, unit: unit.code, title: (book.subject || 'Английский язык') === 'Английский язык' ? 'Разложи слова по темам' : 'Разложи термины по темам', game: { type: 'groups', groups } });
         }
       }
     }

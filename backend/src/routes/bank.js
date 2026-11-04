@@ -11,7 +11,7 @@ const { z } = require('zod');
 const { query, transaction } = require('../db');
 const { requireRole } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
-const { BOOKS, bookById, unitOf } = require('../bank/books');
+const { BOOKS, bookById, unitOf, bankSubject } = require('../bank/books');
 const { vocabOf } = require('../bank/vocab');
 const { folderForUnit } = require('../services/folders');
 
@@ -27,7 +27,10 @@ router.get(
   asyncHandler(async (req, res) => {
     const { rows } = await query('SELECT book, unit, COUNT(*)::int AS n FROM bank_items WHERE NOT hidden GROUP BY book, unit');
     const count = new Map(rows.map((r) => [`${r.book}/${r.unit}`, r.n]));
-    res.json(BOOKS.map((b) => ({ ...b, units: b.units.map((u) => ({ ...u, count: count.get(`${b.id}/${u.code}`) || 0, words: vocabOf(b.id, u.code).length })), total: b.units.reduce((n, u) => n + (count.get(`${b.id}/${u.code}`) || 0), 0) })));
+    // учебники предмета репетитора; сисадмин может посмотреть все (?all=1)
+    const subj = bankSubject(req.user.subject);
+    const list = req.query.all === '1' && req.user.is_admin ? BOOKS : BOOKS.filter((b) => b.subject === subj);
+    res.json(list.map((b) => ({ ...b, units: b.units.map((u) => ({ ...u, count: count.get(`${b.id}/${u.code}`) || 0, words: vocabOf(b.id, u.code).length })), total: b.units.reduce((n, u) => n + (count.get(`${b.id}/${u.code}`) || 0), 0) })));
   })
 );
 
@@ -65,7 +68,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const { rows } = await query(`SELECT ${ITEM_FIELDS} FROM bank_items b LEFT JOIN users u ON u.id = b.author_id WHERE b.id = $1 AND NOT b.hidden`, [Number(req.params.id)]);
     if (!rows[0]) return res.status(404).json({ error: 'Задание не найдено' });
-    res.json({ ...rows[0], subject: 'Английский язык', files: [] });
+    res.json({ ...rows[0], subject: bookById(rows[0].book)?.subject || 'Английский язык', files: [] });
   })
 );
 
@@ -74,6 +77,13 @@ router.post(
   '/items/:id/take',
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
+    // лимит на тарифе «Старт»: сколько заданий можно взять за месяц
+    const plans = require('../services/plans');
+    const max = (await plans.planOf(req.user.tid)).limits.bank_takes;
+    if (max != null) {
+      const { rows: t } = await query("SELECT COUNT(*)::int AS n FROM bank_takes WHERE tutor_id = $1 AND taken_at > date_trunc('month', NOW()) AND item_id <> $2", [req.user.id, id]);
+      if (t[0].n >= max) return plans.upgradeError(res, `На этом тарифе можно взять ${max} заданий из банка в месяц.`);
+    }
     const out = await transaction(async (client) => {
       const { rows } = await client.query('SELECT * FROM bank_items WHERE id = $1 AND NOT hidden', [id]);
       const b = rows[0];
@@ -89,8 +99,8 @@ router.post(
       const folder = await folderForUnit(req.user.tid, b.book, b.unit).catch(() => null);
       const { rows: li } = await client.query(
         `INSERT INTO library_items (kind, subject, title, body, answer, tags, game, tutor_id${folder ? ', folder_id' : ''})
-         VALUES ($1, 'Английский язык', $2, $3, $4, $5, $6, $7${folder ? ', $8' : ''}) RETURNING id`,
-        [b.kind, b.title, b.body, b.answer, tags, b.game ? JSON.stringify(b.game) : null, req.user.id, ...(folder ? [folder] : [])]
+         VALUES ($1, $${folder ? 9 : 8}, $2, $3, $4, $5, $6, $7${folder ? ', $8' : ''}) RETURNING id`,
+        [b.kind, b.title, b.body, b.answer, tags, b.game ? JSON.stringify(b.game) : null, req.user.id, ...(folder ? [folder] : []), book?.subject || 'Английский язык']
       );
       await client.query(
         `INSERT INTO bank_takes (item_id, tutor_id, library_id) VALUES ($1, $2, $3)

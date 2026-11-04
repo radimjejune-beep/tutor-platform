@@ -1,5 +1,5 @@
 // pages/tutor/Library.jsx — библиотека преподавателя: теория и задачник
-import { useSubject } from '../../subjects';
+import { useSubject, hasBank } from '../../subjects';
 import { FolderTree, FolderSelect, MoveModal, dragItems } from '../../components/Folders';
 import { BooksPanel } from '../../components/Books';
 import FormulaBar from '../../components/FormulaBar';
@@ -149,7 +149,7 @@ export function LibraryPage({ kind = 'task' }) {
           <button key={k} role="tab" aria-selected={kind === k} className={kind === k ? 'active' : ''}
             onClick={() => { setSelected(new Set()); navigate(`/library/${KIND_PATH[k]}`); }}>{label}</button>
         ))}
-        {subj.isLang && <button role="tab" aria-selected={false} onClick={() => navigate('/bank')}><Icon name="library" size={16} /> Банк заданий</button>}
+        {hasBank(subj.subject) && <button role="tab" aria-selected={false} onClick={() => navigate('/bank')}><Icon name="library" size={16} /> Банк заданий</button>}
       </div>
 
       <div className="lib-layout">

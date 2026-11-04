@@ -20,8 +20,14 @@ router.use(requireRole('tutor'));
 
 const PART = 4 * 1024 * 1024;
 const MAX_FILE = 200 * 1024 * 1024;
-// Общий объём учебников одного преподавателя: база не резиновая
-const QUOTA = Number(process.env['BOOKS_QUOTA_MB'] || 1024) * 1024 * 1024;
+// Объём учебников одного преподавателя зависит от тарифа. BOOKS_QUOTA_MB задаёт верхний предел для всех
+const plans = require('../services/plans');
+const CAP = Number(process.env['BOOKS_QUOTA_MB'] || 0) * 1024 * 1024;
+async function quotaOf(tutorId) {
+  const mb = (await plans.planOf(tutorId)).limits.books_mb;
+  const q = (mb == null ? 10240 : mb) * 1024 * 1024;
+  return CAP ? Math.min(CAP, q) : q;
+}
 const TYPES = {
   'application/pdf': 'pdf',
   'application/epub+zip': 'epub',
@@ -77,7 +83,7 @@ router.get(
       [req.user.tid]
     );
     const used = rows.reduce((n, b) => n + Number(b.size_bytes), 0);
-    res.json({ books: rows.map((b) => ({ ...b, size_bytes: Number(b.size_bytes) })), used, quota: QUOTA, max_file: MAX_FILE });
+    res.json({ books: rows.map((b) => ({ ...b, size_bytes: Number(b.size_bytes) })), used, quota: await quotaOf(req.user.tid), max_file: MAX_FILE });
   })
 );
 
@@ -97,7 +103,8 @@ router.post(
     if (!mime) return res.status(422).json({ error: 'Подойдут PDF, DjVu, EPUB, DOCX, ZIP или MP3' });
     if (b.size_bytes > MAX_FILE) return res.status(413).json({ error: 'Файл больше 200 МБ. Сожмите PDF или разделите учебник на части' });
     const { rows: u } = await query("SELECT COALESCE(SUM(size_bytes), 0)::bigint AS n FROM library_books WHERE tutor_id = $1", [req.user.tid]);
-    if (Number(u[0].n) + b.size_bytes > QUOTA) return res.status(413).json({ error: `Не хватает места: учебники занимают больше ${Math.round(QUOTA / 1024 / 1024)} МБ. Удалите ненужные` });
+    const QUOTA = await quotaOf(req.user.tid);
+    if (Number(u[0].n) + b.size_bytes > QUOTA) return plans.upgradeError(res, `Не хватает места: на вашем тарифе учебники до ${Math.round(QUOTA / 1024 / 1024)} МБ. Удалите ненужные или выберите тариф больше.`);
     const folder = await ownFolder(b.folder_id ?? null, req.user.tid);
     if (folder === undefined) return res.status(404).json({ error: 'Папка не найдена' });
     const parts = Math.ceil(b.size_bytes / PART);

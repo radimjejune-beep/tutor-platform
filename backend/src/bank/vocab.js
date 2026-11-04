@@ -3,6 +3,7 @@
 const SOURCES = {
   'solutions-elem-3': require('./vocab-solutions-elem'),
   'speakout-a1-3': require('./vocab-speakout-a1'),
+  'atanasyan-geom-7-9': require('./vocab-geometry'),
 };
 
 function parse(text) {
