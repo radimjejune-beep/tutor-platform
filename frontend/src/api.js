@@ -210,6 +210,13 @@ export const api = {
 
   // Цена и каталог
   pricing: () => request('GET', '/finance/pricing'),
+  bankBooks: () => request('GET', '/bank/books'),
+  bankItems: (book, unit) => request('GET', `/bank/items${qs({ book, unit })}`),
+  bankVocab: (book, unit) => request('GET', `/bank/vocab${qs({ book, unit })}`),
+  bankItem: (id) => request('GET', `/bank/items/${id}`),
+  bankTake: (id) => request('POST', `/bank/items/${id}/take`),
+  bankShare: (data) => request('POST', '/bank/share', data),
+  bankHide: (id) => request('DELETE', `/bank/items/${id}`),
   market: () => request('GET', '/market'),
   marketMine: () => request('GET', '/market/mine'),
   publishItem: (data) => request('POST', '/market', data),

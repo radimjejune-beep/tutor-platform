@@ -1,4 +1,5 @@
 // cabinets/TutorApp.jsx — кабинет преподавателя (грузится отдельно, после входа)
+import { subjectInfo } from '../subjects';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../auth';
 import { api } from '../api';
@@ -23,6 +24,7 @@ import Students from '../pages/tutor/Students';
 import StudentPage from '../pages/tutor/StudentPage';
 import { AssignmentsList, AssignmentEditor, AssignmentPage, ReviewPage } from '../pages/tutor/Assignments';
 import Finance from '../pages/tutor/Finance';
+import BankPage from '../pages/tutor/Bank';
 
 /* ---------- Кабинет преподавателя ---------- */
 export default function TutorApp({ path, params }) {
@@ -38,7 +40,9 @@ export default function TutorApp({ path, params }) {
       .catch(() => {});
   }, [path]);
 
-  const tutorNav = user.is_admin ? [...TUTOR_NAV, { to: '/admin', label: 'Учителя', icon: 'shield', hideMobile: true }] : TUTOR_NAV;
+  // Банк заданий пока по учебникам английского: показываем его тем, кто преподаёт язык
+  const baseNav = subjectInfo(user.subject).isLang ? TUTOR_NAV : TUTOR_NAV.filter((n) => n.to !== '/bank');
+  const tutorNav = user.is_admin ? [...baseNav, { to: '/admin', label: 'Учителя', icon: 'shield', hideMobile: true }] : baseNav;
   let page;
   if (parts.length === 0) page = <TutorDashboard />;
   else if (parts[0] === 'schedule') page = <TutorSchedule />;
@@ -54,6 +58,7 @@ export default function TutorApp({ path, params }) {
   else if (parts[0] === 'finance' && parts[1] === 'pricing') page = <Pricing />;
   else if (parts[0] === 'finance') page = <Finance />;
   else if (parts[0] === 'leads') page = <Leads />;
+  else if (parts[0] === 'bank') page = <BankPage key={parts.slice(1, 3).join('/')} book={parts[1]} unit={parts[2] ? decodeURIComponent(parts[2]) : undefined} />;
   else if (parts[0] === 'market') page = <MarketPage key={parts[1] || 'all'} tab={parts[1] === 'mine' ? 'mine' : 'all'} />;
   else if (parts[0] === 'settings') page = <Settings tab={parts[1] || 'booking'} />;
   else if (parts[0] === 'more') page = <MoreMenu nav={tutorNav} counts={counts} />;

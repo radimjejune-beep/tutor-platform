@@ -17,6 +17,7 @@ export const TUTOR_NAV = [
   { to: '/wordsets', label: 'Карточки', icon: 'cards', hideMobile: true },
   { to: '/courses', label: 'Курсы', icon: 'layers', hideMobile: true },
   { to: '/finance', label: 'Доход', icon: 'wallet', hideMobile: true },
+  { to: '/bank', label: 'Банк заданий', icon: 'library', hideMobile: true },
   { to: '/market', label: 'Каталог', icon: 'grid', hideMobile: true },
   { to: '/settings', label: 'Настройки', icon: 'settings', hideMobile: true },
 ];
