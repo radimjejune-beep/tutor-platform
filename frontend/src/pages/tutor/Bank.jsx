@@ -77,6 +77,7 @@ function UnitItems({ book, unit, onShare }) {
   const list = useLoad(() => api.bankItems(book.id, unit.code), [book.id, unit.code]);
   const [open, setOpen] = useState(null);
   const [busy, setBusy] = useState(null);
+  const [part, setPart] = useState('all');
   if (list.loading) return <div className="panel"><Spinner /></div>;
   if (list.error) return <ErrorBox error={list.error} onRetry={list.reload} />;
 
@@ -101,15 +102,26 @@ function UnitItems({ book, unit, onShare }) {
     <section className="bank-items">
       <div className="row-between" style={{ marginBottom: 12, alignItems: 'baseline' }}>
         <h2 className="section-title">{unit.code}. {unit.title}</h2>
-        {list.data.length > 0 && <span className="small muted">{list.data.length} {list.data.length === 1 ? 'задание' : list.data.length < 5 ? 'задания' : 'заданий'}</span>}
+        {list.data.length > 0 && <span className="small muted">{list.data.length} {plural(list.data.length, 'задание', 'задания', 'заданий')}</span>}
       </div>
       {!list.data.length && (
         <div className="panel"><Empty title="Пока пусто" action={<button className="btn btn-secondary" onClick={onShare}>Поделиться своим заданием</button>}>
           В этом юните ещё нет заданий. Добавьте своё: так банк растёт для всех.
         </Empty></div>
       )}
+      {(() => {
+        const n = { main: list.data.filter((x) => x.section !== 'words').length, words: list.data.filter((x) => x.section === 'words').length };
+        if (!n.main || !n.words) return null;
+        return (
+          <div className="seg bank-filter" role="tablist" aria-label="Какие задания показать">
+            <button type="button" className={part === 'all' ? 'on' : ''} onClick={() => setPart('all')}>Все {list.data.length}</button>
+            <button type="button" className={part === 'main' ? 'on' : ''} onClick={() => setPart('main')}>Грамматика и речь {n.main}</button>
+            <button type="button" className={part === 'words' ? 'on' : ''} onClick={() => setPart('words')}>Слова {n.words}</button>
+          </div>
+        );
+      })()}
       <div className="market-grid">
-        {list.data.map((it) => (
+        {list.data.filter((it) => part === 'all' || (part === 'words') === (it.section === 'words')).map((it) => (
           <article key={it.id} className="market-card">
             <span className="meta-label">{kindLabel(it)}{it.game ? ` · ${gameSize(it.game)}` : ''}</span>
             <h3 className="lib-title">{it.title}</h3>
@@ -193,19 +205,28 @@ function ShareModal({ books, book, unit, onClose, onDone }) {
   );
 }
 
-/* ---------- Слова юнита: подборка по теме, из неё делается набор карточек ---------- */
+/* ---------- Слова юнита по темам, из них делается набор карточек ---------- */
+// Слова с номером: одно и то же слово может встречаться в двух темах
+const withIds = (words) => words.map((w, i) => ({ ...w, i }));
+function byTopic(words) {
+  const map = new Map();
+  for (const w of words) { const t = w.topic || ''; if (!map.has(t)) map.set(t, []); map.get(t).push(w); }
+  return [...map].map(([topic, list]) => ({ topic, list }));
+}
+
 function UnitWords({ book, unit }) {
-  const words = useLoad(() => api.bankVocab(book.id, unit.code), [book.id, unit.code]);
+  const words = useLoad(() => api.bankVocab(book.id, unit.code).then((r) => withIds(r.words)), [book.id, unit.code]);
   const [open, setOpen] = useState(false);
   const [making, setMaking] = useState(false);
   if (words.loading || words.error) return null;
-  const list = words.data.words;
+  const list = words.data;
+  const topics = byTopic(list).filter((t) => t.topic).map((t) => t.topic);
   return (
     <section className="panel">
       <div className="row-between wrap" style={{ gap: 10 }}>
         <div>
           <h2 className="section-title">Слова юнита</h2>
-          <div className="small muted" style={{ marginTop: 4 }}>{list.length} {plural(list.length, 'слово', 'слова', 'слов')} по теме «{unit.title}»: подборка Lessonfold, а не список из учебника</div>
+          <div className="small muted" style={{ marginTop: 4 }}>{list.length} {plural(list.length, 'слово', 'слова', 'слов')} с переводом{topics.length ? `: ${topics.join(', ').toLowerCase()}` : ''}</div>
         </div>
         <div className="row" style={{ gap: 8 }}>
           <button className="btn btn-secondary btn-sm" onClick={() => setOpen(!open)}>{open ? 'Свернуть' : 'Показать слова'}</button>
@@ -219,46 +240,76 @@ function UnitWords({ book, unit }) {
 }
 
 function WordTable({ words }) {
-  return (
-    <div className="bank-words">
-      {words.map((w) => (
-        <div key={w.term} className="bank-word"><span>{w.term}</span><span className="muted">{w.translation}</span></div>
-      ))}
+  return byTopic(words).map(({ topic, list }) => (
+    <div key={topic} className="bank-topic">
+      {topic && <div className="meta-label">{topic}</div>}
+      <div className="bank-words">
+        {list.map((w) => (
+          <div key={w.i} className="bank-word"><span>{w.term}</span><span className="muted">{w.translation}</span></div>
+        ))}
+      </div>
     </div>
-  );
+  ));
 }
 
-// Набор карточек из слов юнита: выбрать слова и кому выдать
+// Набор карточек из слов юнита: выбрать темы или отдельные слова и кому выдать
 function MakeSet({ book, unit, words, onClose }) {
   const toast = useToast();
   const students = useLoad(() => api.students(), []);
   const [title, setTitle] = useState(`${book.short} ${unit.code}: ${unit.title}`);
-  const [picked, setPicked] = useState(() => new Set(words.map((w) => w.term)));
+  const [picked, setPicked] = useState(() => new Set(words.map((w) => w.i)));
   const [who, setWho] = useState('none');
   const [ids, setIds] = useState([]);
+  const groups = byTopic(words);
   const save = useSubmit(async () => {
-    const chosen = words.filter((w) => picked.has(w.term));
+    // одинаковые слова из разных тем в набор попадают один раз
+    const seen = new Set();
+    const chosen = words.filter((w) => picked.has(w.i) && !seen.has(w.term.toLowerCase()) && seen.add(w.term.toLowerCase())).map((w) => ({ term: w.term, translation: w.translation }));
     if (!chosen.length) throw new Error('Выберите хотя бы одно слово');
     if (who === 'some' && !ids.length) throw new Error('Отметьте учеников или выберите «Пока никому»');
     const r = await api.createWordSet({ title: title.trim(), words: chosen, for_all: who === 'all', student_ids: who === 'some' ? ids : undefined });
     toast(`Набор создан: ${chosen.length} ${plural(chosen.length, 'карточка', 'карточки', 'карточек')}`);
     navigate(`/wordsets/${r.id}`);
   });
-  const toggle = (t) => { const n = new Set(picked); if (n.has(t)) n.delete(t); else n.add(t); setPicked(n); };
+  const toggle = (i) => { const n = new Set(picked); if (n.has(i)) n.delete(i); else n.add(i); setPicked(n); };
+  // только одна тема: снять всё и отметить её слова; повторное нажатие на выбранную тему вернёт все слова
+  const onlyTopic = (list) => {
+    const only = list.every((w) => picked.has(w.i)) && picked.size === list.length;
+    setPicked(new Set((only ? words : list).map((w) => w.i)));
+    const t = list[0]?.topic;
+    if (t) setTitle(only ? `${book.short} ${unit.code}: ${unit.title}` : `${book.short} ${unit.code}: ${t}`);
+  };
   return (
     <Modal title="Набор карточек из слов юнита" onClose={onClose} wide>
       <form className="form" onSubmit={save.submit}>
         <Field label="Название набора"><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} required /></Field>
+        {groups.length > 1 && (
+          <Field label="Только одна тема">
+            <div className="seg">
+              {groups.map((g) => {
+                const on = picked.size === g.list.length && g.list.every((w) => picked.has(w.i));
+                return <button key={g.topic} type="button" className={on ? 'on' : ''} onClick={() => onlyTopic(g.list)}>{g.topic || 'Без темы'} {g.list.length}</button>;
+              })}
+            </div>
+          </Field>
+        )}
         <div className="row-between">
           <span className="meta-label">Слова: {picked.size} из {words.length}</span>
           <span className="row" style={{ gap: 6 }}>
-            <button type="button" className="btn btn-quiet btn-sm" onClick={() => setPicked(new Set(words.map((w) => w.term)))}>Все</button>
+            <button type="button" className="btn btn-quiet btn-sm" onClick={() => setPicked(new Set(words.map((w) => w.i)))}>Все</button>
             <button type="button" className="btn btn-quiet btn-sm" onClick={() => setPicked(new Set())}>Ни одного</button>
           </span>
         </div>
-        <div className="bank-words pick">
-          {words.map((w) => (
-            <label key={w.term} className="bank-word check"><input type="checkbox" checked={picked.has(w.term)} onChange={() => toggle(w.term)} /><span>{w.term}</span><span className="muted">{w.translation}</span></label>
+        <div className="bank-pick">
+          {groups.map(({ topic, list }) => (
+            <div key={topic} className="bank-topic">
+              {topic && <div className="meta-label">{topic}</div>}
+              <div className="bank-words pick">
+                {list.map((w) => (
+                  <label key={w.i} className="bank-word check"><input type="checkbox" checked={picked.has(w.i)} onChange={() => toggle(w.i)} /><span>{w.term}</span><span className="muted">{w.translation}</span></label>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
         <Field label="Кому выдать">
@@ -288,20 +339,21 @@ function MakeSet({ book, unit, words, onClose }) {
 /* ---------- Словарь всего учебника: все юниты подряд и поиск ---------- */
 function BookWords({ book }) {
   const units = book.units.filter((u) => u.words > 0);
-  const all = useLoad(() => Promise.all(units.map((u) => api.bankVocab(book.id, u.code).then((r) => ({ unit: u, words: r.words })))), [book.id]);
+  const all = useLoad(() => Promise.all(units.map((u) => api.bankVocab(book.id, u.code).then((r) => ({ unit: u, words: withIds(r.words) })))), [book.id]);
   const [q, setQ] = useState('');
   const [making, setMaking] = useState(null);
   if (all.loading) return <div className="panel"><Spinner /></div>;
   if (all.error) return <ErrorBox error={all.error} onRetry={all.reload} />;
   const s = q.trim().toLowerCase();
   const shown = all.data.map((g) => ({ ...g, words: s ? g.words.filter((w) => `${w.term} ${w.translation}`.toLowerCase().includes(s)) : g.words })).filter((g) => g.words.length);
+  const total = all.data.reduce((n, g) => n + g.words.length, 0);
   return (
     <section className="bank-items stack">
       <div className="row-between wrap" style={{ gap: 10 }}>
         <h2 className="section-title">Словарь: {book.short}</h2>
         <input className="input" style={{ maxWidth: 300 }} placeholder="Найти слово или перевод" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Поиск по словарю" />
       </div>
-      <p className="small muted" style={{ margin: 0 }}>Подборки Lessonfold по темам юнитов, а не словарь учебника. Из любого юнита можно сделать набор карточек и выдать ученикам.</p>
+      <p className="small muted" style={{ margin: 0 }}>{total} {plural(total, 'слово', 'слова', 'слов')} по юнитам и темам, перевод Lessonfold. Из любого юнита или темы можно сделать набор карточек и выдать ученикам.</p>
       {!shown.length && <div className="panel"><Empty title="Ничего не нашлось">Попробуйте другое слово.</Empty></div>}
       {shown.map((g) => (
         <section key={g.unit.code} className="panel">

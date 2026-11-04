@@ -18,7 +18,8 @@ const router = express.Router();
 router.use(requireRole('tutor'));
 
 const ITEM_FIELDS = `b.id, b.book, b.unit, b.kind, b.title, b.body, b.game, b.tags, b.uses, b.created_at, b.author_id,
-  CASE WHEN b.seed_key IS NOT NULL THEN 'Lessonfold' ELSE COALESCE(u.full_name, 'Репетитор') END AS author`;
+  CASE WHEN b.seed_key IS NOT NULL THEN 'Lessonfold' ELSE COALESCE(u.full_name, 'Репетитор') END AS author,
+  CASE WHEN b.seed_key LIKE 'voc-%' THEN 'words' ELSE 'main' END AS section`;
 
 router.get(
   '/books',
@@ -51,7 +52,7 @@ router.get(
          FROM bank_items b LEFT JOIN users u ON u.id = b.author_id
          LEFT JOIN bank_takes t ON t.item_id = b.id AND t.tutor_id = $3
         WHERE b.book = $1 AND b.unit = $2 AND NOT b.hidden
-        ORDER BY (b.seed_key IS NULL), b.id`,
+        ORDER BY (COALESCE(b.seed_key, '') LIKE 'voc-%'), (b.seed_key IS NULL), b.id`,
       [book, unit, req.user.id]
     );
     res.json(rows.map((r) => ({ ...r, mine: r.author_id === req.user.id })));

@@ -440,4 +440,8 @@ const SEED = [
     I want to go to the concert on Sunday.`) },
 ];
 
+// Плюс упражнения на все слова юнитов (собираются из словаря)
+const { vocabTasks } = require('./vocab-tasks');
+SEED.push(...vocabTasks());
+
 module.exports = { SEED };

@@ -53,7 +53,8 @@ export default function Landing() {
   const reg = useLoad(() => api.registrationStatus().catch(() => ({ open: false })), []);
   const [book, setBook] = useState('all');
   const { session } = useAuth();
-  const s = shop.data || { enabled: false, products: [], textbooks: [] };
+  const raw = shop.data || {};
+  const s = { ...raw, enabled: Boolean(raw.enabled), products: Array.isArray(raw.products) ? raw.products : [], textbooks: Array.isArray(raw.textbooks) ? raw.textbooks : [] };
   const books = s.textbooks.filter((t) => s.products.some((p) => p.book === t.id));
   const list = useMemo(() => {
     const rank = (p) => (p.course ? 0 : p.status === 'soon' ? 3 : p.type === 'pack' ? 2 : 1);
