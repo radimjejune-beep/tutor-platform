@@ -38,7 +38,7 @@ async function assignUnitHomework(db, unit, studentId, { lessonId = null, dueOn 
   const itemIds = unit.homework_item_ids?.length ? unit.homework_item_ids : unit.item_ids || [];
   const { rows: existing } = await db.query('SELECT id FROM library_items WHERE id = ANY($1::int[])', [itemIds]);
   const ids = itemIds.filter((id) => existing.some((r) => r.id === id));
-  const vocabNote = unit.vocab?.length ? '\nВ конце отработайте слова юнита: упражнения появятся ниже.' : '';
+  const vocabNote = unit.vocab?.length ? '\nВ конце отработайте карточки юнита: упражнения появятся ниже.' : '';
   const { rows } = await db.query(
     `INSERT INTO assignments (title, description, due_on, library_item_ids, vocab_practice, tutor_id)
      VALUES ($1, $2, $3, $4, $5, (SELECT tutor_id FROM students WHERE id = $6)) RETURNING *`,

@@ -129,7 +129,7 @@ router.post(
     }
     const result = { correct, total: seen.size, missed: missed.slice(0, 20), at: new Date().toISOString() };
     if (req.user.role !== 'tutor' && seen.size) {
-      const title = b.homework_id ? 'Словарь в домашнем задании' : b.lesson_id ? 'Разминка перед уроком' : 'Мой словарь';
+      const title = b.homework_id ? 'Карточки в домашнем задании' : b.lesson_id ? 'Разминка перед уроком' : 'Повторение карточек';
       await query('INSERT INTO practice_log (student_id, title, mode, correct, total, duration_sec) VALUES ($1, $2, $3, $4, $5, $6)', [
         b.student_id, title, b.mode || 'vocab', correct, seen.size, b.duration_sec ?? null,
       ]).catch((err) => console.error('Журнал тренировок:', err.message));
@@ -168,7 +168,7 @@ router.post(
 // ------------------------------------------------------------
 const wordSchema = z
   .object({
-    term: z.string().trim().min(1, 'Пустое слово').max(200),
+    term: z.string().trim().min(1, 'Пустая карточка').max(200),
     translation: z.string().trim().max(300).nullable().optional(),
     example: z.string().trim().max(1000).nullable().optional(),
   })
@@ -203,7 +203,7 @@ router.delete(
   asyncHandler(async (req, res) => {
     const { rows } = await query('SELECT student_id, source FROM vocab_items WHERE id = $1', [Number(req.params.id)]);
     if (!rows[0] || !(await canAccessStudent(req.user, rows[0].student_id))) return res.status(404).json({ error: 'Слово не найдено' });
-    if (req.user.role !== 'tutor' && rows[0].source !== 'self') return res.status(403).json({ error: 'Это слово добавил преподаватель, удалить его может только он' });
+    if (req.user.role !== 'tutor' && rows[0].source !== 'self') return res.status(403).json({ error: 'Эту карточку добавил преподаватель, удалить его может только он' });
     await query('DELETE FROM vocab_items WHERE id = $1', [Number(req.params.id)]);
     res.json({ ok: true });
   })
@@ -234,7 +234,7 @@ router.patch(
       if (!rows[0]) return res.status(404).json({ error: 'Слово не найдено' });
       res.json(rows[0]);
     } catch (err) {
-      if (err.code === '23505') return res.status(409).json({ error: 'Такое слово уже есть в словаре' });
+      if (err.code === '23505') return res.status(409).json({ error: 'Такая карточка уже есть' });
       throw err;
     }
   })

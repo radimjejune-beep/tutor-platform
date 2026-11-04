@@ -2,6 +2,7 @@
 // words: [{ key, term, translation, example, level }] (level 0–3, если есть прогресс)
 // onFinish(mode, results, durationSec) → Promise<string | null>: сохранить итог, вернуть текст для ученика.
 // Каждое слово в итоге встречается один раз: ok = ответил верно с первой попытки.
+import { MathText } from './MathText';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../ui';
 import { speak, canSpeak } from './Vocab';
@@ -143,7 +144,7 @@ function Result({ r, deck, onAgain, onMenu }) {
           <div className="meta-label">Ошибки</div>
           {bad.map((x) => {
             const w = byKey.get(x.key);
-            return w ? <div key={x.key} className="study-missed-row"><span className="serif">{w.term}</span><span className="muted">{w.translation}</span></div> : null;
+            return w ? <div key={x.key} className="study-missed-row"><span className="serif"><MathText>{w.term}</MathText></span><span className="muted"><MathText>{w.translation}</MathText></span></div> : null;
           })}
         </div>
       )}
@@ -206,8 +207,8 @@ function Cards({ deck, subj, done }) {
       <div className="bar" style={{ marginTop: 10 }}><span style={{ width: `${(i / queue.length) * 100}%` }} /></div>
       <button type="button" className={`flash-card ${flip ? 'flipped' : ''}`} onClick={() => { setFlip(!flip); if (!flip && !s.speakQ) speak(w.term); }}>
         <span className="flash-inner">
-          <span className="flash-face"><span className="serif flash-big" style={s.q.length > 40 ? { fontSize: 26 } : undefined}>{s.q}</span><span className="small muted">нажми или пробел, чтобы перевернуть</span></span>
-          <span className="flash-face flash-back"><span className="serif flash-big" style={s.a.length > 40 ? { fontSize: 26 } : undefined}>{s.a}</span>{w.example && <span className="flash-example">{w.example}</span>}</span>
+          <span className="flash-face"><span className="serif flash-big" style={s.q.length > 40 ? { fontSize: 26 } : undefined}><MathText>{s.q}</MathText></span><span className="small muted">нажми или пробел, чтобы перевернуть</span></span>
+          <span className="flash-face flash-back"><span className="serif flash-big" style={s.a.length > 40 ? { fontSize: 26 } : undefined}><MathText>{s.a}</MathText></span>{w.example && <span className="flash-example">{w.example}</span>}</span>
         </span>
       </button>
       <div className="flash-actions">
@@ -235,11 +236,11 @@ function Choice({ w, dir, pool, onAnswer }) {
   };
   return (
     <>
-      <div className="practice-q"><span className="meta-label">Выбери ответ</span><span className="serif flash-big study-q">{s.q}</span></div>
+      <div className="practice-q"><span className="meta-label">Выбери ответ</span><span className="serif flash-big study-q"><MathText>{s.q}</MathText></span></div>
       <div className="practice-opts">
         {opts.map((o, k) => (
           <button key={o} type="button" className={`practice-opt ${picked ? (o === s.a ? 'ok' : o === picked ? 'bad' : '') : ''}`} disabled={Boolean(picked)} onClick={() => pick(o)}>
-            <span className="study-key">{k + 1}</span>{o}
+            <span className="study-key">{k + 1}</span><MathText>{o}</MathText>
           </button>
         ))}
       </div>
@@ -257,6 +258,7 @@ function KeyPick({ n, onPick }) {
 }
 
 function Typed({ w, dir, onAnswer, retype, hint }) {
+  const subj = useSubject();
   const s = side(w, dir);
   const [val, setVal] = useState('');
   const [state, setState] = useState(null); // null | 'ok' | 'bad' | 'copy'
@@ -276,8 +278,8 @@ function Typed({ w, dir, onAnswer, retype, hint }) {
   return (
     <>
       <div className="practice-q">
-        <span className="meta-label">{hint || (dir === 'term' ? 'Напиши слово' : 'Напиши перевод')}</span>
-        <span className="serif flash-big study-q">{s.q}</span>
+        <span className="meta-label">{hint || (dir === 'term' ? `Напиши ${subj.item[0]}` : `Напиши ${subj.meaning}`)}</span>
+        <span className="serif flash-big study-q"><MathText>{s.q}</MathText></span>
       </div>
       <form onSubmit={check} className="study-type">
         <input ref={input} className={`input practice-input ${state === 'ok' ? 'is-ok' : state === 'bad' ? 'is-bad' : ''}`} value={val} onChange={(e) => setVal(e.target.value)}
@@ -478,7 +480,7 @@ function Test({ deck, dir, done, release }) {
             {q.kind === 'mc' && (
               <div className="practice-opts">
                 {q.opts.map((o) => (
-                  <button key={o} type="button" disabled={checked} className={`practice-opt ${checked ? (o === q.a ? 'ok' : ans[k] === o ? 'bad' : '') : ans[k] === o ? 'picked' : ''}`} onClick={() => setAns({ ...ans, [k]: o })}>{o}</button>
+                  <button key={o} type="button" disabled={checked} className={`practice-opt ${checked ? (o === q.a ? 'ok' : ans[k] === o ? 'bad' : '') : ans[k] === o ? 'picked' : ''}`} onClick={() => setAns({ ...ans, [k]: o })}><MathText>{o}</MathText></button>
                 ))}
               </div>
             )}

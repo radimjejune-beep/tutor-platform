@@ -127,12 +127,12 @@ export default function Landing() {
       <section className="lp-tutors" id="tutors">
         <div className="lp-wrap lp-tutors-in">
           <div>
-            <div className="lp-kicker">Платформа для репетитора</div>
+            <div className="lp-kicker">Платформа для репетитора любого предмета</div>
             <h2 className="lp-h2 light">Кабинеты для вас, учеников и родителей</h2>
             <ul className="lp-features">
               <li><Icon name="calendar" size={18} /> Расписание, запись и переносы уроков</li>
               <li><Icon name="book" size={18} /> Домашние задания как в Google Classroom: фото, аудио, тесты</li>
-              <li><Icon name="cards" size={18} /> Карточки как в Quizlet и слова к каждому уроку</li>
+              <li><Icon name="cards" size={18} /> Карточки как в Quizlet: слова, термины, даты и формулы</li>
               <li><Icon name="chart" size={18} /> Сайт сам подсказывает ученику, что повторить</li>
               <li><Icon name="wallet" size={18} /> Абонементы, оплаты и отчёты родителям</li>
             </ul>

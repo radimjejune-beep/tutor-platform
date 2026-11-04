@@ -28,7 +28,17 @@ change changes changed help helps place part world life home school student stud
 night morning evening today tomorrow yesterday point number group problem fact hand eye head word words example name kind
 let maybe perhaps quite rather almost enough least less such either neither however though although`.split(/\s+/).forEach((w) => STOP.add(w));
 
-const WORD = /[A-Za-zÀ-ÿА-Яа-яЁё][A-Za-zÀ-ÿА-Яа-яЁё'’-]*/g;
+// Русские служебные слова: для текстов по истории, биологии и другим предметам
+`и в во не что он на я с со как а то все всё она так его но да ты к у же вы за бы по только ее её мне было вот от меня еще ещё нет о из ему
+теперь когда даже ну вдруг ли если уже или ни быть был него до вас нибудь опять уж вам ведь там потом себя ничего ей может они тут где есть
+надо ней для мы тебя их чем была сам чтоб без будто чего раз тоже себе под будет ж тогда кто этот того потому этого какой совсем ним здесь
+этом один почти мой тем чтобы нее неё сейчас были куда зачем всех никогда можно при наконец два об другой хоть после над больше тот через
+эти нас про всего них какая много разве три эту моя впрочем хорошо свою этой перед иногда лучше чуть том нельзя такой им более всегда
+конечно всю между это также является являются который которая которое которые которых которым которой своих свой своей своего свои
+этих этим такие такое такая также однако поэтому очень было были будут было году года годы лет время время раза стал стала стали`.split(/\s+/).forEach((w) => STOP.add(w));
+
+// Слова и числа из 3-4 цифр (годы: для истории это главное, что стоит спрашивать)
+const WORD = /[A-Za-zÀ-ÿА-Яа-яЁё][A-Za-zÀ-ÿА-Яа-яЁё'’-]*|\d{3,4}/g;
 const MAX = 4800;
 
 // Текст → куски: слова (с номером) и всё остальное как есть
@@ -44,7 +54,13 @@ function tokenize(text) {
   if (last < text.length) out.push({ s: text.slice(last) });
   return out;
 }
-const isContent = (t, prev) => t.key.length >= 4 && !STOP.has(t.key) && !/['’]/.test(t.s) && !(prev && !/[.!?]\s*$/.test(prev) && /^[A-ZА-Я]/.test(t.s));
+// Слово стоит спрашивать: не служебное и не короткое. Для языков имена собственные пропускаем,
+// для истории и других предметов, наоборот, имена и годы важны
+let LANG_MODE = true;
+const isContent = (t, prev) => {
+  if (/^\d+$/.test(t.s)) return !LANG_MODE;
+  return t.key.length >= 4 && !STOP.has(t.key) && !/['’]/.test(t.s) && !(LANG_MODE && prev && !/[.!?]\s*$/.test(prev) && /^[A-ZА-Я]/.test(t.s));
+};
 const sentences = (text) => text.replace(/\s+/g, ' ').split(/(?<=[.!?])\s+(?=[A-ZА-Я"“])/).map((s) => s.trim()).filter(Boolean);
 
 // Автоматически: пропуски равномерно по тексту
@@ -69,19 +85,19 @@ function autoGaps(tokens, count) {
 // Автоматически: слова для словаря (длинные и редкие, без повторов)
 function autoVocab(tokens, count) {
   const seen = new Map();
-  tokens.forEach((t, i) => { if (t.w !== undefined && isContent(t, tokens[i - 1]?.s) && t.key.length >= 6) seen.set(t.key, (seen.get(t.key) || 0) + 1); });
+  tokens.forEach((t, i) => { if (t.w !== undefined && isContent(t, tokens[i - 1]?.s) && !/^\d+$/.test(t.s) && t.key.length >= 6) seen.set(t.key, (seen.get(t.key) || 0) + 1); });
   return [...seen.keys()].sort((a, b) => b.length - a.length).slice(0, count);
 }
 
 // Вопросы: «T: ...», «F: ...», «? Вопрос | *верный | неверный»
-function parseQuestions(text) {
+function parseQuestions(text, tf = ['True', 'False']) {
   const out = [];
   const errors = [];
   text.split('\n').map((l) => l.trim()).filter(Boolean).forEach((line, i) => {
-    const tf = line.match(/^(T|F|В|Н)\s*[:.)]\s*(.+)$/i);
-    if (tf) {
-      const truth = /^[TВ]/i.test(tf[1]);
-      out.push({ t: 'choice', q: tf[2].trim(), options: ['True', 'False'], correct: truth ? 0 : 1 });
+    const tfm = line.match(/^(T|F|В|Н)\s*[:.)]\s*(.+)$/i);
+    if (tfm) {
+      const truth = /^[TВ]/i.test(tfm[1]);
+      out.push({ t: 'choice', q: tfm[2].trim(), options: tf, correct: truth ? 0 : 1 });
       return;
     }
     if (line.includes('|')) {
@@ -100,6 +116,11 @@ function parseQuestions(text) {
 export default function Generator() {
   const toast = useToast();
   const subj = useSubject();
+  LANG_MODE = subj.isLang;
+  // Подписи для ученика: у языков на изучаемом языке, у остальных предметов по-русски
+  const L = subj.isLang
+    ? { tf: ['True', 'False'], tfTitle: 'True or false?', answer: 'Answer the questions.', discuss: "Let's discuss.", watch: 'Watch the video.', watchRead: 'Watch the video and read the text.', read: 'Read the text.', tellVideo: 'Tell me about the video in your own words (5-6 sentences).', retell: 'Retell the text in your own words (5-6 sentences).' }
+    : { tf: ['Верно', 'Неверно'], tfTitle: 'Верно или неверно?', answer: 'Ответьте на вопросы.', discuss: 'Обсудим.', watch: 'Посмотрите видео.', watchRead: 'Посмотрите видео и прочитайте текст.', read: 'Прочитайте текст.', tellVideo: 'Расскажите своими словами, о чём видео (5-6 предложений).', retell: 'Перескажите текст своими словами (5-6 предложений).' };
   const [title, setTitle] = useState('');
   const [topic, setTopic] = useState('');
   const [video, setVideo] = useState('');
@@ -121,7 +142,7 @@ export default function Generator() {
   const words = tokens.filter((t) => t.w !== undefined).length;
   const sents = useMemo(() => sentences(src).filter((s) => { const n = s.split(/\s+/).length; return n >= 4 && n <= 14; }), [src]);
   const chosenSents = picked || new Set(sents.slice(0, 6).map((_, i) => i));
-  const q = useMemo(() => parseQuestions(questions), [questions]);
+  const q = useMemo(() => parseQuestions(questions, L.tf), [questions, subj.isLang]); // eslint-disable-line react-hooks/exhaustive-deps
   const disc = discussion.split('\n').map((l) => l.trim()).filter(Boolean);
   const vocabKeys = new Set(vocab.map((v) => v.term.toLowerCase()));
   const yt = ytId(video);
@@ -179,10 +200,10 @@ export default function Generator() {
           }
           if (chunk) chunks.push(chunk);
           if (!chunks.length) chunks.push('');
-          chunks.forEach((c, i) => blocks.push({ t: 'text', text: (i === 0 ? `${yt && !c ? 'Watch the video.' : yt ? 'Watch the video and read the text.' : 'Read the text.'}\n\n` : '') + c, video: i === 0 && video.trim() ? video.trim() : null }));
-          if (q.out.length) blocks.push({ t: 'text', text: q.out.every((x) => x.options[0] === 'True') ? 'True or false?' : 'Answer the questions.' }, ...q.out);
-          if (disc.length) blocks.push({ t: 'text', text: 'Let\'s discuss.' }, ...disc.map((d) => ({ t: 'open', q: d })));
-          if (retell) blocks.push({ t: 'voice', q: yt && !src.trim() ? 'Tell me about the video in your own words (5-6 sentences).' : 'Retell the text in your own words (5-6 sentences).' });
+          chunks.forEach((c, i) => blocks.push({ t: 'text', text: (i === 0 ? `${yt && !c ? L.watch : yt ? L.watchRead : L.read}\n\n` : '') + c, video: i === 0 && video.trim() ? video.trim() : null }));
+          if (q.out.length) blocks.push({ t: 'text', text: q.out.every((x) => x.options[0] === L.tf[0]) ? L.tfTitle : L.answer }, ...q.out);
+          if (disc.length) blocks.push({ t: 'text', text: L.discuss }, ...disc.map((d) => ({ t: 'open', q: d })));
+          if (retell) blocks.push({ t: 'voice', q: yt && !src.trim() ? L.tellVideo : L.retell });
           game = { type: 'sheet', blocks: blocks.slice(0, 80) };
         }
         if (p.k === 'gaps') game = { type: 'gaps', text: gapText(), mode: bank ? 'bank' : 'type', distractors: [] };
@@ -237,15 +258,15 @@ export default function Generator() {
       <section className="panel">
         <div className="form">
           <div className="form-row">
-            <Field label="Название"><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Например: Why we sleep" maxLength={120} /></Field>
-            <Field label="Темы" hint="Через запятую. По ним сайт подскажет ученику, что повторить"><input className="input" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Present Simple, Daily routine" /></Field>
+            <Field label="Название"><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={subj.isLang ? 'Например: Why we sleep' : 'Например: Отмена крепостного права'} maxLength={120} /></Field>
+            <Field label="Темы" hint="Через запятую. По ним сайт подскажет ученику, что повторить"><input className="input" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder={subj.isLang ? 'Present Simple, Daily routine' : 'Реформы 1860-х, Александр II'} /></Field>
           </div>
           <Field label="Видео YouTube" hint="Необязательно. Субтитры ролика можно скопировать на YouTube: «Ещё» → «Показать текст видео»">
             <input className="input" value={video} onChange={(e) => setVideo(e.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
           </Field>
           {yt && <div className="mat-yt gen-video"><iframe src={`https://www.youtube-nocookie.com/embed/${yt}`} title="Видео" allow="encrypted-media; picture-in-picture; fullscreen" allowFullScreen /></div>}
           <Field label="Текст" hint={text.length > MAX ? `Текст длиннее ${MAX} знаков: в упражнения пойдут первые ${MAX}` : `${text.length} знаков`}>
-            <textarea className="textarea" rows={9} value={text} onChange={(e) => { setText(e.target.value); setGaps(new Set()); setPicked(null); }} placeholder="Вставьте текст на английском (или на изучаемом языке)" />
+            <textarea className="textarea" rows={9} value={text} onChange={(e) => { setText(e.target.value); setGaps(new Set()); setPicked(null); }} placeholder={subj.isLang ? 'Вставьте текст на изучаемом языке' : 'Вставьте текст параграфа, статьи или конспекта. Сайт предложит пропуски: термины, имена, даты'} />
           </Field>
         </div>
       </section>
@@ -280,7 +301,7 @@ export default function Generator() {
         <section className="panel">
           <div className="panel-head">
             <h2 className="section-title">{subj.isLang ? 'Перевод слов' : 'Определения'}</h2>
-            <span className="small muted">{matchPairs.length} из {vocab.length} заполнено, без перевода слово не войдёт</span>
+            <span className="small muted">{matchPairs.length} из {vocab.length} заполнено, без {subj.meaningGen} {subj.item[0]} не войдёт</span>
           </div>
           <div className="gen-vocab">
             {vocab.map((v, i) => (
@@ -310,13 +331,13 @@ export default function Generator() {
 
       <section className="panel">
         <h2 className="section-title">Вопросы на понимание</h2>
-        <p className="small muted" style={{ margin: '6px 0 10px' }}>По одному на строку. <b>T:</b> верное утверждение, <b>F:</b> неверное. Вопрос с вариантами: <b>? Вопрос | *верный | неверный | неверный</b></p>
-        <textarea className="textarea" rows={5} value={questions} onChange={(e) => setQuestions(e.target.value)} placeholder={'T: Most teenagers need about nine hours of sleep.\nF: Phones help us fall asleep faster.\n? Why do teenagers go to bed late? | *Their body clock changes | They drink coffee | They have no homework'} />
+        <p className="small muted" style={{ margin: '6px 0 10px' }}>По одному на строку. {subj.isLang ? <><b>T:</b> верное утверждение, <b>F:</b> неверное.</> : <><b>В:</b> верное утверждение, <b>Н:</b> неверное.</>} Вопрос с вариантами: <b>? Вопрос | *верный | неверный | неверный</b></p>
+        <textarea className="textarea" rows={5} value={questions} onChange={(e) => setQuestions(e.target.value)} placeholder={subj.isLang ? 'T: Most teenagers need about nine hours of sleep.\nF: Phones help us fall asleep faster.\n? Why do teenagers go to bed late? | *Their body clock changes | They drink coffee | They have no homework' : 'В: Крепостное право отменили в 1861 году.\nН: Реформу провёл Николай I.\n? Как назывался документ об отмене? | *Манифест | Указ о вольных хлебопашцах | Судебник'} />
         {q.errors.map((e) => <div key={e} className="small" style={{ color: 'var(--danger)', marginTop: 4 }}>{e}</div>)}
         {q.out.length > 0 && !q.errors.length && <div className="small muted" style={{ marginTop: 6 }}>Вопросов: {q.out.length}</div>}
         <h2 className="section-title" style={{ marginTop: 22 }}>Обсуждение</h2>
         <p className="small muted" style={{ margin: '6px 0 10px' }}>Открытые вопросы, ученик отвечает письменно, вы проверяете.</p>
-        <textarea className="textarea" rows={3} value={discussion} onChange={(e) => setDiscussion(e.target.value)} placeholder={'What time do you usually go to bed?\nDo you agree that schools should start later? Why?'} />
+        <textarea className="textarea" rows={3} value={discussion} onChange={(e) => setDiscussion(e.target.value)} placeholder={subj.isLang ? 'What time do you usually go to bed?\nDo you agree that schools should start later? Why?' : 'Почему реформу называют великой?\nКакие последствия реформы вы считаете главными?'} />
         <label className="check" style={{ marginTop: 12 }}><input type="checkbox" checked={retell} onChange={(e) => setRetell(e.target.checked)} /> Пересказ голосом в конце</label>
       </section>
 

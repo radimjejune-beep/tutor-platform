@@ -1,4 +1,5 @@
 // pages/tutor/WordSets.jsx — наборы карточек: список, редактор со вставкой как в Quizlet, кто учит
+import FormulaBar from '../../components/FormulaBar';
 import { useMemo, useState } from 'react';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Link, navigate, useToast, Field, Modal } from '../../ui';
@@ -146,6 +147,7 @@ function Editor({ set, students, onSaved }) {
         </div>
       </div>
 
+      <FormulaBar />
       <section className="panel">
         <div className="form">
           <Field label="Название"><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={subj.isLang ? 'Solutions 1G: внешность' : 'Формулы сокращённого умножения'} maxLength={200} /></Field>
@@ -166,7 +168,7 @@ function Editor({ set, students, onSaved }) {
               <button type="button" className="btn" disabled={!pasted.words.length} onClick={addPasted}>Добавить в набор{pasted.words.length ? ` (${pasted.words.length})` : ''}</button>
             </div>
           </>
-        ) : <p className="small muted" style={{ margin: 0 }}>Можно вставить сразу много слов: слово и перевод через Tab, тире или запятую.</p>}
+        ) : <p className="small muted" style={{ margin: 0 }}>Можно вставить сразу много карточек: {subj.item[0]} и {subj.meaning} через Tab, тире или запятую.</p>}
       </section>
 
       <section className="panel">

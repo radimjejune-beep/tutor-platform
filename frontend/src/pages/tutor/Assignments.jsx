@@ -1,5 +1,8 @@
 // pages/tutor/Assignments.jsx — задания в стиле Google Classroom:
 // список → редактор → страница задания → проверка работы ученика
+import FormulaBar from '../../components/FormulaBar';
+import { MathText } from '../../components/MathText';
+import { useSubject } from '../../subjects';
 import { useState } from 'react';
 import Materials, { UploadArea, Comments } from '../../components/Materials';
 import { SheetContext } from '../../games/Sheet';
@@ -75,6 +78,7 @@ export function AssignmentEditor({ id, presetStudentId, presetStudents, presetIt
 }
 
 function EditorForm({ isNew, students, assignment, presetStudentId, presetStudents, presetItems, onFilesChanged }) {
+  const subj = useSubject();
   const toast = useToast();
   const assignedIds = new Set((assignment?.submissions || []).map((s) => s.student_id));
   const [f, setF] = useState({
@@ -118,7 +122,7 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
         const have = new Set(cur.words.map((w) => w.term.toLowerCase()));
         await api.updateWordSet(f.setId, { words: [...cur.words, ...newWords.filter((w) => !have.has(w.term.toLowerCase()))].slice(0, 500) });
       } else {
-        const created = await api.createWordSet({ title: `Слова: ${f.title.trim()}`.slice(0, 200), words: newWords.slice(0, 500), for_all: false, student_ids: who.length ? who : undefined });
+        const created = await api.createWordSet({ title: `${subj.Items}: ${f.title.trim()}`.slice(0, 200), words: newWords.slice(0, 500), for_all: false, student_ids: who.length ? who : undefined });
         body.word_set_id = created.id;
       }
     }
@@ -147,10 +151,11 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
 
       <form onSubmit={submit} className="assign-layout">
         <div className="stack">
+          <FormulaBar />
           <section className="panel form">
             <Field label="Название">
               <input className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} required autoFocus={isNew}
-                placeholder="Workbook, Unit 4: упражнения 1–4" />
+                placeholder={subj.isLang ? 'Workbook, Unit 4: упражнения 1–4' : 'Параграф 12: задачи 1–5'} />
             </Field>
             <Field label="Инструкция">
               <textarea className="textarea" style={{ minHeight: 140 }} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })}
@@ -207,17 +212,17 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
           <section className="panel">
             <div className="panel-head">
               <div>
-                <h2 className="section-title">Отработка слов</h2>
-                <div className="small muted">Упражнения на слова из словаря ученика: сначала забытые и ошибки, потом слова текущего юнита</div>
+                <h2 className="section-title">Отработка {subj.items}</h2>
+                <div className="small muted">Упражнения на {subj.items} из {subj.ofVocab} ученика: сначала забытые и ошибки, потом {subj.items} текущего юнита</div>
               </div>
             </div>
             <label className="check">
               <input type="checkbox" checked={f.vocab} onChange={(e) => setF({ ...f, vocab: e.target.checked })} />
-              <span>Добавить отработку слов</span>
+              <span>Добавить отработку {subj.items}</span>
             </label>
             {f.vocab && (
               <div className="row" style={{ marginTop: 10, paddingLeft: 28 }}>
-                <span className="small muted">Сколько слов</span>
+                <span className="small muted">Сколько карточек</span>
                 <select className="select" style={{ width: 110, height: 38 }} value={f.vocabCount} onChange={(e) => setF({ ...f, vocabCount: e.target.value })}>
                   {[8, 12, 16, 20, 30].map((n) => <option key={n} value={n}>{n}</option>)}
                 </select>
@@ -275,6 +280,7 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
    Страница задания: инструкция, материалы, тест с ключом, работы учеников
    ============================================================ */
 export function AssignmentPage({ id }) {
+  const subj = useSubject();
   const toast = useToast();
   const a = useLoad(() => api.assignment(id), [id]);
   if (a.loading) return <Spinner />;
@@ -306,14 +312,14 @@ export function AssignmentPage({ id }) {
             </div>
           </div>
 
-          {d.description && <p className="instructions" style={{ marginTop: 0 }}>{d.description}</p>}
+          {d.description && <MathText as="p" className="instructions" style={{ marginTop: 0 }}>{d.description}</MathText>}
           {(d.files.length > 0 || d.links.length > 0) && <div style={{ margin: '18px 0' }}><Materials files={d.files} links={d.links} /></div>}
 
           {d.library_item_ids?.length > 0 && <AssignmentTasks ids={d.library_item_ids} showPrivate />}
 
           {d.word_set && (
             <section style={{ marginTop: 24 }}>
-              <h2 className="section-title" style={{ marginBottom: 10 }}>Слова к уроку</h2>
+              <h2 className="section-title" style={{ marginBottom: 10 }}>{subj.Items} к уроку</h2>
               <Link to={`/wordsets/${d.word_set.id}`} className="list-item clickable" style={{ color: 'inherit', textDecoration: 'none', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px' }}>
                 <div className="avatar" style={{ background: 'var(--surface-2)' }}><Icon name="cards" size={20} /></div>
                 <div className="list-main"><div className="list-title">{d.word_set.title}</div><div className="list-sub">{d.word_set.word_count} {plural(d.word_set.word_count, 'карточка', 'карточки', 'карточек')}. Ученик учит их прямо в задании</div></div>
@@ -342,7 +348,7 @@ export function AssignmentPage({ id }) {
                   <div className="list-sub">
                     {s.status === 'assigned' ? (d.due_on && d.due_on < todayISO() ? 'Просрочено' : 'Ещё не сдал') : `Сдано ${relativeDay(s.submitted_at).toLowerCase()} в ${time(s.submitted_at)}`}
                     {s.files_count ? `, файлов: ${s.files_count}` : ''}
-                    {d.word_set ? `. Слова: ${s.set_learned} из ${d.word_set.word_count}${s.set_sessions ? '' : ', не учил'}` : ''}
+                    {d.word_set ? `. Карточки: ${s.set_learned} из ${d.word_set.word_count}${s.set_sessions ? '' : ', не учил'}` : ''}
                   </div>
                 </div>
                 {s.status === 'checked' ? (
@@ -391,6 +397,7 @@ export function ReviewPage({ assignmentId, homeworkId }) {
 }
 
 function ReviewForm({ hw, assignment, items, results, reload }) {
+  const subj = useSubject();
   const toast = useToast();
   const [feedback, setFeedback] = useState(hw.tutor_feedback || '');
   const gamesAvg = averageBest(items, results);
@@ -435,7 +442,7 @@ function ReviewForm({ hw, assignment, items, results, reload }) {
           </div>
 
           <h2 className="section-title" style={{ marginBottom: 8 }}>Ответ</h2>
-          {hw.student_answer ? <p className="instructions" style={{ marginTop: 0 }}>{hw.student_answer}</p> : <p className="muted" style={{ marginTop: 0 }}>Без текста</p>}
+          {hw.student_answer ? <MathText as="p" className="instructions" style={{ marginTop: 0 }}>{hw.student_answer}</MathText> : <p className="muted" style={{ marginTop: 0 }}>Без текста</p>}
 
           <h2 className="section-title" style={{ margin: '22px 0 10px' }}>Файлы ученика</h2>
           {hw.attachments.length ? <Materials files={hw.attachments} /> : <p className="muted" style={{ margin: 0 }}>Файлов нет</p>}
@@ -445,7 +452,7 @@ function ReviewForm({ hw, assignment, items, results, reload }) {
           {hw.vocab_practice && (
             <section style={{ marginTop: 26 }}>
               <div className="row-between">
-                <h2 className="section-title">Отработка слов</h2>
+                <h2 className="section-title">Отработка {subj.items}</h2>
                 <span className="muted small">
                   {hw.vocab_result ? `${hw.vocab_result.correct} из ${hw.vocab_result.total}, ${vocabPct}%` : 'Не пройдена'}
                 </span>
@@ -531,6 +538,7 @@ export function AssignmentTasks({ ids, showPrivate, homework, canPlay }) {
    Слова к уроку: набор карточек внутри задания
    ============================================================ */
 function HomeworkWords({ setId, onSetId, words, onWords }) {
+  const subj = useSubject();
   const sets = useLoad(() => api.wordSets(), []);
   const [mode, setMode] = useState(setId ? 'set' : 'none');
   const current = sets.data?.find((x) => x.id === setId);
@@ -538,19 +546,19 @@ function HomeworkWords({ setId, onSetId, words, onWords }) {
     <section className="panel">
       <div className="panel-head">
         <div>
-          <h2 className="section-title">Слова к уроку</h2>
+          <h2 className="section-title">{subj.Items} к уроку</h2>
           <div className="small muted">Карточки прямо в задании: ученик учит их как в Quizlet, вы видите, сколько выучено</div>
         </div>
       </div>
       <div className="seg" style={{ marginBottom: 12 }}>
-        <button type="button" className={mode === 'none' ? 'on' : ''} onClick={() => { setMode('none'); onSetId(null); onWords([]); }}>Без слов</button>
+        <button type="button" className={mode === 'none' ? 'on' : ''} onClick={() => { setMode('none'); onSetId(null); onWords([]); }}>Без карточек</button>
         <button type="button" className={mode === 'new' ? 'on' : ''} onClick={() => { setMode('new'); onSetId(null); }}>Вставить список</button>
         <button type="button" className={mode === 'set' ? 'on' : ''} onClick={() => setMode('set')}>Готовый набор</button>
       </div>
       {mode === 'new' && (
         <>
-          <WordPaste onWords={(w) => onWords(w)} rows={6} placeholder={'Слова к уроку: слово и перевод через Tab, тире или запятую\n\nhurry up - поторопиться\nbring - приносить\nalways - всегда'} />
-          <div className="small muted" style={{ marginTop: 8 }}>{words.length ? `Создастся набор «Слова: название задания» из ${words.length} карточек. Его можно поправить потом в разделе «Карточки».` : 'Набор создастся при сохранении задания.'}</div>
+          <WordPaste onWords={(w) => onWords(w)} rows={6} placeholder={`${subj.Items} к уроку: ${subj.item[0]} и ${subj.meaning} через Tab, тире или запятую\n\n${subj.lessonExample}`} />
+          <div className="small muted" style={{ marginTop: 8 }}>{words.length ? `Создастся набор «${subj.Items}: название задания» из ${words.length} карточек. Его можно поправить потом в разделе «Карточки».` : 'Набор создастся при сохранении задания.'}</div>
         </>
       )}
       {mode === 'set' && (
@@ -569,7 +577,7 @@ function HomeworkWords({ setId, onSetId, words, onWords }) {
             )}
             {setId && (
               <details style={{ marginTop: 12 }}>
-                <summary className="small" style={{ cursor: 'pointer' }}>Добавить в этот набор ещё слова</summary>
+                <summary className="small" style={{ cursor: 'pointer' }}>Добавить в этот набор ещё {subj.items}</summary>
                 <div style={{ marginTop: 10 }}><WordPaste onWords={(w) => onWords(w)} rows={4} /></div>
               </details>
             )}

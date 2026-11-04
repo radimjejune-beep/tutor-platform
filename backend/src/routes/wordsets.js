@@ -17,7 +17,7 @@ const keyOf = (term) => String(term || '').trim().toLowerCase().slice(0, 200);
 
 const wordSchema = z
   .object({
-    term: z.string().trim().min(1, 'Пустое слово').max(200),
+    term: z.string().trim().min(1, 'Пустая карточка').max(200),
     translation: z.string().trim().max(300).nullable().optional(),
     example: z.string().trim().max(1000).nullable().optional(),
   })
@@ -27,7 +27,7 @@ const setSchema = z
   .object({
     title: z.string().trim().min(1, 'Укажите название').max(200),
     description: z.string().trim().max(2000).nullable().optional(),
-    words: z.array(wordSchema).min(1, 'Добавьте хотя бы одно слово').max(500, 'Не больше 500 слов в наборе'),
+    words: z.array(wordSchema).min(1, 'Добавьте хотя бы одну карточку').max(500, 'Не больше 500 карточек в наборе'),
     for_all: z.boolean().optional(),
     student_ids: ids.optional(),
   })

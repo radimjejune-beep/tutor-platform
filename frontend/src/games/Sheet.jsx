@@ -1,6 +1,7 @@
 // games/Sheet.jsx — лист с заданиями: из фото учебника или тетради делается интерактивное задание
 // Блоки: текст, пропуски, выбор ответа, развёрнутый ответ, ответ голосом, фото страницы с полями поверх.
 // К любому блоку можно прикрепить аудио (аудирование), к тексту ещё и картинку.
+import { MathText } from '../components/MathText';
 import { createContext, useContext, useEffect, useId, useRef, useState } from 'react';
 import { api } from '../api';
 import { Icon, useToast } from '../ui';
@@ -66,7 +67,7 @@ export function SheetBoard({ game, answers, setAnswers, result }) {
             <div key={i} className="sheet-block sheet-text">
               {yt && <div className="mat-yt"><iframe src={`https://www.youtube-nocookie.com/embed/${yt}`} title="Видео" allow="accelerometer; encrypted-media; picture-in-picture; fullscreen" allowFullScreen /></div>}
               {blk.video && !yt && <a className="mat-link" href={blk.video} target="_blank" rel="noreferrer"><span className="mat-link-text"><span className="mat-link-title">Видео</span><span className="mat-link-url">{blk.video.replace(/^https?:\/\/(www\.)?/, '')}</span></span></a>}
-              {blk.text && <div className="sheet-instr">{blk.text}</div>}
+              {blk.text && <MathText as="div" className="sheet-instr">{blk.text}</MathText>}
               {blk.image && <FileImage id={blk.image} className="sheet-pic" />}
               {audio}
             </div>
@@ -106,14 +107,14 @@ export function SheetBoard({ game, answers, setAnswers, result }) {
           return (
             <div key={i} className="sheet-block">
               {audio}
-              {blk.q && <div className="sheet-q"><span className="sheet-n">{n}</span>{blk.q}</div>}
+              {blk.q && <div className="sheet-q"><span className="sheet-n">{n}</span><MathText>{blk.q}</MathText></div>}
               <div className="sheet-options" role="radiogroup">
                 {blk.options.map((o, j) => {
                   const chosen = Number(b[i]) === j && b[i] !== undefined && b[i] !== null;
                   const cls = d ? (j === blk.correct ? 'ok' : chosen ? 'bad' : '') : chosen ? 'on' : '';
                   return (
                     <button type="button" key={j} role="radio" aria-checked={chosen} className={`sheet-opt ${cls}`} disabled={checked} onClick={() => set(i, j)}>
-                      {o}
+                      <MathText>{o}</MathText>
                     </button>
                   );
                 })}
@@ -126,7 +127,7 @@ export function SheetBoard({ game, answers, setAnswers, result }) {
           return (
             <div key={i} className="sheet-block">
               {audio}
-              {blk.q && <div className="sheet-q"><span className="sheet-n">{n}</span>{blk.q}</div>}
+              {blk.q && <div className="sheet-q"><span className="sheet-n">{n}</span><MathText>{blk.q}</MathText></div>}
               <textarea className="textarea" value={b[i] || ''} disabled={checked} placeholder="Ваш ответ" onChange={(e) => set(i, e.target.value)} />
               {checked && <div className="small muted">Этот ответ проверит преподаватель.</div>}
             </div>
@@ -137,7 +138,7 @@ export function SheetBoard({ game, answers, setAnswers, result }) {
           return (
             <div key={i} className="sheet-block">
               {audio}
-              {blk.q && <div className="sheet-q"><span className="sheet-n">{n}</span>{blk.q}</div>}
+              {blk.q && <div className="sheet-q"><span className="sheet-n">{n}</span><MathText>{blk.q}</MathText></div>}
               <VoiceAnswer value={b[i]} disabled={checked} onChange={(id) => set(i, id)} />
             </div>
           );

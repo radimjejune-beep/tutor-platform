@@ -44,7 +44,7 @@ export default function Words({ student, isParent }) {
       {session ? (
         <section className="panel">
           <div className="row-between" style={{ marginBottom: 12 }}>
-            <h2 className="section-title">{session === 'study' ? 'Мой словарь целиком' : session === 'practice' ? 'Тренировка' : 'Повторение'}</h2>
+            <h2 className="section-title">{session === 'study' ? `${subj.myVocab} целиком` : session === 'practice' ? 'Тренировка' : 'Повторение'}</h2>
             <button className="btn btn-quiet btn-sm" onClick={close}><Icon name="close" /> Закрыть</button>
           </div>
           {session === 'practice' && <VocabPractice studentId={student.id} subject={student.subject} count={12} onDone={close} />}
@@ -65,7 +65,7 @@ export default function Words({ student, isParent }) {
               <h2 className="section-title">Наборы карточек</h2>
               {sets.length > 0 && <span className="small muted">{sets.length} {plural(sets.length, 'набор', 'набора', 'наборов')}</span>}
             </div>
-            {!sets.length && <p className="muted small" style={{ margin: 0 }}>Преподаватель пока не добавил наборы. Пока можно учить свой словарь ниже или добавить свои {subj.isLang ? 'слова' : 'термины'}.</p>}
+            {!sets.length && <p className="muted small" style={{ margin: 0 }}>Преподаватель пока не добавил наборы. Пока можно учить {subj.myVocab.toLowerCase()} ниже или добавить свои {subj.isLang ? 'слова' : 'термины'}.</p>}
             <div className="set-grid">
               {sets.map((s) => (
                 <Link key={s.id} to={`/words/set/${s.id}`} className="set-card">
@@ -80,7 +80,7 @@ export default function Words({ student, isParent }) {
 
           <section className="panel words-hero">
             <div>
-              <h2 className="section-title" style={{ marginBottom: 12 }}>Мой словарь</h2>
+              <h2 className="section-title" style={{ marginBottom: 12 }}>{subj.myVocab}</h2>
               <VocabStats stats={stats} />
             </div>
             <div className="row wrap" style={{ gap: 8 }}>
@@ -129,7 +129,7 @@ function AddMine({ student, subj, onClose, onSaved }) {
   return (
     <Modal title={subj.isLang ? 'Добавить свои слова' : 'Добавить свои термины'} onClose={onClose} wide>
       <p className="small muted" style={{ marginTop: 0 }}>Вставь список из заметок, Word или Quizlet: {subj.isLang ? 'слово' : 'термин'} и {subj.meaning} через Tab, тире или запятую, каждая карточка с новой строки.</p>
-      <WordPaste onWords={(w) => setWords(w)} autoFocus rows={7} />
+      <WordPaste onWords={(w) => setWords(w)} autoFocus rows={7} subject={student?.subject} />
       {words.length > 300 && <div className="small" style={{ color: 'var(--danger)' }}>За раз можно добавить до 300 карточек.</div>}
       {error && <div className="alert" style={{ marginTop: 12 }}>{error}</div>}
       <div className="modal-actions">

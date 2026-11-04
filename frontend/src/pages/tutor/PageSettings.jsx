@@ -1,4 +1,5 @@
 // pages/tutor/PageSettings.jsx — настройки страницы записи и лиги учеников
+import { useSubject } from '../../subjects';
 import { useState } from 'react';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Field, useSubmit, useToast } from '../../ui';
@@ -11,6 +12,7 @@ export default function PageSettings() {
 }
 
 function Form({ p }) {
+  const subj = useSubject();
   const toast = useToast();
   const [f, setF] = useState({ enabled: p.enabled, about: p.about, price_text: p.price_text, subjects: p.subjects, league_enabled: p.league_enabled });
   const link = `${window.location.origin}${window.location.pathname}#/join/${p.login}`;
@@ -25,12 +27,12 @@ function Form({ p }) {
         <h2 className="section-title">Страница записи</h2>
         <label className="check">
           <input type="checkbox" checked={f.enabled} onChange={(e) => setF({ ...f, enabled: e.target.checked })} />
-          <span>Включить страницу: новые ученики оставляют заявку (для английского ещё и проходят тест уровня)</span>
+          <span>Включить страницу: новые ученики оставляют заявку{subj.english ? ' и проходят короткий тест уровня английского' : ''}</span>
         </label>
         <Field label="Предметы"><input className="input" value={f.subjects} onChange={set('subjects')} placeholder="Математика, ОГЭ, ЕГЭ" /></Field>
         <Field label="О себе" hint="Опыт, подход, кому подойдёт. Видят все, у кого есть ссылка">
           <textarea className="textarea" style={{ minHeight: 140 }} value={f.about} onChange={set('about')}
-            placeholder="Преподаю английский 5 лет. Готовлю к ОГЭ и ЕГЭ, занимаюсь с детьми с 8 лет. Уроки онлайн, в игровом формате для младших." />
+            placeholder={subj.about} />
         </Field>
         <Field label="Цена" hint="Как показать стоимость"><input className="input" value={f.price_text} onChange={set('price_text')} placeholder="Занятие 60 минут: от 1500 ₽. Пробное бесплатно" /></Field>
         {f.enabled && (

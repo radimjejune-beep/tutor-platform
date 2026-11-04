@@ -1,4 +1,5 @@
 // pages/tutor/Courses.jsx — курсы по учебнику: юниты, материалы к уроку, ДЗ и слова каждого юнита
+import { useSubject } from '../../subjects';
 import { useState } from 'react';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Icon, Link, navigate, Modal, Field, useSubmit, useToast } from '../../ui';
@@ -181,6 +182,7 @@ export function CourseEditor({ id }) {
 const vocabToText = (vocab = []) => vocab.map((w) => [w.term, w.translation, w.example].filter(Boolean).join(' — ')).join('\n');
 
 function UnitEditor({ unit, courseId, onClose, onSaved }) {
+  const subj = useSubject();
   const toast = useToast();
   const [code, setCode] = useState(unit?.code || '');
   const [title, setTitle] = useState(unit?.title || '');
@@ -241,9 +243,9 @@ function UnitEditor({ unit, courseId, onClose, onSaved }) {
         </div>
       </div>
 
-      <Field label="Слова юнита" hint="По одному на строку: слово — перевод — пример. Попадут в словарь ученика, когда он перейдёт на юнит">
+      <Field label={`${subj.Items} юнита`} hint={`По одному на строку: ${subj.item[0]} — ${subj.meaning} — пример. Попадут ${subj.toVocab} ученика, когда он перейдёт на юнит`}>
         <textarea className="textarea" style={{ minHeight: 140 }} value={vocab} onChange={(e) => setVocab(e.target.value)}
-          placeholder={'keen on — увлекаться\nproud of — гордиться — Are you proud of your sister?'} />
+          placeholder={subj.lessonExample.replace(/ - /g, ' — ')} />
       </Field>
 
       {save.error && <div className="alert">{save.error}</div>}

@@ -44,16 +44,16 @@ export default function SetStudy({ id, student }) {
     setLevels(new Map(r.words.map((w) => [w.term, w.level])));
     setProgress(r.progress);
     const missed = results.filter((x) => !x.ok).length;
-    return `Сохранено. Выучено ${r.progress.learned} из ${r.progress.total}.${missed && ['learn', 'write', 'test'].includes(mode) ? ' Ошибки добавлены в словарь на повторение.' : ''}`;
+    return `Сохранено. Выучено ${r.progress.learned} из ${r.progress.total}.${missed && ['learn', 'write', 'test'].includes(mode) ? ` Ошибки добавлены ${subj.toVocab} на повторение.` : ''}`;
   };
   const toVocab = async () => {
     try {
       const r = await api.setToVocab(id, student.id);
-      toast(r.added ? `В словарь добавлено: ${r.added}` : 'Все слова уже есть в словаре');
+      toast(r.added ? `Добавлено ${subj.toVocab}: ${r.added}` : `Все ${subj.items} уже есть ${subj.inVocab}`);
     } catch (err) { toast(err.message, 'error'); }
   };
   const reset = async () => {
-    if (!window.confirm('Начать набор заново? Прогресс по словам обнулится.')) return;
+    if (!window.confirm('Начать набор заново? Прогресс по карточкам обнулится.')) return;
     try {
       await api.resetSet(id, student.id);
       setLevels(null); setProgress(null); set.reload();
@@ -95,7 +95,7 @@ export default function SetStudy({ id, student }) {
           </table>
         )}
         <div className="row wrap" style={{ gap: 8, marginTop: showList ? 14 : 0 }}>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={toVocab}><Icon name="plus" /> В мой словарь на повторение</button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={toVocab}><Icon name="plus" /> {subj.isLang ? 'В мой словарь' : 'В мои термины'} на повторение</button>
           <button type="button" className="btn btn-quiet btn-sm" onClick={reset}>Начать заново</button>
         </div>
       </section>

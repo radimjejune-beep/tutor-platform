@@ -1,4 +1,6 @@
 // pages/tutor/Library.jsx — библиотека преподавателя: теория и задачник
+import { useSubject } from '../../subjects';
+import FormulaBar from '../../components/FormulaBar';
 import { useState } from 'react';
 import { api } from '../../api';
 import { useAuth } from '../../auth';
@@ -226,6 +228,7 @@ function AddToLessonModal({ itemIds, onClose, onDone }) {
    Просмотр и редактирование материала
    ============================================================ */
 export function LibraryEditor({ id, presetKind }) {
+  const tagHint = useSubjectTags();
   const item = useLoad(() => (id ? api.libraryItem(id) : Promise.resolve(null)), [id]);
   const facets = useLoad(() => api.libraryFacets(), []);
   if (item.loading || facets.loading) return <Spinner />;
@@ -312,6 +315,7 @@ function EditorForm({ item, presetKind, facets, reload }) {
       ) : (
         <form className="assign-layout" onSubmit={save.submit}>
           <section className="panel form">
+            <FormulaBar />
             {isNew && (
               <div className="row" style={{ gap: 6 }}>
                 {Object.entries(KINDS).map(([k, label]) => (
@@ -388,7 +392,7 @@ function EditorForm({ item, presetKind, facets, reload }) {
               </Field>
             </div>
             <Field label="Теги" hint={`Через запятую${facets.tags.length ? `. Уже есть: ${facets.tags.slice(0, 8).join(', ')}` : ''}`}>
-              <input className="input" value={f.tags} onChange={(e) => setF({ ...f, tags: e.target.value })} placeholder="словообразование, сложное" />
+              <input className="input" value={f.tags} onChange={(e) => setF({ ...f, tags: e.target.value })} placeholder={tagHint} />
             </Field>
             <Field label="Комментарий к задаче" hint="Видите только вы: для какого задания, на что обратить внимание">
               <textarea className="textarea" style={{ minHeight: 80 }} value={f.tutor_note} onChange={(e) => setF({ ...f, tutor_note: e.target.value })}
@@ -548,4 +552,10 @@ function HtmlUpload({ f, setF }) {
       {show && f.html && <div style={{ marginTop: 10 }}><HtmlLesson html={f.html} /></div>}
     </Field>
   );
+}
+
+// Пример тегов под предмет репетитора
+function useSubjectTags() {
+  const subj = useSubject();
+  return subj.isLang ? 'словообразование, сложное' : subj.formulas ? 'дроби, проценты, сложное' : 'реформы, XIX век, сложное';
 }

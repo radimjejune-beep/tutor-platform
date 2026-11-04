@@ -1,4 +1,5 @@
 // pages/client/HomeworkPage.jsx — задание глазами ученика (как в Google Classroom)
+import { MathText } from '../../components/MathText';
 import { useState } from 'react';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Badge, Icon, Link, Field, useToast, useSubmit } from '../../ui';
@@ -56,7 +57,7 @@ function HomeworkView({ h, isParent, reload }) {
             </div>
           </div>
 
-          {h.description && <p className="instructions" style={{ marginTop: 0 }}>{h.description}</p>}
+          {h.description && <MathText as="p" className="instructions" style={{ marginTop: 0 }}>{h.description}</MathText>}
           {(h.materials.length > 0 || h.links.length > 0) && (
             <div style={{ margin: '18px 0' }}>
               <Materials files={h.materials} links={h.links} />
@@ -133,7 +134,7 @@ function HomeworkView({ h, isParent, reload }) {
             </div>
           ) : (
             <>
-              {h.student_answer && <p className="instructions" style={{ marginBottom: 0 }}>{h.student_answer}</p>}
+              {h.student_answer && <MathText as="p" className="instructions" style={{ marginBottom: 0 }}>{h.student_answer}</MathText>}
               {h.status === 'submitted' && (
                 <div style={{ marginTop: 14 }}>
                   <div className="small muted">Сдано {relativeDay(h.submitted_at).toLowerCase()} в {time(h.submitted_at)}</div>

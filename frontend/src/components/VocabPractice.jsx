@@ -1,5 +1,6 @@
 // components/VocabPractice.jsx — отработка слов из личного словаря: пары, выбор перевода,
 // напиши слово, вставь в предложение, услышь и выбери. Каждое слово сдвигается в повторении
+import { MathText } from './MathText';
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import { Spinner, Empty, Icon, useToast } from '../ui';
@@ -110,8 +111,8 @@ export default function VocabPractice({ studentId, subject, homeworkId, lessonId
       <div className="bar" style={{ marginTop: 10 }}><span style={{ width: `${(step / tasks.length) * 100}%` }} /></div>
 
       <div className="practice-q">
-        {t.kind === 'choose' && <span className="serif flash-big">{w.term}</span>}
-        {t.kind === 'type' && <span className="serif flash-big">{w.translation}</span>}
+        {t.kind === 'choose' && <span className="serif flash-big"><MathText>{w.term}</MathText></span>}
+        {t.kind === 'type' && <span className="serif flash-big"><MathText>{w.translation}</MathText></span>}
         {t.kind === 'gap' && <span className="serif practice-gap">{t.text}</span>}
         {t.kind === 'gap' && w.translation && <span className="small muted">Подсказка: {w.translation}</span>}
         {t.kind === 'listen' && (
@@ -124,7 +125,7 @@ export default function VocabPractice({ studentId, subject, homeworkId, lessonId
           {t.options.map((o) => {
             const right = t.kind === 'choose' ? o === w.translation : o === w.term;
             const cls = state ? (right ? 'ok' : state.given === o ? 'bad' : '') : '';
-            return <button key={o} type="button" className={`practice-opt ${cls}`} disabled={Boolean(state)} onClick={() => check(o)}>{o}</button>;
+            return <button key={o} type="button" className={`practice-opt ${cls}`} disabled={Boolean(state)} onClick={() => check(o)}><MathText>{o}</MathText></button>;
           })}
         </div>
       )}

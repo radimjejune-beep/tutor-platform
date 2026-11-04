@@ -1,4 +1,5 @@
 // components/Quiz.jsx — тест: редактор (преподаватель) и прохождение / разбор (ученик)
+import { MathText } from './MathText';
 import { Icon } from '../ui';
 import { plural } from '../format';
 
@@ -141,7 +142,7 @@ export function QuizForm({ questions, answers = {}, onChange, mode = 'answer', r
         return (
           <div key={q.id} className={`question ${res === true ? 'ok' : res === false ? 'bad' : ''}`}>
             <div className="question-head">
-              <div className="question-prompt">{i + 1}. {q.prompt}</div>
+              <div className="question-prompt">{i + 1}. <MathText>{q.prompt}</MathText></div>
               <div className="question-points">{pointsWord(q.points)}</div>
             </div>
 
@@ -153,7 +154,7 @@ export function QuizForm({ questions, answers = {}, onChange, mode = 'answer', r
                 return (
                   <label key={k} className={`option ${cls}`} style={editable ? undefined : { cursor: 'default' }}>
                     <input type="radio" name={`q-${q.id}`} checked={selected} disabled={!editable} onChange={() => setAnswer(q.id, k)} />
-                    {o}
+                    <MathText>{o}</MathText>
                   </label>
                 );
               })
@@ -164,7 +165,7 @@ export function QuizForm({ questions, answers = {}, onChange, mode = 'answer', r
             )}
 
             {mode === 'key' && q.type === 'text' && (
-              <div className="answer-note ok">Правильно: {q.correct.join(' / ')}</div>
+              <div className="answer-note ok">Правильно: <MathText>{q.correct.join(' / ')}</MathText></div>
             )}
             {res === true && <div className="answer-note ok">Верно</div>}
             {res === false && (

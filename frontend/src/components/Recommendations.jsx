@@ -1,5 +1,6 @@
 // components/Recommendations.jsx — «Что повторить»: сайт сам подсказывает слабые темы
 // Ученику: со ссылками на задание, словарь, набор карточек. Репетитору: куда смотреть перед уроком.
+import { useSubject } from '../subjects';
 import { api } from '../api';
 import { useLoad, Icon, Link } from '../ui';
 
@@ -24,6 +25,7 @@ function tutorLink(r, studentId) {
 }
 
 export default function Recommendations({ studentId, tutor, compact }) {
+  const subj = useSubject();
   const rec = useLoad(() => api.recommendations(studentId), [studentId]);
   if (!rec.data) return null;
   const { items, more, strong } = rec.data;
@@ -41,7 +43,7 @@ export default function Recommendations({ studentId, tutor, compact }) {
     <section className="panel rec">
       <div className="panel-head">
         <h2 className="section-title">{tutor ? 'Что подтянуть' : 'Что повторить'}</h2>
-        <span className="small muted">{tutor ? 'по результатам упражнений, заданий и словаря' : 'сайт подобрал сам по твоим результатам'}</span>
+        <span className="small muted">{tutor ? `по результатам упражнений, заданий и ${subj.ofVocab}` : 'сайт подобрал сам по твоим результатам'}</span>
       </div>
       <div className="rec-list">
         {list.map((r, i) => {

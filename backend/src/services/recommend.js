@@ -25,8 +25,23 @@ function topicsOf(item) {
   return [...new Set(t)];
 }
 
+// Языки учат слова с переводом, остальные предметы термины с определением
+async function vocabWords(studentId) {
+  const { rows } = await query(
+    `SELECT COALESCE(NULLIF(s.subject, ''), NULLIF(u.subject, ''), 'Английский язык') AS subject
+       FROM students s LEFT JOIN users u ON u.id = s.tutor_id WHERE s.id = $1`,
+    [studentId]
+  );
+  const subject = rows[0]?.subject || 'Английский язык';
+  const lang = /язык/i.test(subject) && !/^русский язык$/i.test(subject);
+  return lang
+    ? { forms: ['слово', 'слова', 'слов'], Items: 'Слова', where: 'в словаре' }
+    : { forms: ['термин', 'термина', 'терминов'], Items: 'Термины', where: 'в терминах' };
+}
+
 async function recommendations(studentId) {
   const recs = [];
+  const vw = await vocabWords(studentId);
   const strong = [];
 
   // ---------- Упражнения: последняя попытка по каждому за 90 дней ----------
@@ -99,7 +114,7 @@ async function recommendations(studentId) {
   if (forgotten.length) {
     recs.push({
       kind: 'words',
-      title: 'Слова, которые часто забываются',
+      title: `${vw.Items}, которые часто забываются`,
       reason: forgotten.map((w) => w.term).join(', '),
       priority: 45 + forgotten.length * 4,
       link: '/words',
@@ -107,7 +122,7 @@ async function recommendations(studentId) {
   }
   const { rows: due } = await query('SELECT COUNT(*)::int AS n FROM vocab_items WHERE student_id = $1 AND due_on <= CURRENT_DATE', [studentId]);
   if (due[0].n >= 10) {
-    recs.push({ kind: 'due', title: `Повторить ${due[0].n} ${plural(due[0].n, 'слово', 'слова', 'слов')}`, reason: 'накопились в словаре, займёт 5-10 минут', priority: 30 + Math.min(due[0].n, 40), link: '/words' });
+    recs.push({ kind: 'due', title: `Повторить ${due[0].n} ${plural(due[0].n, ...vw.forms)}`, reason: `накопились ${vw.where}, займёт 5-10 минут`, priority: 30 + Math.min(due[0].n, 40), link: '/words' });
   }
 
   // ---------- Наборы карточек: начаты и брошены или не начаты ----------
@@ -123,7 +138,7 @@ async function recommendations(studentId) {
     const left = s.total - s.learned;
     if (left <= 0) continue;
     if (!s.last) {
-      if (days(s.created_at) >= 2) recs.push({ kind: 'set', title: `Набор «${s.title}»`, reason: `ещё не начат, ${s.total} ${plural(s.total, 'слово', 'слова', 'слов')}`, priority: 35, link: `/words/set/${s.id}` });
+      if (days(s.created_at) >= 2) recs.push({ kind: 'set', title: `Набор «${s.title}»`, reason: `ещё не начат, ${s.total} ${plural(s.total, 'карточка', 'карточки', 'карточек')}`, priority: 35, link: `/words/set/${s.id}` });
     } else if (days(s.last) >= 4) {
       recs.push({ kind: 'set', title: `Доучить набор «${s.title}»`, reason: `осталось ${left} из ${s.total}, последний раз ${ago(s.last)}`, priority: 38 + Math.min(left, 20), link: `/words/set/${s.id}` });
     }

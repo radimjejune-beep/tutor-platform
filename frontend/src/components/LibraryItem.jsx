@@ -1,5 +1,6 @@
 // components/LibraryItem.jsx — карточка материала библиотеки (теория или задача)
 // showPrivate — показывать ответ и заметку преподавателя
+import { MathText } from './MathText';
 import { Badge, Icon } from '../ui';
 import { FileList } from './Files';
 import GamePlayer from '../games/Players';
@@ -35,7 +36,7 @@ export default function LibraryItem({ item, index, showPrivate, actions, onGameF
         </div>
         {actions}
       </div>
-      {item.body && <div className="instructions" style={{ marginTop: 14 }}>{item.body}</div>}
+      {item.body && <MathText as="div" className="instructions" style={{ marginTop: 14 }}>{item.body}</MathText>}
       {item.kind === 'game' && item.game && (
         <div style={{ marginTop: 14 }}>
           <GamePlayer game={item.game} onFinish={onGameFinish} footer={gameExtra} />
@@ -63,7 +64,7 @@ export default function LibraryItem({ item, index, showPrivate, actions, onGameF
           {item.answer && (
             <details>
               <summary>Ответ</summary>
-              <div className="instructions">{item.answer}</div>
+              <MathText as="div" className="instructions">{item.answer}</MathText>
             </details>
           )}
         </div>

@@ -206,13 +206,15 @@ const PH_HINT = {
   '[e-mail или Telegram]': { label: 'Почта или Telegram для связи и претензий', placeholder: 'name@mail.ru или @username' },
   '[предварительно / после Занятия]': { label: 'Когда ученик платит за занятие', options: ['предварительно', 'после Занятия'] },
   '[проверить у хостинга и указать]': { label: 'Где хранятся данные', value: 'на серверах хостинга RelaxDev в Российской Федерации', hint: 'Сервер должен быть в России (ч. 5 ст. 18 152-ФЗ). Город и юрлицо хостинга уточните в поддержке RelaxDev.' },
+  '[предмет]': { label: 'Предмет', hint: 'Как он записан в оферте: «индивидуальные занятия по предмету …»' },
   '[3 года]': { label: 'Сколько хранить данные после окончания занятий', value: '3 года' },
 };
 
 function FillPlaceholders({ docs, onDone }) {
   const toast = useToast();
   const all = [...new Set(docs.flatMap((d) => (d.body + ' ' + d.title).match(/\[[^\]]+\]/g) || []))];
-  const [vals, setVals] = useState(() => Object.fromEntries(all.map((p) => [p, PH_HINT[p]?.value || ''])));
+  const { user } = useAuth();
+  const [vals, setVals] = useState(() => Object.fromEntries(all.map((p) => [p, p === '[предмет]' ? (user.subject || '').toLowerCase() : PH_HINT[p]?.value || ''])));
   const filled = all.filter((p) => vals[p].trim());
   const { busy, error, submit } = useSubmit(async () => {
     if (vals['[ИНН]'] && !/^\d{12}$/.test(vals['[ИНН]'].trim())) throw new Error('ИНН физического лица состоит из 12 цифр');

@@ -1,6 +1,7 @@
 // components/WordPaste.jsx — вставка слов списком, как импорт в Quizlet.
 // Скопировали таблицу из Word, Excel, Google Таблиц или Quizlet: слово и перевод разделены Tab,
 // карточки идут с новой строки. Можно выбрать другой разделитель или свой символ.
+import { useSubject } from '../subjects';
 import { useEffect, useMemo, useState } from 'react';
 
 const TERM_SEPS = [
@@ -51,7 +52,8 @@ export function parseCards(text, { termSep = 'auto', cardSep = 'line', customTer
   return out;
 }
 
-export default function WordPaste({ onWords, autoFocus, rows = 8, placeholder }) {
+export default function WordPaste({ onWords, autoFocus, rows = 8, placeholder, subject }) {
+  const subj = useSubject(subject);
   const [text, setText] = useState('');
   const [termSep, setTermSep] = useState('auto');
   const [cardSep, setCardSep] = useState('line');
@@ -81,12 +83,12 @@ export default function WordPaste({ onWords, autoFocus, rows = 8, placeholder })
             requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = a + 1; });
           }
         }}
-        placeholder={placeholder || 'Вставьте список из Word, Excel, Google Таблиц или Quizlet.\n\nkeen on\tувлекаться\nproud of\tгордиться\nget on well with\tладить с\n\nМожно и так: keen on - увлекаться'}
+        placeholder={placeholder || `Вставьте список из Word, Excel, Google Таблиц или Quizlet.\n\n${subj.pasteExample}`}
         spellCheck={false}
       />
       <div className="paste-opts">
         <div>
-          <div className="meta-label">Между словом и переводом</div>
+          <div className="meta-label">Между {subj.itemIns} и {subj.meaningIns}</div>
           <div className="seg">
             {TERM_SEPS.map((o) => <button type="button" key={o.k} className={termSep === o.k ? 'on' : ''} onClick={() => setTermSep(o.k)}>{o.label}</button>)}
             {termSep === 'custom' && <input className="input paste-custom" value={customTerm} onChange={(e) => setCustomTerm(e.target.value)} placeholder="напр. :" maxLength={5} aria-label="Свой разделитель" />}
@@ -100,18 +102,18 @@ export default function WordPaste({ onWords, autoFocus, rows = 8, placeholder })
             {cardSep === 'custom' && <input className="input paste-custom" value={customCard} onChange={(e) => setCustomCard(e.target.value)} placeholder="напр. |" maxLength={5} aria-label="Свой разделитель карточек" />}
           </div>
         </div>
-        <label className="check"><input type="checkbox" checked={swap} onChange={(e) => setSwap(e.target.checked)} /> Сначала перевод, потом слово (поменять местами)</label>
+        <label className="check"><input type="checkbox" checked={swap} onChange={(e) => setSwap(e.target.checked)} /> Сначала {subj.meaning}, потом {subj.item[0]} (поменять местами)</label>
       </div>
       {words.length > 0 && (
         <div className="paste-preview">
           <div className="row-between" style={{ marginBottom: 6 }}>
             <span className="meta-label">Получится карточек: {words.length}</span>
-            {noTranslation > 0 && <span className="small" style={{ color: 'var(--danger)' }}>Без перевода: {noTranslation}. Проверьте разделитель</span>}
+            {noTranslation > 0 && <span className="small" style={{ color: 'var(--danger)' }}>Без {subj.meaningGen}: {noTranslation}. Проверьте разделитель</span>}
           </div>
           <table className="paste-table">
             <tbody>
               {words.slice(0, 6).map((w, i) => (
-                <tr key={i}><td>{w.term}</td><td className={w.translation ? '' : 'muted'}>{w.translation || 'нет перевода'}</td></tr>
+                <tr key={i}><td>{w.term}</td><td className={w.translation ? '' : 'muted'}>{w.translation || `нет ${subj.meaningGen}`}</td></tr>
               ))}
             </tbody>
           </table>

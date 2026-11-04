@@ -1,4 +1,5 @@
 // components/Vocab.jsx — личный словарь: карточки с интервальным повторением, список слов, добавление
+import { MathText } from './MathText';
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
 import { Modal, Field, useSubmit, useToast, Icon, Empty, Spinner } from '../ui';
@@ -79,7 +80,7 @@ export function FlashSession({ studentId, subject, onDone }) {
         <div className="serif flash-big">Готово</div>
         <p className="muted">
           {stats.again ? `С первого раза: ${stats.known}. Повторили ещё раз: ${stats.again}.` : 'Всё с первого раза.'}{' '}
-          Следующее повторение словарь назначит сам.
+          Следующее повторение сайт назначит сам.
         </p>
         <button className="btn" onClick={onDone}>Закрыть</button>
       </div>
@@ -118,11 +119,11 @@ export function FlashSession({ studentId, subject, onDone }) {
       <button className={`flash-card ${flipped ? 'flipped' : ''}`} onClick={() => { setFlipped(!flipped); if (!flipped && dir === 'ru') speak(w.term); }}>
         <span className="flash-inner">
           <span className="flash-face">
-            <span className="serif flash-big" style={front.length > 36 ? { fontSize: 26 } : undefined}>{front}</span>
+            <span className="serif flash-big" style={front.length > 36 ? { fontSize: 26 } : undefined}><MathText>{front}</MathText></span>
             <span className="small muted">{w.source === 'mistake' ? 'было с ошибкой · ' : ''}нажмите, чтобы перевернуть</span>
           </span>
           <span className="flash-face flash-back">
-            <span className="serif flash-big">{back}</span>
+            <span className="serif flash-big"><MathText>{back}</MathText></span>
             {w.example && <span className="flash-example">{w.example}</span>}
           </span>
         </span>
@@ -178,8 +179,8 @@ export function VocabList({ items, tutor, onChanged }) {
                 {canSpeak() && <button className="icon-btn" aria-label="Послушать" onClick={() => speak(w.term)}><Icon name="sound" size={16} /></button>}
               </td>
               <td className="vocab-term">
-                <span className="serif">{w.term}</span>
-                {w.translation && <span className="vocab-tr-sm">{w.translation}</span>}
+                <span className="serif"><MathText>{w.term}</MathText></span>
+                {w.translation && <span className="vocab-tr-sm"><MathText>{w.translation}</MathText></span>}
                 {w.example && <span className="small muted vocab-example">{w.example}</span>}
               </td>
               <td className="vocab-tr">{w.translation || <span className="muted">—</span>}</td>
@@ -250,7 +251,7 @@ export function AddWordsModal({ studentId, subject, onClose, onSaved }) {
     <Modal title={subj.isLang ? 'Добавить слова' : 'Добавить термины'} onClose={onClose} wide>
       <form className="form" onSubmit={save.submit}>
         <div className="small muted">{subj.addHint}. Можно вставить две колонки из Word, Excel или экспорт из Quizlet.</div>
-        <WordPaste onWords={(w) => setWords(w)} autoFocus />
+        <WordPaste onWords={(w) => setWords(w)} autoFocus subject={subject} />
         {save.error && <div className="alert">{save.error}</div>}
         <div className="modal-actions">
           <button type="button" className="btn btn-secondary" onClick={onClose}>Отмена</button>

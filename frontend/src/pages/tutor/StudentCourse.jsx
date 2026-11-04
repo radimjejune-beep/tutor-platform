@@ -8,6 +8,7 @@ import { plural, dayMonth, time } from '../../format';
 import { useSubject } from '../../subjects';
 
 export function CourseTab({ student, onChange }) {
+  const subj = useSubject(student.subject);
   const toast = useToast();
   const data = useLoad(() => Promise.all([api.studentCourse(student.id), api.courses()]), [student.id]);
   const [busy, setBusy] = useState(false);
@@ -20,7 +21,7 @@ export function CourseTab({ student, onChange }) {
     setBusy(true);
     try {
       const r = await fn();
-      const extra = r?.vocab_added ? `, в словарь добавлено ${r.vocab_added} ${plural(r.vocab_added, 'слово', 'слова', 'слов')}` : '';
+      const extra = r?.vocab_added ? `, ${subj.toVocab} добавлено ${r.vocab_added} ${plural(r.vocab_added, ...subj.item)}` : '';
       toast(`${msg}${extra}`);
       data.reload();
       onChange?.();
@@ -93,10 +94,10 @@ export function CourseTab({ student, onChange }) {
       <section className="panel">
         <h2 className="section-title" style={{ marginBottom: 12 }}>Как это работает</h2>
         <ol className="steps" style={{ marginTop: 0 }}>
-          <li>Когда ученик переходит на юнит, слова юнита сами попадают в его словарь.</li>
+          <li>Когда ученик переходит на юнит, {subj.items} юнита сами попадают {subj.toVocab.replace('мои', 'его')}.</li>
           <li>В комнате урока кнопка «Материалы юнита» добавляет упражнения в урок.</li>
           <li>«Завершить урок» отмечает занятие, выдаёт ДЗ по юниту и может перевести на следующий.</li>
-          <li>Ошибки в упражнениях попадают в словарь, ученик повторяет их по карточкам.</li>
+          <li>Ошибки в упражнениях попадают {subj.toVocab.replace('мои', 'его')}, ученик повторяет их по карточкам.</li>
         </ol>
       </section>
     </div>
