@@ -13,6 +13,7 @@ const { requireRole } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { BOOKS, bookById, unitOf } = require('../bank/books');
 const { vocabOf } = require('../bank/vocab');
+const { folderForUnit } = require('../services/folders');
 
 const router = express.Router();
 router.use(requireRole('tutor'));
@@ -84,10 +85,12 @@ router.post(
       if (had[0]) return { library_id: had[0].library_id, again: true };
       const book = bookById(b.book);
       const tags = [...new Set([...(b.tags || []), book ? book.short : b.book, `${book ? book.short : b.book} ${b.unit}`, 'банк'])].slice(0, 20);
+      // если есть папка этого учебника и юнита, задание сразу ложится в неё
+      const folder = await folderForUnit(req.user.tid, b.book, b.unit).catch(() => null);
       const { rows: li } = await client.query(
-        `INSERT INTO library_items (kind, subject, title, body, answer, tags, game, tutor_id)
-         VALUES ($1, 'Английский язык', $2, $3, $4, $5, $6, $7) RETURNING id`,
-        [b.kind, b.title, b.body, b.answer, tags, b.game ? JSON.stringify(b.game) : null, req.user.id]
+        `INSERT INTO library_items (kind, subject, title, body, answer, tags, game, tutor_id${folder ? ', folder_id' : ''})
+         VALUES ($1, 'Английский язык', $2, $3, $4, $5, $6, $7${folder ? ', $8' : ''}) RETURNING id`,
+        [b.kind, b.title, b.body, b.answer, tags, b.game ? JSON.stringify(b.game) : null, req.user.id, ...(folder ? [folder] : [])]
       );
       await client.query(
         `INSERT INTO bank_takes (item_id, tutor_id, library_id) VALUES ($1, $2, $3)

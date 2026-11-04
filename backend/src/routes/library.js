@@ -7,6 +7,7 @@ const { requireRole, accessibleStudentIds, requireOwn } = require('../middleware
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { buildUpdate } = require('../utils');
 const { gameSchema } = require('../services/games');
+const { ownFolder, folderWithChildren } = require('../services/folders');
 
 const router = express.Router();
 const tutorOnly = requireRole('tutor');
@@ -17,7 +18,7 @@ const FILE_META = 'id, filename, mime, size_bytes, uploaded_by, created_at';
 // Поля, которые может видеть ученик (без ответа и заметок преподавателя)
 const PUBLIC_FIELDS = 'id, tutor_id, kind, subject, title, body, exam, exam_task, links, game, html';
 // Для списков: всё, кроме самого HTML-урока (он большой и в списке не нужен)
-const LIST_FIELDS = 'id, kind, subject, title, body, answer, exam, exam_task, tags, tutor_note, links, game, favorite, created_at, updated_at';
+const LIST_FIELDS = 'id, kind, subject, title, body, answer, exam, exam_task, tags, tutor_note, links, game, favorite, folder_id, created_at, updated_at';
 const PUBLIC_LIST_FIELDS = 'id, kind, subject, title, body, exam, exam_task, links, game';
 
 // Какие задачи доступны ученику/родителю: из его уроков и его заданий
@@ -63,6 +64,11 @@ router.get(
     const kinds = String(req.query.kind || '').split(',').filter((k) => ['theory', 'task', 'game', 'html'].includes(k));
     const kind = isTutor ? (kinds.length ? kinds : null) : ['theory'];
     const examTask = Number(req.query.exam_task) || null;
+    // ?folder=<id> — папка вместе с подпапками, ?folder=none — без папки
+    let folders = null;
+    let unfiled = false;
+    if (isTutor && req.query.folder === 'none') unfiled = true;
+    else if (isTutor && Number(req.query.folder)) folders = await folderWithChildren(Number(req.query.folder), req.user.tid);
     const { rows } = await query(
       `SELECT ${isTutor ? LIST_FIELDS : PUBLIC_LIST_FIELDS + ', tags, updated_at'}, (html IS NOT NULL) AS has_html,
               (SELECT COUNT(*)::int FROM files f WHERE f.library_item_id = library_items.id) AS files_count
@@ -76,9 +82,11 @@ router.get(
                OR tutor_note ILIKE '%' || $6::text || '%')
           AND tutor_id = $7
           AND ($8::boolean IS NULL OR favorite = $8::boolean)
+          AND ($9::int[] IS NULL OR folder_id = ANY($9::int[]))
+          AND (NOT $10::boolean OR folder_id IS NULL)
         ORDER BY subject, exam NULLS LAST, exam_task NULLS LAST, title`,
       [kind, req.query.subject || null, req.query.exam || null, examTask, req.query.tag || null, (req.query.q || '').trim() || null, req.user.tid,
-        isTutor && req.query.fav === '1' ? true : null]
+        isTutor && req.query.fav === '1' ? true : null, folders, unfiled]
     );
     res.json(rows);
   })
@@ -145,6 +153,7 @@ const fields = {
   links: z.array(z.string().trim().url().max(1000)).max(10),
   game: gameSchema.nullable(),
   html: z.string().max(3_000_000, 'Файл урока слишком большой (больше 3 МБ)').nullable(),
+  folder_id: z.number().int().positive().nullable(),
 };
 
 router.post(
@@ -161,12 +170,14 @@ router.post(
   ),
   asyncHandler(async (req, res) => {
     const b = req.body;
+    const folder = await ownFolder(b.folder_id ?? null, req.user.tid);
+    if (folder === undefined) return res.status(404).json({ error: 'Папка не найдена' });
     const { rows } = await query(
-      `INSERT INTO library_items (kind, subject, title, body, answer, exam, exam_task, tags, tutor_note, links, game, html, tutor_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
+      `INSERT INTO library_items (kind, subject, title, body, answer, exam, exam_task, tags, tutor_note, links, game, html, tutor_id, folder_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
       [b.kind, b.subject || req.user.subject, b.title, b.body || null, b.answer || null, b.exam || null, b.exam_task || null,
         [...new Set(b.tags || [])], b.tutor_note || null, b.links || [], b.kind === 'game' ? JSON.stringify(b.game) : null,
-        b.kind === 'html' ? b.html : null, req.user.id]
+        b.kind === 'html' ? b.html : null, req.user.id, folder]
     );
     console.log(`✅ В библиотеку добавлено: «${b.title}»`);
     res.status(201).json(rows[0]);
@@ -180,6 +191,7 @@ router.patch(
   validateBody(z.object(fields).partial().strict()),
   asyncHandler(async (req, res) => {
     const data = { ...req.body };
+    if (data.folder_id !== undefined && (await ownFolder(data.folder_id, req.user.tid)) === undefined) return res.status(404).json({ error: 'Папка не найдена' });
     if (data.tags) data.tags = [...new Set(data.tags)];
     if (data.game !== undefined) data.game = data.game ? JSON.stringify(data.game) : null;
     data.updated_at = new Date().toISOString();

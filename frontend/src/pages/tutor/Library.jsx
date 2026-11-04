@@ -1,5 +1,6 @@
 // pages/tutor/Library.jsx — библиотека преподавателя: теория и задачник
 import { useSubject } from '../../subjects';
+import { FolderTree, FolderSelect, MoveModal, dragItems } from '../../components/Folders';
 import FormulaBar from '../../components/FormulaBar';
 import { useState } from 'react';
 import { api } from '../../api';
@@ -21,8 +22,13 @@ const orNull = (v) => (v && String(v).trim() ? String(v).trim() : null);
 /* ============================================================
    Фильтры (общие для списка и выбора задач)
    ============================================================ */
-function useFilters(kind) {
-  const [f, setF] = useState({ kind, subject: '', exam: '', exam_task: '', tag: '', q: '', fav: false });
+// Последняя открытая папка запоминается в браузере (если хранилище недоступно, просто «Все материалы»)
+const FOLDER_KEY = 'lf_library_folder';
+function readFolder() { try { const v = localStorage.getItem(FOLDER_KEY) || ''; return v === 'none' ? 'none' : Number(v) || ''; } catch { return ''; } }
+function saveFolder(v) { try { localStorage.setItem(FOLDER_KEY, String(v || '')); } catch { /* без хранилища */ } }
+
+function useFilters(kind, withFolder = false) {
+  const [f, setF] = useState({ kind, subject: '', exam: '', exam_task: '', tag: '', q: '', fav: false, folder: withFolder ? readFolder() : '' });
   return [f, setF];
 }
 
@@ -59,7 +65,7 @@ function Filters({ f, setF, facets }) {
   );
 }
 
-const loadList = (f) => api.library({ kind: f.kind, subject: f.subject, exam: f.exam, exam_task: f.exam_task, tag: f.tag, q: f.q, fav: f.fav ? 1 : '' });
+const loadList = (f) => api.library({ kind: f.kind, subject: f.subject, exam: f.exam, exam_task: f.exam_task, tag: f.tag, q: f.q, fav: f.fav ? 1 : '', folder: f.folder || '' });
 
 // Звёздочка: избранные задачи быстро находятся на уроке
 function FavStar({ item, onChanged }) {
@@ -99,11 +105,20 @@ async function createSheet(title) {
    ============================================================ */
 export function LibraryPage({ kind = 'task' }) {
   const subj = useSubject();
-  const [f, setF] = useFilters(kind);
+  const toast = useToast();
+  const [f, setF] = useFilters(kind, true);
   const facets = useLoad(() => api.libraryFacets(), []);
-  const list = useLoad(() => loadList({ ...f, kind }), [kind, f.subject, f.exam, f.exam_task, f.tag, f.q, f.fav]);
+  const list = useLoad(() => loadList({ ...f, kind }), [kind, f.subject, f.exam, f.exam_task, f.tag, f.q, f.fav, f.folder]);
+  const folders = useLoad(() => api.folders().then((r) => ({ folders: Array.isArray(r?.folders) ? r.folders : [], unfiled: r?.unfiled || 0 })).catch(() => ({ folders: [], unfiled: 0 })), []);
   const [selected, setSelected] = useState(new Set());
   const [toLesson, setToLesson] = useState(false);
+  const [moving, setMoving] = useState(false);
+  const pickFolder = (v) => { saveFolder(v); setSelected(new Set()); setF({ ...f, folder: v }); };
+  const folderList = folders.data?.folders || [];
+  // если папку удалили, а она была выбрана
+  const folderNow = f.folder && f.folder !== 'none' && folders.data && !folderList.some((x) => x.id === f.folder) ? '' : f.folder;
+  const curFolder = folderList.find((x) => x.id === folderNow);
+  const newHref = `/library/new?kind=${kind}${typeof folderNow === 'number' ? `&folder=${folderNow}` : ''}`;
 
   const toggle = (id) => {
     const n = new Set(selected);
@@ -122,7 +137,7 @@ export function LibraryPage({ kind = 'task' }) {
           <ImportButton onDone={() => { list.reload(); facets.reload(); }} />
           {kind !== 'theory' && <button className="btn btn-secondary" onClick={() => createSheet()}><Icon name="layers" /> Лист из фото</button>}
           {kind !== 'theory' && <Link to="/library/generate" className="btn btn-secondary"><Icon name="star" /> По тексту или видео</Link>}
-          <Link to={`/library/new?kind=${kind}`} className="btn"><Icon name="plus" /> {NEW_LABEL[kind]}</Link>
+          <Link to={newHref} className="btn"><Icon name="plus" /> {NEW_LABEL[kind]}</Link>
         </div>
       </div>
 
@@ -134,15 +149,20 @@ export function LibraryPage({ kind = 'task' }) {
         {subj.isLang && <button role="tab" aria-selected={false} onClick={() => navigate('/bank')}><Icon name="library" size={16} /> Банк заданий</button>}
       </div>
 
+      <div className="lib-layout">
+      {folders.data && <FolderTree data={folders.data} current={folderNow} onPick={pickFolder} onChanged={(items) => { folders.reload(); if (items) { list.reload(); setSelected(new Set()); } }} />}
+      <div className="lib-main">
+      {curFolder && <h2 className="section-title" style={{ margin: '0 0 12px' }}><Icon name="folder" size={18} /> {curFolder.title}</h2>}
       {facets.data && <Filters f={f} setF={setF} facets={facets.data} />}
 
-      {kind !== 'theory' && selected.size > 0 && (
+      {selected.size > 0 && (
         <div className="select-bar">
           <span>Выбрано: {selected.size}</span>
           <div className="row wrap" style={{ gap: 6 }}>
             <button className="btn btn-secondary btn-sm" onClick={() => setSelected(new Set())}>Сбросить</button>
-            <button className="btn btn-secondary btn-sm" onClick={() => setToLesson(true)}>На урок</button>
-            <button className="btn btn-sm" onClick={() => navigate(`/homework/new?items=${[...selected].join(',')}`)}>Выдать как ДЗ</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => setMoving(true)}><Icon name="folder" size={14} /> В папку</button>
+            {kind !== 'theory' && <button className="btn btn-secondary btn-sm" onClick={() => setToLesson(true)}>На урок</button>}
+            {kind !== 'theory' && <button className="btn btn-sm" onClick={() => navigate(`/homework/new?items=${[...selected].join(',')}`)}>Выдать как ДЗ</button>}
           </div>
         </div>
       )}
@@ -151,8 +171,9 @@ export function LibraryPage({ kind = 'task' }) {
         {list.loading && <Spinner />}
         {list.error && <ErrorBox error={list.error} onRetry={list.reload} />}
         {list.data && !list.data.length && (
-          <Empty title={f.fav && !f.q ? 'В избранном пусто' : f.q || f.exam || f.tag ? 'Ничего не нашлось' : { task: 'Задачник пуст', game: 'Упражнений пока нет', html: 'Уроков пока нет', theory: 'Теории пока нет' }[kind]}
-            action={<Link to={`/library/new?kind=${kind}`} className="btn">Добавить</Link>}>
+          <Empty title={f.fav && !f.q ? 'В избранном пусто' : f.q || f.exam || f.tag ? 'Ничего не нашлось' : folderNow ? 'В этой папке пусто' : { task: 'Задачник пуст', game: 'Упражнений пока нет', html: 'Уроков пока нет', theory: 'Теории пока нет' }[kind]}
+            action={<Link to={newHref} className="btn">Добавить</Link>}>
+            {folderNow && !f.q && !f.fav && 'В этой папке пока нет материалов этого вида. Перетащите сюда материалы из «Все материалы» или добавьте новый. '}
             {f.fav && 'Нажмите звёздочку у задачи, чтобы она появилась здесь и в выборе задач на уроке.'}
             {kind === 'task' && !f.q && !f.fav && 'Добавляйте задачи с пометками: номер задания ОГЭ/ЕГЭ, теги, заметка для себя.'}
             {kind === 'html' && !f.q && 'Загрузите готовый HTML-урок (например, тренажёр слов). Его можно открыть на уроке и выдать как ДЗ, результат ученика сохранится сам.'}
@@ -160,15 +181,16 @@ export function LibraryPage({ kind = 'task' }) {
           </Empty>
         )}
         {(list.data || []).map((i) => (
-          <div key={i.id} className="assign-row" onClick={() => navigate(`/library/${i.id}`)}>
-            {kind !== 'theory' && (
+          <div key={i.id} className="assign-row" onClick={() => navigate(`/library/${i.id}`)} draggable
+            onDragStart={(e) => dragItems(e, selected.has(i.id) ? [...selected] : [i.id])} title="Можно перетащить в папку">
+            {(
               <input type="checkbox" className="row-check" checked={selected.has(i.id)} aria-label="Выбрать"
                 onClick={(e) => e.stopPropagation()} onChange={() => toggle(i.id)} />
             )}
             <div className="list-main">
               <div className="list-title truncate">{i.title}</div>
               <div className="list-sub truncate">
-                {[i.game && `${GAME_TYPES[i.game.type]?.label}, ${gameSize(i.game)}`, i.kind === 'html' && 'Интерактивный урок', examLabel(i), i.subject, ...(i.tags || []).map((t) => `#${t}`)].filter(Boolean).join(' · ')}
+                {[!folderNow && i.folder_id && folderList.find((x) => x.id === i.folder_id)?.title, i.game && `${GAME_TYPES[i.game.type]?.label}, ${gameSize(i.game)}`, i.kind === 'html' && 'Интерактивный урок', examLabel(i), i.subject, ...(i.tags || []).map((t) => `#${t}`)].filter(Boolean).join(' · ')}
               </div>
               {i.tutor_note && <div className="list-sub truncate" style={{ color: '#7a5717' }}><Icon name="note" size={13} /> {i.tutor_note}</div>}
             </div>
@@ -178,9 +200,13 @@ export function LibraryPage({ kind = 'task' }) {
         ))}
       </section>
 
+      </div>
+      </div>
+
       {toLesson && (
         <AddToLessonModal itemIds={[...selected]} onClose={() => setToLesson(false)} onDone={() => { setToLesson(false); setSelected(new Set()); }} />
       )}
+      {moving && <MoveModal ids={[...selected]} folders={folderList} onClose={() => setMoving(false)} onDone={(n) => { setMoving(false); toast(`Перенесено: ${n}`); setSelected(new Set()); list.reload(); folders.reload(); }} />}
     </>
   );
 }
@@ -229,15 +255,16 @@ function AddToLessonModal({ itemIds, onClose, onDone }) {
 /* ============================================================
    Просмотр и редактирование материала
    ============================================================ */
-export function LibraryEditor({ id, presetKind }) {
+export function LibraryEditor({ id, presetKind, presetFolder }) {
   const item = useLoad(() => (id ? api.libraryItem(id) : Promise.resolve(null)), [id]);
   const facets = useLoad(() => api.libraryFacets(), []);
-  if (item.loading || facets.loading) return <Spinner />;
+  const folders = useLoad(() => api.folders().then((r) => (Array.isArray(r?.folders) ? r.folders : [])).catch(() => []), []);
+  if (item.loading || facets.loading || folders.loading) return <Spinner />;
   if (item.error) return <ErrorBox error={item.error} onRetry={item.reload} />;
-  return <EditorForm key={id || 'new'} item={item.data} presetKind={presetKind} facets={facets.data || { subjects: [], tags: [] }} reload={item.reload} />;
+  return <EditorForm key={id || 'new'} item={item.data} presetKind={presetKind} presetFolder={presetFolder} folders={folders.data || []} facets={facets.data || { subjects: [], tags: [] }} reload={item.reload} />;
 }
 
-function EditorForm({ item, presetKind, facets, reload }) {
+function EditorForm({ item, presetKind, presetFolder, folders, facets, reload }) {
   const { user } = useAuth();
   const tagHint = useSubjectTags();
   const toast = useToast();
@@ -255,6 +282,7 @@ function EditorForm({ item, presetKind, facets, reload }) {
     links: (item?.links || []).join('\n'),
     game: item?.game || null,
     html: item?.html || null,
+    folder_id: item ? item.folder_id ?? null : (Number(presetFolder) || null),
   });
   const [pending, setPending] = useState([]);
   const [preview, setPreview] = useState(false);
@@ -272,6 +300,7 @@ function EditorForm({ item, presetKind, facets, reload }) {
     links: f.links.split(/\s+/).map((s) => s.trim()).filter(Boolean),
     game: f.kind === 'game' && f.game ? cleanGame(f.game) : null,
     html: f.kind === 'html' ? f.html : null,
+    folder_id: f.folder_id ?? null,
   });
 
   const save = useSubmit(async () => {
@@ -393,6 +422,7 @@ function EditorForm({ item, presetKind, facets, reload }) {
                 <input className="input" type="number" min={1} max={50} disabled={!f.exam} value={f.exam_task} onChange={(e) => setF({ ...f, exam_task: e.target.value })} />
               </Field>
             </div>
+            {folders.length > 0 && <FolderSelect folders={folders} value={f.folder_id} onChange={(v) => setF({ ...f, folder_id: v })} />}
             <Field label="Теги" hint={`Через запятую${facets.tags.length ? `. Уже есть: ${facets.tags.slice(0, 8).join(', ')}` : ''}`}>
               <input className="input" value={f.tags} onChange={(e) => setF({ ...f, tags: e.target.value })} placeholder={tagHint} />
             </Field>
@@ -416,7 +446,8 @@ function EditorForm({ item, presetKind, facets, reload }) {
 export function TaskPicker({ selected, onClose, onPick }) {
   const [f, setF] = useFilters('task,game,html');
   const facets = useLoad(() => api.libraryFacets(), []);
-  const list = useLoad(() => loadList(f), [f.subject, f.exam, f.exam_task, f.tag, f.q, f.fav]);
+  const list = useLoad(() => loadList(f), [f.subject, f.exam, f.exam_task, f.tag, f.q, f.fav, f.folder]);
+  const folders = useLoad(() => api.folders().then((r) => (Array.isArray(r?.folders) ? r.folders : [])).catch(() => []), []);
   const [chosen, setChosen] = useState(new Set(selected));
 
   const toggle = (id) => {
@@ -427,6 +458,11 @@ export function TaskPicker({ selected, onClose, onPick }) {
 
   return (
     <Modal title="Задачи и упражнения" onClose={onClose} wide>
+      {folders.data?.length > 0 && (
+        <div style={{ maxWidth: 360 }}>
+          <FolderSelect folders={folders.data} value={typeof f.folder === 'number' ? f.folder : null} onChange={(v) => setF({ ...f, folder: v || '' })} label="Папка" noneLabel="Все папки" />
+        </div>
+      )}
       {facets.data && <Filters f={f} setF={setF} facets={facets.data} />}
       <div style={{ maxHeight: '50vh', overflowY: 'auto', marginTop: 8 }}>
         {list.loading && <Spinner />}

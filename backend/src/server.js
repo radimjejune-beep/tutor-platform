@@ -114,6 +114,7 @@ protectedApi.use('/market', require('./routes/market'));
 protectedApi.use('/wordsets', require('./routes/wordsets'));
 protectedApi.use('/announcements', require('./routes/announcements'));
 protectedApi.use('/bank', require('./routes/bank'));
+protectedApi.use('/library-folders', require('./routes/folders'));
 app.use('/api', protectedApi);
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Не найдено' }));
@@ -134,6 +135,7 @@ if (require.main === module) {
   require('./services/telegram').start();
   require('./services/autoclose').start();
   require('./services/bank').start();
+  require('./services/folders').start();
   lessonfold.start();
 }
 
