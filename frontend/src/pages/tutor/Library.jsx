@@ -98,6 +98,7 @@ async function createSheet(title) {
    Список
    ============================================================ */
 export function LibraryPage({ kind = 'task' }) {
+  const subj = useSubject();
   const [f, setF] = useFilters(kind);
   const facets = useLoad(() => api.libraryFacets(), []);
   const list = useLoad(() => loadList({ ...f, kind }), [kind, f.subject, f.exam, f.exam_task, f.tag, f.q, f.fav]);
@@ -130,6 +131,7 @@ export function LibraryPage({ kind = 'task' }) {
           <button key={k} role="tab" aria-selected={kind === k} className={kind === k ? 'active' : ''}
             onClick={() => { setSelected(new Set()); navigate(`/library/${KIND_PATH[k]}`); }}>{label}</button>
         ))}
+        {subj.isLang && <button role="tab" aria-selected={false} onClick={() => navigate('/bank')}><Icon name="library" size={16} /> Банк заданий</button>}
       </div>
 
       {facets.data && <Filters f={f} setF={setF} facets={facets.data} />}
@@ -228,7 +230,6 @@ function AddToLessonModal({ itemIds, onClose, onDone }) {
    Просмотр и редактирование материала
    ============================================================ */
 export function LibraryEditor({ id, presetKind }) {
-  const tagHint = useSubjectTags();
   const item = useLoad(() => (id ? api.libraryItem(id) : Promise.resolve(null)), [id]);
   const facets = useLoad(() => api.libraryFacets(), []);
   if (item.loading || facets.loading) return <Spinner />;
@@ -238,6 +239,7 @@ export function LibraryEditor({ id, presetKind }) {
 
 function EditorForm({ item, presetKind, facets, reload }) {
   const { user } = useAuth();
+  const tagHint = useSubjectTags();
   const toast = useToast();
   const isNew = !item;
   const [f, setF] = useState({

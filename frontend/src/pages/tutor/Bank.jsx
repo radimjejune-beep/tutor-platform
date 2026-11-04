@@ -25,15 +25,23 @@ export default function BankPage({ book, unit }) {
     <>
       <div className="page-head">
         <div>
+          <Link to="/library" className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 6 }}><Icon name="back" /> Библиотека</Link>
           <h1 className="page-title">Банк заданий</h1>
-          <div className="lead">Готовые упражнения по юнитам учебников от Lessonfold и других репетиторов. Посмотрите, пройдите сами и возьмите себе в библиотеку: оттуда их можно выдать в задании или открыть на уроке.</div>
+          <div className="lead">Готовые упражнения по юнитам учебников и по темам грамматики от Lessonfold и других репетиторов. Посмотрите, пройдите сами и возьмите себе в библиотеку: оттуда их можно выдать в задании или открыть на уроке.</div>
         </div>
         <button className="btn" onClick={() => setSharing(true)}><Icon name="plus" /> Поделиться своим</button>
       </div>
 
-      <div className="seg" style={{ marginBottom: 18, flexWrap: 'wrap' }}>
-        {books.data.map((x) => (
-          <button key={x.id} type="button" className={x.id === b.id ? 'on' : ''} onClick={() => navigate(`/bank/${x.id}`)}>{x.short} <span className="muted">{x.total}</span></button>
+      <div className="bank-books">
+        {[['Учебники', books.data.filter((x) => !x.grammar)], ['Грамматика по темам', books.data.filter((x) => x.grammar)]].filter(([, list]) => list.length).map(([label, list]) => (
+          <div key={label} className="bank-books-row">
+            <span className="meta-label">{label}</span>
+            <div className="seg">
+              {list.map((x) => (
+                <button key={x.id} type="button" className={x.id === b.id ? 'on' : ''} onClick={() => navigate(`/bank/${x.id}`)}>{x.short} <span className="muted">{x.total}</span></button>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
 

@@ -443,5 +443,7 @@ const SEED = [
 // Плюс упражнения на все слова юнитов (собираются из словаря)
 const { vocabTasks } = require('./vocab-tasks');
 SEED.push(...vocabTasks());
+// Грамматика: учебники Round-Up и дополнительные упражнения к юнитам Solutions и Speakout
+SEED.push(...require('./grammar-roundup'), ...require('./grammar-units'));
 
 module.exports = { SEED };

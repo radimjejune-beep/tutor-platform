@@ -6,6 +6,7 @@ const { query } = require('../db');
 const { requireRole, canAccessStudent, accessibleStudentIds, requireOwn } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { addWords, review } = require('../services/vocab');
+const { syncStudent } = require('../services/setsync');
 const { POINTS, addPoints } = require('../services/points');
 const { buildUpdate } = require('../utils');
 
@@ -28,6 +29,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const studentId = await resolveStudent(req);
     if (!studentId) return res.status(404).json({ error: 'Ученик не найден' });
+    await syncStudent(studentId); // слова из выданных наборов карточек
     const { rows: items } = await query(
       `SELECT v.*, u.code AS unit_code, u.title AS unit_title
          FROM vocab_items v LEFT JOIN course_units u ON u.id = v.unit_id
@@ -55,6 +57,7 @@ router.get(
   asyncHandler(async (req, res) => {
     const studentId = await resolveStudent(req);
     if (!studentId) return res.status(404).json({ error: 'Ученик не найден' });
+    await syncStudent(studentId); // слова из выданных наборов карточек
     const limit = Math.min(Number(req.query.limit) || 30, 100);
     const { rows } = await query(
       `SELECT id, term, translation, example, box, source FROM vocab_items

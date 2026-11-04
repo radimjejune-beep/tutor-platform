@@ -7,6 +7,7 @@ const { query } = require('../db');
 const { requireRole, canAccessStudent, accessibleStudentIds } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { addWords } = require('../services/vocab');
+const { syncSet } = require('../services/setsync');
 const { POINTS, addPoints } = require('../services/points');
 
 const router = express.Router();
@@ -122,7 +123,8 @@ router.post(
       [req.user.id, b.title, b.description || null, JSON.stringify(words), forAll]
     );
     if (!forAll) await setStudents(rows[0].id, req.user.id, b.student_ids);
-    res.status(201).json({ id: rows[0].id, word_count: words.length });
+    const synced = await syncSet(rows[0].id); // слова сразу появляются в словаре учеников
+    res.status(201).json({ id: rows[0].id, word_count: words.length, synced });
   })
 );
 
@@ -236,7 +238,8 @@ router.patch(
       await query(`UPDATE word_sets SET ${sets.join(', ')}, updated_at = NOW() WHERE id = $${vals.length}`, vals);
     }
     if (b.student_ids !== undefined) await setStudents(id, req.user.id, b.student_ids);
-    res.json({ ok: true });
+    const synced = await syncSet(id);
+    res.json({ ok: true, synced });
   })
 );
 

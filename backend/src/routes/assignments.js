@@ -1,5 +1,6 @@
 // routes/assignments.js — задания (как в Google Classroom): одно задание — несколько учеников
 const express = require('express');
+const { syncSet } = require('../services/setsync');
 const { z } = require('zod');
 const { query, transaction } = require('../db');
 const { requireRole, requireOwn } = require('../middleware/auth');
@@ -117,6 +118,7 @@ router.post(
       return { assignment: rows[0], given };
     });
     if (result.error) return res.status(400).json({ error: result.error });
+    if (result.assignment.word_set_id) await syncSet(result.assignment.word_set_id); // слова к уроку: сразу в словарь учеников
     for (const g of result.given) notifyHomework(g.sid, g.hid, result.assignment);
     console.log(`✅ Задание «${b.title}» выдано: ${b.student_ids.length} уч.`);
     res.status(201).json(result.assignment);
@@ -214,6 +216,7 @@ router.patch(
       }
       return assignment;
     });
+    if (updated && updated.word_set_id) await syncSet(updated.word_set_id);
 
     if (!updated) return res.status(404).json({ error: 'Задание не найдено' });
     for (const g of added) notifyHomework(g.sid, g.hid, updated);

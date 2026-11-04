@@ -1,7 +1,7 @@
 // pages/tutor/StudentCourse.jsx — вкладки ученика «Курс» и «Словарь»
 import { useState } from 'react';
 import { api } from '../../api';
-import { useLoad, Spinner, ErrorBox, Empty, Icon, Link, useToast, Field } from '../../ui';
+import { useLoad, Spinner, ErrorBox, Empty, Icon, Link, useToast, Field, Modal } from '../../ui';
 import { unitLabel } from '../../components/FinishLesson';
 import { FlashSession, VocabList, VocabStats, AddWordsModal } from '../../components/Vocab';
 import { plural, dayMonth, time } from '../../format';
@@ -108,6 +108,7 @@ export function WordsTab({ student }) {
   const subj = useSubject(student.subject);
   const vocab = useLoad(() => api.vocab(student.id), [student.id]);
   const [adding, setAdding] = useState(false);
+  const [giving, setGiving] = useState(false);
   const [session, setSession] = useState(false);
 
   if (vocab.loading) return <Spinner />;
@@ -120,6 +121,7 @@ export function WordsTab({ student }) {
         <VocabStats stats={stats} />
         <div className="row wrap" style={{ gap: 8 }}>
           {stats.due > 0 && !session && <button className="btn btn-secondary" onClick={() => setSession(true)}><Icon name="play" /> Повторить на уроке</button>}
+          <button className="btn btn-secondary" onClick={() => setGiving(true)}><Icon name="cards" /> Наборы карточек</button>
           <button className="btn" onClick={() => setAdding(true)}><Icon name="plus" /> {subj.isLang ? 'Слова' : 'Термины'}</button>
         </div>
       </section>
@@ -137,7 +139,76 @@ export function WordsTab({ student }) {
       </section>
       <PracticeActivity studentId={student.id} />
       {adding && <AddWordsModal studentId={student.id} subject={student.subject} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); vocab.reload(); }} />}
+      {giving && <GiveSetsModal student={student} onClose={() => setGiving(false)} onSaved={() => { setGiving(false); vocab.reload(); }} />}
     </>
+  );
+}
+
+// Выдать ученику наборы карточек: перетащить (или нажать) из «Ваши наборы» в «Выданы ученику».
+// Слова выданных наборов сразу попадают в словарь ученика.
+function GiveSetsModal({ student, onClose, onSaved }) {
+  const toast = useToast();
+  const sets = useLoad(() => api.wordSets(), []);
+  const [given, setGiven] = useState(null); // Set id наборов, выданных этому ученику
+  const [drag, setDrag] = useState(null);
+  const [busy, setBusy] = useState(false);
+  if (sets.loading) return <Modal title="Наборы карточек" onClose={onClose}><Spinner /></Modal>;
+  if (sets.error) return <Modal title="Наборы карточек" onClose={onClose}><ErrorBox error={sets.error} onRetry={sets.reload} /></Modal>;
+  const list = sets.data;
+  const start = new Set(list.filter((x) => !x.for_all && (x.student_ids || []).includes(student.id)).map((x) => x.id));
+  const cur = given || start;
+  const put = (id, on) => { const n = new Set(cur); if (on) n.add(id); else n.delete(id); setGiven(n); };
+  const forAll = list.filter((x) => x.for_all);
+  const mine = list.filter((x) => !x.for_all && cur.has(x.id));
+  const rest = list.filter((x) => !x.for_all && !cur.has(x.id));
+
+  const save = async () => {
+    setBusy(true);
+    try {
+      let added = 0;
+      for (const x of list.filter((y) => !y.for_all)) {
+        const was = start.has(x.id); const now = cur.has(x.id);
+        if (was === now) continue;
+        const ids = (x.student_ids || []).filter((i) => i !== student.id);
+        const r = await api.updateWordSet(x.id, { student_ids: now ? [...ids, student.id] : ids });
+        added += r.synced?.added || 0;
+      }
+      toast(added ? `В словарь ученика добавлено слов: ${added}` : 'Сохранено');
+      onSaved();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const card = (x, on) => (
+    <button key={x.id} type="button" draggable className="set-chip" onDragStart={() => setDrag(x.id)} onDragEnd={() => setDrag(null)} onClick={() => put(x.id, !on)}>
+      <b>{x.title}</b><small>{x.word_count} {plural(x.word_count, 'карточка', 'карточки', 'карточек')}</small>
+    </button>
+  );
+  const zone = (on, label, items, empty) => (
+    <div className={`set-zone ${drag ? 'drop' : ''}`} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); if (drag) put(drag, on); setDrag(null); }}>
+      <div className="meta-label">{label}</div>
+      {items.length ? items.map((x) => card(x, on)) : <p className="small muted" style={{ margin: 0 }}>{empty}</p>}
+    </div>
+  );
+  return (
+    <Modal title={`Наборы карточек: ${student.full_name}`} onClose={onClose} wide>
+      <p className="small muted" style={{ marginTop: 0 }}>Перетащите набор в правую колонку или просто нажмите на него. Слова выданных наборов сразу появятся в словаре ученика и попадут в повторение.</p>
+      {!list.length ? (
+        <Empty title="Наборов пока нет" action={<Link to="/wordsets" className="btn btn-secondary btn-sm">Создать набор</Link>}>Наборы можно собрать в разделе «Карточки» или из слов юнита в банке заданий.</Empty>
+      ) : (
+        <div className="set-zones">
+          {zone(false, 'Ваши наборы', rest, 'Все наборы уже выданы')}
+          {zone(true, 'Выданы ученику', mine, 'Перетащите сюда набор')}
+        </div>
+      )}
+      {forAll.length > 0 && <p className="small muted">Наборы для всех учеников видны ему и так: {forAll.map((x) => `«${x.title}»`).join(', ')}.</p>}
+      <div className="modal-actions">
+        <button type="button" className="btn btn-secondary" onClick={onClose}>Отмена</button>
+        <button type="button" className="btn" disabled={busy || !given} onClick={save}>{busy ? 'Сохраняем…' : 'Сохранить'}</button>
+      </div>
+    </Modal>
   );
 }
 
