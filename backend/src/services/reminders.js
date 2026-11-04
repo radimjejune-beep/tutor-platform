@@ -56,11 +56,11 @@ async function lessonReminders() {
   for (const r of rows) {
     if (!(await claim('lesson', r.id, r.user_id))) continue;
     const soon = Number(r.left_min) >= 45 ? 'Через час урок' : 'Скоро урок';
-    const who = r.role === 'parent' ? `${soon}: ${r.student}, в ${hm(r.starts_at)}.` : `${soon}, в ${hm(r.starts_at)}.`;
-    const room = r.role !== 'parent' ? tg.cabinetUrl(`/lesson/${r.id}`) : '';
-    const parts = [who, r.call_link && `Ссылка на звонок: ${r.call_link}`, room && `Урок в кабинете: ${room}`].filter(Boolean);
+    const head = r.role === 'parent' ? `<b>${soon}: ${tg.esc(r.student)}</b>` : `<b>${soon}</b>`;
+    const text = `${head}\nНачало в ${hm(r.starts_at)}${r.role === 'parent' ? '' : '. Подготовьте тетрадь и наушники.'}`;
+    const buttons = tg.rows(tg.btn('Подключиться к звонку', r.call_link), r.role !== 'parent' && tg.btn('Открыть урок', tg.cabinetUrl(`/lesson/${r.id}`)));
     try {
-      await tg.sendMessage(r.chat_id, parts.join('\n\n'));
+      await tg.say(r.chat_id, { text, buttons });
       sent++;
     } catch (err) {
       console.error('⚠️ Напоминание об уроке не доставлено:', err.message);
@@ -92,7 +92,7 @@ async function wordReminders(opts = {}) {
   for (const r of rows) {
     if (!(await claim('words', day, r.user_id))) continue;
     try {
-      await tg.sendMessage(r.chat_id, [`Слов на повторение: ${r.due}. Это минут пять, и они запомнятся надолго.`, tg.cabinetUrl('/words')].filter(Boolean).join('\n'));
+      await tg.say(r.chat_id, { text: `<b>Слова на повторение: ${r.due}</b>\nПять минут сегодня, и они запомнятся надолго.`, buttons: tg.rows(tg.btn('Повторить слова', tg.cabinetUrl('/words'))) });
       sent++;
     } catch (err) {
       console.error('⚠️ Напоминание о словах не доставлено:', err.message);
@@ -125,11 +125,12 @@ async function homeworkReminders(opts = {}) {
   for (const r of rows) {
     if (!(await claim(r.today ? 'hw_day' : 'hw_eve', r.id, r.user_id))) continue;
     const when = r.today ? 'сегодня' : `завтра, ${fmtDay(r.due_on)}`;
+    const head = r.today ? '<b>Сегодня срок домашки</b>' : '<b>Завтра срок домашки</b>';
     const text = r.role === 'parent'
-      ? `${r.student}: срок задания «${r.title}» ${when}, оно ещё не сдано.`
-      : `Срок задания «${r.title}» ${when}. Оно ещё не сдано.`;
+      ? `${head}\n${tg.esc(r.student)}: «${tg.esc(r.title)}», срок ${when}. Задание ещё не сдано.`
+      : `${head}\n«${tg.esc(r.title)}», срок ${when}. Задание ещё не сдано.`;
     try {
-      await tg.sendMessage(r.chat_id, [text, tg.cabinetUrl(`/homework/${r.id}`)].filter(Boolean).join('\n\n'));
+      await tg.say(r.chat_id, { text, buttons: tg.rows(tg.btn('Открыть задание', tg.cabinetUrl(`/homework/${r.id}`))) });
       sent++;
     } catch (err) {
       console.error('⚠️ Напоминание о домашке не доставлено:', err.message);

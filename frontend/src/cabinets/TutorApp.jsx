@@ -65,7 +65,7 @@ export default function TutorApp({ path, params }) {
   else if (parts[0] === 'library' && parts[1] === 'generate') page = <Generator />;
   else if (parts[0] === 'library' && parts[1] === 'new') page = <LibraryEditor key={`new-${params.get('kind')}-${params.get('folder')}`} presetKind={params.get('kind') || 'task'} presetFolder={params.get('folder')} />;
   else if (parts[0] === 'library' && /^\d+$/.test(parts[1] || '')) page = <LibraryEditor key={parts[1]} id={Number(parts[1])} />;
-  else if (parts[0] === 'library') page = <LibraryPage key={parts[1] || 'tasks'} kind={{ theory: 'theory', games: 'game', lessons: 'html' }[parts[1]] || 'task'} />;
+  else if (parts[0] === 'library') page = <LibraryPage key={parts[1] || 'tasks'} kind={{ theory: 'theory', games: 'game', lessons: 'html', books: 'books' }[parts[1]] || 'task'} />;
   else if (parts[0] === 'lesson' && parts[1]) page = <LessonRoom id={Number(parts[1])} />;
   else if (parts[0] === 'wordsets' && parts[1] === 'new') page = <WordSetEditor key="new" />;
   else if (parts[0] === 'wordsets' && /^\d+$/.test(parts[1] || '')) page = <WordSetEditor key={parts[1]} id={Number(parts[1])} />;

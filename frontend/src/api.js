@@ -153,6 +153,21 @@ export const api = {
   updateFolder: (id, data) => request('PATCH', `/library-folders/${id}`, data),
   deleteFolder: (id) => request('DELETE', `/library-folders/${id}`),
   moveToFolder: (item_ids, folder_id) => request('POST', '/library-folders/move', { item_ids, folder_id }),
+  books: () => request('GET', '/library-books'),
+  createBook: (data) => request('POST', '/library-books', data),
+  finishBook: (id) => request('POST', `/library-books/${id}/finish`),
+  updateBook: (id, data) => request('PATCH', `/library-books/${id}`, data),
+  deleteBook: (id) => request('DELETE', `/library-books/${id}`),
+  // часть файла учебника (до 4 МБ) — сырыми байтами
+  uploadBookPart: async (id, n, blob) => {
+    const res = await fetch(`${BASE}/api/library-books/${id}/parts/${n}`, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream', Authorization: `Bearer ${getToken()}` }, body: blob });
+    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new ApiError(res.status, d); }
+  },
+  bookBlob: async (id) => {
+    const res = await fetch(`${BASE}/api/library-books/${id}/file`, { headers: { Authorization: `Bearer ${getToken()}` } });
+    if (!res.ok) { const d = await res.json().catch(() => ({})); throw new ApiError(res.status, d); }
+    return res.blob();
+  },
   libraryItem: (id) => request('GET', `/library/${id}`),
   libraryBatch: (ids) => (ids?.length ? request('GET', `/library/batch${qs({ ids: ids.join(',') })}`) : Promise.resolve([])),
   createLibraryItem: (data) => request('POST', '/library', data),

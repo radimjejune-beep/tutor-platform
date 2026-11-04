@@ -1,6 +1,7 @@
 // pages/tutor/Library.jsx — библиотека преподавателя: теория и задачник
 import { useSubject } from '../../subjects';
 import { FolderTree, FolderSelect, MoveModal, dragItems } from '../../components/Folders';
+import { BooksPanel } from '../../components/Books';
 import FormulaBar from '../../components/FormulaBar';
 import { useState } from 'react';
 import { api } from '../../api';
@@ -14,9 +15,9 @@ import GameEditor, { GameTypePicker, EMPTY_GAME, cleanGame } from '../../games/E
 import { GAME_TYPES, gameSize } from '../../games/logic';
 import { relativeDay, dayMonth, time } from '../../format';
 
-const KINDS = { task: 'Задачник', game: 'Упражнения', html: 'Уроки', theory: 'Теория' };
-const KIND_PATH = { task: 'tasks', game: 'games', html: 'lessons', theory: 'theory' };
-const NEW_LABEL = { task: 'Задача', game: 'Упражнение', html: 'Урок', theory: 'Теория' };
+const KINDS = { task: 'Задачник', game: 'Упражнения', html: 'Уроки', theory: 'Теория', books: 'Учебники' };
+const KIND_PATH = { task: 'tasks', game: 'games', html: 'lessons', theory: 'theory', books: 'books' };
+const NEW_LABEL = { task: 'Задача', game: 'Упражнение', html: 'Урок', theory: 'Теория', books: 'Учебник' };
 const orNull = (v) => (v && String(v).trim() ? String(v).trim() : null);
 
 /* ============================================================
@@ -108,7 +109,9 @@ export function LibraryPage({ kind = 'task' }) {
   const toast = useToast();
   const [f, setF] = useFilters(kind, true);
   const facets = useLoad(() => api.libraryFacets(), []);
-  const list = useLoad(() => loadList({ ...f, kind }), [kind, f.subject, f.exam, f.exam_task, f.tag, f.q, f.fav, f.folder]);
+  const isBooks = kind === 'books';
+  const [uploading, setUploading] = useState(false);
+  const list = useLoad(() => (isBooks ? Promise.resolve([]) : loadList({ ...f, kind })), [kind, f.subject, f.exam, f.exam_task, f.tag, f.q, f.fav, f.folder]);
   const folders = useLoad(() => api.folders().then((r) => ({ folders: Array.isArray(r?.folders) ? r.folders : [], unfiled: r?.unfiled || 0 })).catch(() => ({ folders: [], unfiled: 0 })), []);
   const [selected, setSelected] = useState(new Set());
   const [toLesson, setToLesson] = useState(false);
@@ -131,13 +134,13 @@ export function LibraryPage({ kind = 'task' }) {
       <div className="page-head">
         <div>
           <h1 className="page-title">Библиотека</h1>
-          <div className="lead">{kind === 'theory' ? 'Теорию видят все ученики в разделе «Теория»' : 'Видите только вы. Ученик увидит задачу или упражнение, когда вы выдадите их на уроке или в задании'}</div>
+          <div className="lead">{isBooks ? 'Учебники и книги для учителя в PDF: открываются прямо в браузере, видите только вы' : kind === 'theory' ? 'Теорию видят все ученики в разделе «Теория»' : 'Видите только вы. Ученик увидит задачу или упражнение, когда вы выдадите их на уроке или в задании'}</div>
         </div>
         <div className="row" style={{ gap: 8 }}>
-          <ImportButton onDone={() => { list.reload(); facets.reload(); }} />
-          {kind !== 'theory' && <button className="btn btn-secondary" onClick={() => createSheet()}><Icon name="layers" /> Лист из фото</button>}
-          {kind !== 'theory' && <Link to="/library/generate" className="btn btn-secondary"><Icon name="star" /> По тексту или видео</Link>}
-          <Link to={newHref} className="btn"><Icon name="plus" /> {NEW_LABEL[kind]}</Link>
+          {!isBooks && <ImportButton onDone={() => { list.reload(); facets.reload(); }} />}
+          {kind !== 'theory' && !isBooks && <button className="btn btn-secondary" onClick={() => createSheet()}><Icon name="layers" /> Лист из фото</button>}
+          {kind !== 'theory' && !isBooks && <Link to="/library/generate" className="btn btn-secondary"><Icon name="star" /> По тексту или видео</Link>}
+          {isBooks ? <button className="btn" onClick={() => setUploading(true)}><Icon name="plus" /> Учебник</button> : <Link to={newHref} className="btn"><Icon name="plus" /> {NEW_LABEL[kind]}</Link>}
         </div>
       </div>
 
@@ -153,9 +156,10 @@ export function LibraryPage({ kind = 'task' }) {
       {folders.data && <FolderTree data={folders.data} current={folderNow} onPick={pickFolder} onChanged={(items) => { folders.reload(); if (items) { list.reload(); setSelected(new Set()); } }} />}
       <div className="lib-main">
       {curFolder && <h2 className="section-title" style={{ margin: '0 0 12px' }}><Icon name="folder" size={18} /> {curFolder.title}</h2>}
-      {facets.data && <Filters f={f} setF={setF} facets={facets.data} />}
+      {isBooks && <BooksPanel folders={folderList} folder={folderNow} uploading={uploading} setUploading={setUploading} onChanged={() => folders.reload()} />}
+      {!isBooks && facets.data && <Filters f={f} setF={setF} facets={facets.data} />}
 
-      {selected.size > 0 && (
+      {!isBooks && selected.size > 0 && (
         <div className="select-bar">
           <span>Выбрано: {selected.size}</span>
           <div className="row wrap" style={{ gap: 6 }}>
@@ -167,7 +171,7 @@ export function LibraryPage({ kind = 'task' }) {
         </div>
       )}
 
-      <section className="panel">
+      {!isBooks && <section className="panel">
         {list.loading && <Spinner />}
         {list.error && <ErrorBox error={list.error} onRetry={list.reload} />}
         {list.data && !list.data.length && (
@@ -198,7 +202,7 @@ export function LibraryPage({ kind = 'task' }) {
             {kind !== 'theory' && <FavStar item={i} onChanged={f.fav ? list.reload : undefined} />}
           </div>
         ))}
-      </section>
+      </section>}
 
       </div>
       </div>
@@ -349,7 +353,7 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
             <FormulaBar />
             {isNew && (
               <div className="row" style={{ gap: 6 }}>
-                {Object.entries(KINDS).map(([k, label]) => (
+                {Object.entries(KINDS).filter(([k]) => k !== 'books').map(([k, label]) => (
                   <button type="button" key={k} className={`btn btn-sm ${f.kind === k ? '' : 'btn-secondary'}`} onClick={() => setF({ ...f, kind: k })}>{NEW_LABEL[k]}</button>
                 ))}
               </div>

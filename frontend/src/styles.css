@@ -1409,3 +1409,15 @@ a.brand-name { color: inherit; text-decoration: none; }
   .folder-actions { display: inline-flex; }
   .folder-row:hover .folder-count { display: inline; }
 }
+
+/* Учебники в библиотеке */
+.book-row { cursor: default; }
+.book-icon { width: 42px; height: 52px; flex: none; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px; font-size: 10px; font-weight: 600; letter-spacing: .04em; color: var(--ink-2); }
+.book-drop { position: relative; display: flex; align-items: center; gap: 14px; padding: 22px 18px; border: 1.5px dashed var(--line-strong); border-radius: 12px; cursor: pointer; background: var(--surface); }
+.book-drop:hover, .book-drop.has { border-color: var(--ink-2); }
+.book-drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.book-drop span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.book-drop small { color: var(--muted); font-size: 13px; }
+.book-progress { display: flex; flex-direction: column; gap: 6px; }
+.book-progress .bar { height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
+.book-progress .bar i { display: block; height: 100%; background: var(--ink); transition: width .3s; }

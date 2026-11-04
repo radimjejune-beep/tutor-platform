@@ -568,7 +568,6 @@ function buyBtn(p, cls){
   if (p.free) return p.demo ? `<a class="btn ${cls}" href="${esc(p.demo)}" target="_blank" rel="noopener">Открыть бесплатно</a>` : "";
   const t = p.status === "preorder" ? "Оформить предзаказ" : "Купить";
   if (LF.pay) return `<button type="button" class="btn ${cls}" data-buy="${esc(p.sku)}">${t}</button>`;
-  if (LF.bot) return `<a class="btn ${cls}"${ext(botLink("p_" + p.sku))}>${t} в Telegram</a>`;
   return `<button type="button" class="btn ${cls}" data-miss="1">${t}</button>`;
 }
 function priceHtml(p){ return p.free ? `<span class="price free">Бесплатно</span>` : `<span class="price">${rub(p.price)}${p.oldPrice ? `<s>${rub(p.oldPrice)}</s>` : ""}</span>` }
@@ -669,7 +668,8 @@ $("#buyF").addEventListener("submit", async e => {
   const p = PRODUCTS.find(x => x.sku === sku); if (!p) return;
   const b = document.querySelector(`[data-buy="${CSS.escape(sku)}"]`);
   if (b) { b.scrollIntoView({ block: "center" }); b.click(); return }
-  if (LF.bot && !p.free) location.href = botLink("p_" + sku);
+  // оплата ещё не подключена: покажем урок и сообщение о том, что покупка скоро откроется
+  if (!p.free) toast("Продажи откроются совсем скоро. Загляните чуть позже.");
 })();
 
 /* ---------- documents ---------- */

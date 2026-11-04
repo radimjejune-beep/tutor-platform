@@ -65,7 +65,7 @@ async function showWelcome(chatId, from) {
   await send(chatId,
     `Здравствуйте${name}! Это бот <b>Lessonfold</b>: готовые интерактивные уроки английского к школьным учебникам.\n\n` +
     `Открыл файл, вывел на доску, провёл урок. В каждом уроке озвучка, игры с автопроверкой, заметки для учителя и PDF с ответами.\n\n` +
-    `Начните с бесплатного урока: кнопка «${MENU.free}» внизу.\n\n` +
+    `Начните с бесплатного урока: кнопка «${MENU.free}» внизу. Платные уроки и курсы покупаются на сайте, файлы приходят на почту.\n\n` +
     `<i>Бот хранит ваш Telegram ID, имя и покупки, чтобы выдавать уроки.</i> ${docsLine()}`,
     { reply_markup: mainKeyboard });
 }
@@ -170,7 +170,8 @@ async function showProduct(chatId, messageId, userId, sku) {
   } else if (p.free && p.status === 'available') {
     rows.push([{ text: 'Получить бесплатно', callback_data: `get:${sku}` }]);
   } else if (catalog.purchasable(p)) {
-    rows.push([{ text: `Купить за ${rub(p.price)}`, callback_data: `buy:${sku}` }]);
+    // покупка только на сайте: там оплата ЮKassa, чек и страница заказа с файлами
+    rows.push([{ text: `${p.status === 'preorder' ? 'Предзаказ' : 'Купить'} на сайте · ${rub(p.price)}`, url: siteBuyUrl(sku) }]);
   } else if (p.status === 'soon') {
     rows.push([{ text: 'Сообщить о выходе', callback_data: `nt:${sku}` }]);
   }
@@ -185,7 +186,9 @@ async function showProduct(chatId, messageId, userId, sku) {
 async function showMine(chatId, userId) {
   const { purchases, owned } = await ownership(userId);
   if (!purchases.length) {
-    return send(chatId, `У вас пока нет уроков. Начните с бесплатного: «${MENU.free}».`, { reply_markup: mainKeyboard });
+    return send(chatId,
+      `<b>Мои уроки</b>\n\nЗдесь уроки, полученные в боте. Купленные на сайте приходят на почту, а все заказы можно найти на сайте по адресу почты.\n\nНачните с бесплатного: «${MENU.free}».`,
+      { reply_markup: { inline_keyboard: [[{ text: 'Мои заказы на сайте', url: `${config.publicUrl.replace(/\/$/, '')}/my` }]] } });
   }
   const lessons = [...owned].map(catalog.product).filter(p => p && p.type === 'lesson');
   const ready = lessons.filter(p => p.status === 'available');
@@ -260,30 +263,19 @@ async function resend(chatId, from, sku) {
 // Покупка: заказ в ЮKassa и кнопка со ссылкой на страницу оплаты.
 // Счёт внутри Telegram (sendInvoice) не используем: по п. 6.2 правил Telegram для ботов
 // цифровые товары внутри бота продаются только за Stars.
+// Ссылка на покупку на сайте: страница сама откроет оформление этого урока
+function siteBuyUrl(sku) {
+  return `${config.publicUrl.replace(/\/$/, '')}/?buy=${encodeURIComponent(sku)}`;
+}
+
+// Старые кнопки «Купить» в уже отправленных сообщениях: теперь ведут на сайт
 async function startBuy(chatId, from, sku) {
   const p = catalog.product(sku);
   if (!catalog.purchasable(p)) return send(chatId, 'Этот товар сейчас нельзя купить.');
-  const { owned } = await ownership(from.id);
-  if (owned.has(sku)) return showProduct(chatId, null, from.id, sku);
-  if (!config.payEnabled) {
-    await send(chatId, `Оплата ещё подключается. ${supportLine() || 'Попробуйте позже.'}`);
-    await notifyAdmins(`Попытка покупки без подключённой оплаты: ${from.username ? '@' + esc(from.username) : from.id}, ${esc(sku)}`);
-    return;
-  }
-  let r;
-  try {
-    r = await orders.createTg({ sku, from, botUsername: config.botUsername });
-  } catch (e) {
-    if (e.status) return send(chatId, esc(e.message));
-    console.error('tg order create', from.id, sku, e.message);
-    return send(chatId, `Не удалось создать платёж. Попробуйте через минуту. ${supportLine()}`);
-  }
-  if (!r.confirmationUrl) return send(chatId, 'ЮKassa не вернула страницу оплаты. Попробуйте ещё раз.');
   await send(chatId,
     `<b>${esc(p.title)}</b> · ${rub(p.price)}\n\n` +
-    `Оплата картой или через СБП на защищённой странице ЮKassa. Нажимая «Оплатить», вы принимаете условия лицензии: ${docsLine()}.\n\n` +
-    `После оплаты бот сам пришлёт файлы сюда, обычно в течение минуты. Ссылка на оплату действует один час.`,
-    { reply_markup: { inline_keyboard: [[{ text: `Оплатить ${rub(p.price)}`, url: r.confirmationUrl }]] } });
+    `Покупка проходит на сайте: оплата картой или через СБП, чек придёт на почту, а файлы будут на странице заказа и в письме.`,
+    { reply_markup: { inline_keyboard: [[{ text: `Купить на сайте · ${rub(p.price)}`, url: siteBuyUrl(sku) }]] } });
 }
 
 // Вызывается из orders.markPaid, когда ЮKassa подтвердила оплату заказа из бота
