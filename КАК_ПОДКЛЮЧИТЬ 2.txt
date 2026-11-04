@@ -1,0 +1,24 @@
+Магазин уроков Lessonfold внутри платформы (бэкенд tutor-platform)
+
+1. Скопируйте содержимое этой папки поверх своего репозитория tutor-platform
+   (с заменой файлов). Изменятся только:
+   backend/lessonfold/        новая папка: магазин, админка, бот
+   backend/src/server.js      две строки подключения магазина
+   backend/package.json       добавлена зависимость pdf-lib
+   backend/.env.example       описание новых переменных LF_*
+2. Отправьте изменения в GitHub (ветка main). RelaxDev пересоберёт бэкенд сам.
+3. В RelaxDev, в переменных окружения проекта tutor-platform (бэкенд), добавьте:
+   LF_PUBLIC_URL        адрес бэкенда без слеша на конце, например https://tutor-platform-xxx.relaxdev.ru
+   LF_BOT_TOKEN         новый токен @lessonfold_bot (после /revoke)
+   LF_ADMIN_LOGIN       radim
+   LF_ADMIN_PASSWORD    пароль для админки магазина (от 10 символов)
+   LF_SUPPORT_CONTACT   например @lessonfold_help
+   LF_YOOKASSA_SHOP_ID и LF_YOOKASSA_SECRET_KEY, когда подключите ЮKassa
+   TELEGRAM_BOT_TOKEN платформы не трогайте: это другой бот.
+4. Перезапустите бэкенд. Проверка: LF_PUBLIC_URL/health показывает ok,
+   LF_PUBLIC_URL/admin открывает админку магазина, бот отвечает на /start.
+5. Напишите боту /id и добавьте переменную LF_ADMIN_IDS с этим числом, перезапустите.
+6. В кабинете ЮKassa адрес уведомлений: LF_PUBLIC_URL/api/yookassa
+
+Пока LF_PUBLIC_URL пустой, магазин выключен и платформа работает как раньше.
+Таблицы магазина лежат в той же базе в отдельной схеме lessonfold.
