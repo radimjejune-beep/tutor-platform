@@ -1,12 +1,15 @@
 // services/reminders.js — напоминания в Telegram (только тем, кто подключил бота):
-//   • об уроке примерно за 2 часа: ученику и родителям;
+//   • об уроке за час: ученику и родителям, со ссылкой на звонок;
+//   • о домашке: накануне срока (с 16:00) и в день срока (с 10:00), если ещё не сдана;
 //   • вечером о словах на повторение: ученику, если есть хотя бы 5 слов и сегодня он ещё не занимался.
 // Каждое напоминание отправляется один раз (таблица tg_reminders). Работает каждые 5 минут.
 const { query } = require('../db');
 const tg = require('./telegram');
 
 const TZ = process.env['APP_TIMEZONE'] || 'Europe/Moscow';
-const LESSON_BEFORE_MIN = 120;
+const LESSON_BEFORE_MIN = 60;
+const HW_EVE_HOUR = 16; // накануне срока
+const HW_DAY_HOUR = 10; // в день срока
 const WORDS_HOUR = 18; // с 18:00 по местному времени
 const WORDS_MIN = 5;
 
@@ -35,25 +38,29 @@ const hm = (d) => new Intl.DateTimeFormat('ru-RU', { timeZone: TZ, hour: '2-digi
 
 async function lessonReminders() {
   const { rows } = await query(
-    `SELECT l.id, l.starts_at, l.duration_min, s.full_name AS student, tl.user_id, tl.chat_id, u.role
+    `SELECT l.id, l.starts_at, l.duration_min, s.full_name AS student, tl.user_id, tl.chat_id, u.role,
+            COALESCE(NULLIF(l.call_link, ''), NULLIF(s.call_link, '')) AS call_link,
+            EXTRACT(EPOCH FROM (l.starts_at - NOW())) / 60 AS left_min
        FROM lessons l
        JOIN students s ON s.id = l.student_id
        JOIN users u ON u.is_active AND (u.id = s.user_id OR u.id IN (SELECT parent_user_id FROM parent_students WHERE student_id = s.id))
        JOIN telegram_links tl ON tl.user_id = u.id
       WHERE l.status = 'scheduled'
-        AND l.starts_at > NOW() + INTERVAL '10 minutes'
+        AND l.starts_at > NOW() + INTERVAL '5 minutes'
         AND l.starts_at <= NOW() + make_interval(mins => $1)
-        AND l.created_at < l.starts_at - INTERVAL '30 minutes'
+        AND l.created_at < l.starts_at - INTERVAL '15 minutes'
         AND NOT EXISTS (SELECT 1 FROM tg_reminders r WHERE r.kind = 'lesson' AND r.ref_id = l.id AND r.user_id = u.id)`,
     [LESSON_BEFORE_MIN]
   );
   let sent = 0;
   for (const r of rows) {
     if (!(await claim('lesson', r.id, r.user_id))) continue;
-    const who = r.role === 'parent' ? `Скоро урок: ${r.student}, в ${hm(r.starts_at)}.` : `Скоро урок: в ${hm(r.starts_at)}.`;
-    const url = tg.cabinetUrl(`/lesson/${r.id}`);
+    const soon = Number(r.left_min) >= 45 ? 'Через час урок' : 'Скоро урок';
+    const who = r.role === 'parent' ? `${soon}: ${r.student}, в ${hm(r.starts_at)}.` : `${soon}, в ${hm(r.starts_at)}.`;
+    const room = r.role !== 'parent' ? tg.cabinetUrl(`/lesson/${r.id}`) : '';
+    const parts = [who, r.call_link && `Ссылка на звонок: ${r.call_link}`, room && `Урок в кабинете: ${room}`].filter(Boolean);
     try {
-      await tg.sendMessage(r.chat_id, [who, r.role === 'parent' ? '' : 'Ссылка на урок откроется в кабинете.', url].filter(Boolean).join('\n'));
+      await tg.sendMessage(r.chat_id, parts.join('\n\n'));
       sent++;
     } catch (err) {
       console.error('⚠️ Напоминание об уроке не доставлено:', err.message);
@@ -94,13 +101,51 @@ async function wordReminders(opts = {}) {
   return sent;
 }
 
+const localHour = () => Number(new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', hourCycle: 'h23' }).format(new Date()));
+const fmtDay = (d) => new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(new Date(`${String(d).slice(0, 10)}T12:00:00`));
+
+// Домашка: накануне срока и в день срока, пока не сдана. Ученику и родителям
+async function homeworkReminders(opts = {}) {
+  const hour = opts.hour ?? localHour();
+  if (hour >= 22 || hour < HW_DAY_HOUR) return 0;
+  const { rows } = await query(
+    `SELECT h.id, a.title, a.due_on, s.full_name AS student, tl.user_id, tl.chat_id, u.role,
+            (a.due_on = (NOW() AT TIME ZONE $1)::date) AS today
+       FROM homework h
+       JOIN assignments a ON a.id = h.assignment_id
+       JOIN students s ON s.id = h.student_id AND s.status = 'active'
+       JOIN users u ON u.is_active AND (u.id = s.user_id OR u.id IN (SELECT parent_user_id FROM parent_students WHERE student_id = s.id))
+       JOIN telegram_links tl ON tl.user_id = u.id
+      WHERE h.status = 'assigned' AND a.due_on IS NOT NULL
+        AND (a.due_on = (NOW() AT TIME ZONE $1)::date OR (a.due_on = (NOW() AT TIME ZONE $1)::date + 1 AND $2::int >= $3))
+        AND h.created_at < NOW() - INTERVAL '3 hours'`,
+    [TZ, hour, HW_EVE_HOUR]
+  );
+  let sent = 0;
+  for (const r of rows) {
+    if (!(await claim(r.today ? 'hw_day' : 'hw_eve', r.id, r.user_id))) continue;
+    const when = r.today ? 'сегодня' : `завтра, ${fmtDay(r.due_on)}`;
+    const text = r.role === 'parent'
+      ? `${r.student}: срок задания «${r.title}» ${when}, оно ещё не сдано.`
+      : `Срок задания «${r.title}» ${when}. Оно ещё не сдано.`;
+    try {
+      await tg.sendMessage(r.chat_id, [text, tg.cabinetUrl(`/homework/${r.id}`)].filter(Boolean).join('\n\n'));
+      sent++;
+    } catch (err) {
+      console.error('⚠️ Напоминание о домашке не доставлено:', err.message);
+    }
+  }
+  return sent;
+}
+
 async function tick() {
   if (!tg.enabled() || !tg.username()) return;
   try {
     await ensure();
     const a = await lessonReminders();
+    const h = await homeworkReminders();
     const b = await wordReminders();
-    if (a || b) console.log(`🔔 Напоминания в Telegram: уроки ${a}, слова ${b}`);
+    if (a || h || b) console.log(`🔔 Напоминания в Telegram: уроки ${a}, домашка ${h}, слова ${b}`);
   } catch (err) {
     console.error('🔔 Напоминания не отправлены:', err.message);
   }
@@ -111,4 +156,4 @@ function start() {
   setInterval(tick, 5 * 60 * 1000);
 }
 
-module.exports = { start, tick, lessonReminders, wordReminders, ensure };
+module.exports = { start, tick, lessonReminders, homeworkReminders, wordReminders, ensure };

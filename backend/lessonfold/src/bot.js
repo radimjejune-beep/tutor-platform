@@ -497,8 +497,14 @@ async function onCallback(cq) {
   }
 }
 
+// Платформа репетитора, в которую встроен магазин, может забрать сообщение себе
+// (ученики и родители, подключившие бота в кабинете). Тогда магазин его не обрабатывает.
+let preHandler = null;
+function setPreHandler(fn) { preHandler = fn; }
+
 async function handleUpdate(u) {
   try {
+    if (preHandler && await preHandler(u).catch(e => { console.error('preHandler', e.message); return false; })) return;
     if (u.message) await onMessage(u.message);
     else if (u.callback_query) await onCallback(u.callback_query);
   } catch (e) {
@@ -510,4 +516,4 @@ async function handleUpdate(u) {
   }
 }
 
-module.exports = { handleUpdate, syncReleases, runFollowups, onOrderPaid, MENU };
+module.exports = { handleUpdate, syncReleases, runFollowups, onOrderPaid, MENU, setPreHandler };
