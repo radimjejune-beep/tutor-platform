@@ -24,7 +24,7 @@ router.get(
 // Ссылка на бота с одноразовым кодом
 router.post(
   '/link',
-  requireRole('student', 'parent'),
+  requireRole('student', 'parent', 'tutor'),
   asyncHandler(async (req, res) => {
     if (!tg.enabled() || !tg.username()) return res.status(409).json({ error: 'Уведомления в Telegram пока не настроены' });
     res.json({ url: await tg.createLinkCode(req.user.id) });

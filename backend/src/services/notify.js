@@ -20,7 +20,8 @@ async function studentUsers(studentId) {
 }
 
 
-async function send(userIds, { kind, title, body = null, link = null }) {
+// opts.telegram = false — не дублировать в Telegram (например, итоги урока уходят туда отдельным письмом)
+async function send(userIds, { kind, title, body = null, link = null }, opts = {}) {
   for (const id of new Set(userIds)) {
     await query('INSERT INTO notifications (user_id, kind, title, body, link) VALUES ($1, $2, $3, $4, $5)', [
       id,
@@ -30,14 +31,18 @@ async function send(userIds, { kind, title, body = null, link = null }) {
       link,
     ]);
   }
+  if (opts.telegram !== false && userIds.length) {
+    // копия в Telegram тем, кто подключил бота; ошибки Telegram не мешают уведомлению в кабинете
+    require('./telegram').forward([...new Set(userIds)], { title, body, link }).catch((err) => console.error('⚠️ Telegram:', err.message));
+  }
 }
 
 // Безопасные обёртки: логируем и идём дальше
 const safe = (fn) => (...args) =>
   fn(...args).catch((err) => console.error('🔔 Уведомление не отправлено:', err.message));
 
-const toStudent = safe(async (studentId, msg) => send(await studentUsers(studentId), msg));
+const toStudent = safe(async (studentId, msg, opts) => send(await studentUsers(studentId), msg, opts));
 // Репетитору ученика (tutorId — его id)
-const toTutor = safe(async (tutorId, msg) => send(tutorId ? [tutorId] : [], msg));
+const toTutor = safe(async (tutorId, msg, opts) => send(tutorId ? [tutorId] : [], msg, opts));
 
 module.exports = { toStudent, toTutor, when };

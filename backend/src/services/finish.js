@@ -36,16 +36,23 @@ async function finishLesson(client, id, b) {
 
 function notifyFinished(result) {
   const sid = result.lesson.student_id;
-  if (result.lesson.status === 'done' && result.lesson.summary) {
+  const withSummary = result.lesson.status === 'done' && result.lesson.summary;
+  if (withSummary) {
     notify.toStudent(sid, {
       kind: 'lesson_summary',
       title: `Итоги урока${result.lesson.topic ? `: ${result.lesson.topic}` : ''}`,
       body: result.lesson.summary,
       link: '/schedule',
-    });
+    }, { telegram: false });
   }
   if (result.assignment) {
-    notify.toStudent(sid, { kind: 'homework_new', title: `Новое задание: ${result.assignment.title}`, link: `/homework/${result.assignment.homework_id}` });
+    // если уходят итоги, задание будет в них же, второй раз в Telegram не пишем
+    notify.toStudent(sid, { kind: 'homework_new', title: `Новое задание: ${result.assignment.title}`, link: `/homework/${result.assignment.homework_id}` }, { telegram: !withSummary });
+  }
+  // Итоги урока в Telegram родителям и взрослому ученику: сразу, без отдельной кнопки
+  if (withSummary && !result.lesson.summary_sent_at) {
+    const tg = require('./telegram');
+    if (tg.enabled()) tg.sendLessonSummary(result.lesson.id).catch((err) => console.error('⚠️ Telegram: итоги урока:', err.message));
   }
 }
 

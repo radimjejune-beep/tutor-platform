@@ -59,7 +59,7 @@ async function handleUpdate(u) {
   if (text.startsWith('/start')) {
     const code = text.split(/\s+/)[1];
     if (!code) {
-      await sendMessage(chatId, 'Чтобы получать итоги уроков, откройте личный кабинет и нажмите «Подключить Telegram».');
+      await sendMessage(chatId, 'Чтобы получать уведомления, откройте личный кабинет Lessonfold и нажмите «Подключить Telegram».');
       return;
     }
     const { rows } = await query('SELECT user_id FROM telegram_link_codes WHERE code = $1 AND expires_at > NOW()', [code]);
@@ -75,9 +75,15 @@ async function handleUpdate(u) {
     );
     await query('DELETE FROM telegram_link_codes WHERE user_id = $1', [userId]);
     const names = await studentNamesFor(userId);
+    const { rows: who } = await query('SELECT role FROM users WHERE id = $1', [userId]);
+    if (who[0]?.role === 'tutor') {
+      await sendMessage(chatId, 'Готово! Сюда будут приходить уведомления: сданные задания, записи на урок, заявки и другое.\n\n/today — уроки сегодня\nОтключить: /stop');
+      console.log(`✅ Telegram подключён (преподаватель #${userId})`);
+      return;
+    }
     await sendMessage(
       chatId,
-      `Готово! Сюда будут приходить итоги уроков${names.length ? `: ${names.join(', ')}` : ''}.\n\nОтключить: /stop`
+      `Готово! Сюда будут приходить итоги уроков, новые задания и напоминания${names.length ? `: ${names.join(', ')}` : ''}.\n\nКоманды: /lessons, /homework, /words\nОтключить: /stop`
     );
     console.log(`✅ Telegram подключён (пользователь #${userId})`);
     return;
@@ -89,7 +95,140 @@ async function handleUpdate(u) {
     return;
   }
 
-  await sendMessage(chatId, 'Я присылаю итоги уроков. Подключение — в личном кабинете, отключить — /stop.');
+  const cmd = text.split(/[\s@]/)[0].toLowerCase();
+  const { rows: linked } = await query('SELECT u.id, u.role, u.full_name FROM telegram_links tl JOIN users u ON u.id = tl.user_id WHERE tl.chat_id = $1', [chatId]);
+  const user = linked[0];
+  if (!user) {
+    await sendMessage(chatId, 'Сначала подключите бота в личном кабинете Lessonfold: кнопка «Подключить Telegram».');
+    return;
+  }
+  const reply = COMMAND_HANDLERS[cmd] ? await COMMAND_HANDLERS[cmd](user) : helpText(user);
+  await sendMessage(chatId, reply);
+}
+
+
+// ------------------------------------------------------------
+// Команды бота: ближайшие уроки, домашние задания, слова на повторение
+// ------------------------------------------------------------
+const COMMANDS = [
+  { command: 'lessons', description: 'Ближайшие уроки' },
+  { command: 'homework', description: 'Что задано' },
+  { command: 'words', description: 'Слова на повторение' },
+  { command: 'today', description: 'Уроки сегодня (для преподавателя)' },
+  { command: 'stop', description: 'Отключить уведомления' },
+];
+
+const site = () => (process.env.FRONTEND_ORIGINS || '').split(',')[0].trim().replace(/\/$/, '');
+// Ссылка в кабинет: на фронтенде hash-маршруты
+const cabinetUrl = (path = '') => (site() ? `${site()}/#${path.startsWith('/') ? path : `/${path}`}` : '');
+
+const fmtLesson = (d) => {
+  const f = (o) => new Intl.DateTimeFormat('ru-RU', { timeZone: TZ, ...o }).format(new Date(d));
+  return `${f({ weekday: 'short', day: 'numeric', month: 'short' })}, ${f({ hour: '2-digit', minute: '2-digit' })}`;
+};
+const fmtDay = (d) => new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long' }).format(new Date(`${String(d).slice(0, 10)}T12:00:00`));
+
+// Ученики, к которым относится пользователь (сам ученик или дети родителя)
+async function studentsOf(user) {
+  const { rows } = await query(
+    `SELECT s.id, s.full_name FROM students s WHERE s.user_id = $1
+     UNION
+     SELECT s.id, s.full_name FROM students s JOIN parent_students ps ON ps.student_id = s.id WHERE ps.parent_user_id = $1`,
+    [user.id]
+  );
+  return rows;
+}
+
+function helpText(user) {
+  const tutor = user.role === 'tutor';
+  return [
+    tutor ? 'Сюда приходят уведомления: сданные задания, записи, заявки и другое.' : 'Сюда приходят итоги уроков, новые задания и напоминания.',
+    '',
+    tutor ? '/today — уроки сегодня' : '/lessons — ближайшие уроки',
+    ...(tutor ? [] : ['/homework — что задано', '/words — слова на повторение']),
+    '/stop — отключить уведомления',
+  ].join('\n');
+}
+
+async function cmdLessons(user) {
+  if (user.role === 'tutor') return cmdToday(user);
+  const kids = await studentsOf(user);
+  if (!kids.length) return 'Ученик не найден. Проверьте подключение в кабинете.';
+  const { rows } = await query(
+    `SELECT l.starts_at, s.full_name FROM lessons l JOIN students s ON s.id = l.student_id
+      WHERE l.student_id = ANY($1) AND l.status = 'scheduled' AND l.starts_at > NOW()
+      ORDER BY l.starts_at LIMIT 5`,
+    [kids.map((k) => k.id)]
+  );
+  if (!rows.length) return 'Ближайших уроков нет.';
+  const many = kids.length > 1;
+  return ['Ближайшие уроки:', ...rows.map((r) => `• ${fmtLesson(r.starts_at)}${many ? ` — ${r.full_name}` : ''}`), '', cabinetUrl('/schedule')].filter(Boolean).join('\n');
+}
+
+async function cmdHomework(user) {
+  if (user.role === 'tutor') return helpText(user);
+  const kids = await studentsOf(user);
+  const { rows } = await query(
+    `SELECT a.title, a.due_on, s.full_name FROM homework h JOIN assignments a ON a.id = h.assignment_id JOIN students s ON s.id = h.student_id
+      WHERE h.student_id = ANY($1) AND h.status = 'assigned'
+      ORDER BY a.due_on NULLS LAST, h.id LIMIT 10`,
+    [kids.map((k) => k.id)]
+  );
+  if (!rows.length) return 'Все задания сделаны. Новые появятся здесь.';
+  const many = kids.length > 1;
+  return ['Задано:', ...rows.map((r) => `• ${r.title}${r.due_on ? ` (до ${fmtDay(r.due_on)})` : ''}${many ? ` — ${r.full_name}` : ''}`), '', cabinetUrl('/homework')].filter(Boolean).join('\n');
+}
+
+async function cmdWords(user) {
+  if (user.role === 'tutor') return helpText(user);
+  const kids = await studentsOf(user);
+  const { rows } = await query(
+    `SELECT s.full_name, COUNT(v.id)::int AS due FROM students s
+       LEFT JOIN vocab_items v ON v.student_id = s.id AND v.due_on <= CURRENT_DATE
+      WHERE s.id = ANY($1) GROUP BY s.id, s.full_name ORDER BY s.full_name`,
+    [kids.map((k) => k.id)]
+  );
+  const total = rows.reduce((n, r) => n + r.due, 0);
+  if (!total) return 'Сегодня повторять нечего. Отлично!';
+  const lines = rows.length > 1 ? rows.filter((r) => r.due).map((r) => `• ${r.full_name}: ${r.due}`) : [`На повторение: ${total}. Это минут пять.`];
+  return [...lines, '', cabinetUrl('/words')].filter(Boolean).join('\n');
+}
+
+async function cmdToday(user) {
+  if (user.role !== 'tutor') return cmdLessons(user);
+  const { rows } = await query(
+    `SELECT l.starts_at, s.full_name FROM lessons l JOIN students s ON s.id = l.student_id
+      WHERE s.tutor_id = $1 AND l.status = 'scheduled'
+        AND (l.starts_at AT TIME ZONE $2)::date = (NOW() AT TIME ZONE $2)::date
+      ORDER BY l.starts_at`,
+    [user.id, TZ]
+  );
+  if (!rows.length) return 'Сегодня уроков нет.';
+  const t = (d) => new Intl.DateTimeFormat('ru-RU', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }).format(new Date(d));
+  return [`Сегодня уроков: ${rows.length}`, ...rows.map((r) => `• ${t(r.starts_at)} ${r.full_name}`), '', cabinetUrl('/schedule')].filter(Boolean).join('\n');
+}
+
+const COMMAND_HANDLERS = { '/lessons': cmdLessons, '/homework': cmdHomework, '/words': cmdWords, '/today': cmdToday, '/help': async (u) => helpText(u) };
+
+// ------------------------------------------------------------
+// Уведомления кабинета → Telegram (кто подключил бота)
+// ------------------------------------------------------------
+async function forward(userIds, { title, body = null, link = null }) {
+  if (!enabled() || !botUsername || !userIds.length) return 0;
+  const { rows } = await query('SELECT user_id, chat_id FROM telegram_links WHERE user_id = ANY($1::int[])', [[...new Set(userIds)]]);
+  let sent = 0;
+  for (const r of rows) {
+    const url = link ? cabinetUrl(link) : '';
+    const text = [title, body, url].filter(Boolean).join('\n\n').slice(0, 4000);
+    try {
+      await sendMessage(r.chat_id, text);
+      sent++;
+    } catch (err) {
+      console.error(`⚠️ Telegram: уведомление пользователю #${r.user_id} не доставлено:`, err.message);
+      if (/blocked|deactivated|chat not found/i.test(err.message)) await query('DELETE FROM telegram_links WHERE user_id = $1', [r.user_id]);
+    }
+  }
+  return sent;
 }
 
 // Цикл получения сообщений
@@ -118,6 +257,7 @@ async function start() {
     const me = await call('getMe');
     botUsername = me.username;
     await call('deleteWebhook', { drop_pending_updates: false });
+    await call('setMyCommands', { commands: COMMANDS }).catch((e) => console.error('⚠️ Telegram: меню команд:', e.message));
     running = true;
     console.log(`✅ Telegram-бот @${botUsername} запущен`);
     poll();
@@ -208,4 +348,4 @@ async function sendLessonSummary(lessonId) {
   return { sent, not_connected: notConnected, failed };
 }
 
-module.exports = { enabled, username, start, createLinkCode, sendLessonSummary, lessonRecipients, handleUpdate };
+module.exports = { enabled, username, start, createLinkCode, sendLessonSummary, lessonRecipients, handleUpdate, forward, sendMessage, cabinetUrl, studentsOf };

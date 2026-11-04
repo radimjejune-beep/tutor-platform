@@ -1,9 +1,12 @@
 // components/TelegramCard.jsx — подключение итогов уроков в Telegram (ученик/родитель)
 import { api } from '../api';
 import { useLoad, Icon, useToast } from '../ui';
+import { useAuth } from '../auth';
 
-export default function TelegramCard() {
+export default function TelegramCard({ style }) {
   const toast = useToast();
+  const { user } = useAuth();
+  const tutor = user?.role === 'tutor';
   const st = useLoad(() => api.telegramStatus(), []);
   if (!st.data?.enabled) return null;
 
@@ -22,18 +25,22 @@ export default function TelegramCard() {
     }
   };
   const disconnect = async () => {
-    if (!window.confirm('Отключить итоги уроков в Telegram?')) return;
+    if (!window.confirm('Отключить уведомления в Telegram?')) return;
     await api.telegramUnlink();
     st.reload();
   };
 
   return (
-    <section className="panel tg-card" style={{ marginTop: 20 }}>
+    <section className="panel tg-card" style={style || { marginTop: 20 }}>
       <div className="assign-icon"><Icon name="send" /></div>
       <div className="list-main">
-        <div className="list-title">{st.data.linked ? 'Итоги уроков приходят в Telegram' : 'Получайте итоги уроков в Telegram'}</div>
+        <div className="list-title">{st.data.linked ? 'Уведомления приходят в Telegram' : tutor ? 'Уведомления себе в Telegram' : 'Уведомления в Telegram'}</div>
         <div className="list-sub">
-          {st.data.linked ? 'После каждого урока — что прошли и какое домашнее задание' : 'Бот пришлёт, что прошли на уроке и что задано. Подключение в два нажатия'}
+          {tutor
+            ? 'Сданные задания, записи на урок, заявки и отмены. Команда /today покажет уроки на сегодня'
+            : st.data.linked
+              ? 'Итоги уроков, новые задания и напоминания. Команды в боте: /lessons, /homework, /words'
+              : 'Итоги уроков, новые задания, напоминание об уроке и о словах на повторение. Подключение в два нажатия'}
         </div>
       </div>
       {st.data.linked ? (

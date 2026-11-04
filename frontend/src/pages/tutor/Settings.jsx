@@ -7,6 +7,7 @@ import PageSettings from './PageSettings';
 import SubjectInput from '../../components/SubjectInput';
 import { subjectInfo } from '../../subjects';
 import { useAuth } from '../../auth';
+import TelegramCard from '../../components/TelegramCard';
 
 const DAYS = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
 
@@ -316,7 +317,7 @@ function TelegramTab() {
       <section className="panel" style={{ maxWidth: 760 }}>
         <h2 className="section-title">Бот ещё не подключён</h2>
         <ol className="steps">
-          <li>В Telegram откройте <b>@BotFather</b>, отправьте <code>/newbot</code>, придумайте имя (например, «Lessonfold — итоги уроков») и адрес бота, оканчивающийся на <code>bot</code>.</li>
+          <li>В Telegram откройте <b>@BotFather</b>, отправьте <code>/newbot</code>, придумайте имя (например, «Lessonfold — уроки») и адрес бота, оканчивающийся на <code>bot</code>. Это должен быть отдельный бот, не тот, что у магазина: два бота на одном токене мешают друг другу.</li>
           <li>BotFather пришлёт токен — длинную строку вида <code>123456:ABC…</code>. Никому её не показывайте.</li>
           <li>В RelaxDev, проект <b>tutor-platform</b> → «Переменные», добавьте <code>TELEGRAM_BOT_TOKEN</code> = токен и <code>TG_OPTION</code> = <code>1</code> (без неё сервер не достучится до Telegram).</li>
           <li>Нажмите «Редеплой» и обновите эту страницу.</li>
@@ -326,11 +327,13 @@ function TelegramTab() {
   }
 
   return (
+    <>
+    <TelegramCard style={{ marginBottom: 20 }} />
     <section className="panel">
       <div className="panel-head">
         <div>
           <h2 className="section-title">Бот @{d.bot_username} работает</h2>
-          <div className="small muted">Родители и взрослые ученики подключают его сами: на главной их кабинета есть кнопка «Подключить». Итоги уходят, когда вы отмечаете урок проведённым и пишете, что сделали.</div>
+          <div className="small muted">Ученики и родители подключают его сами: на главной их кабинета есть кнопка «Подключить». Что приходит: итоги урока (когда вы отмечаете урок проведённым и пишете, что сделали), новые задания, переносы и отмены, напоминание об уроке за 2 часа и вечером о словах на повторение.</div>
         </div>
         <Badge tone="green">Подключено: {linked.length} из {d.users.length}</Badge>
       </div>
@@ -346,6 +349,7 @@ function TelegramTab() {
         ))}
       </div>
     </section>
+    </>
   );
 }
 
