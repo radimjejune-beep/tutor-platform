@@ -2,7 +2,7 @@
 // Поля хранят «сырой» текст, а наверх отдаётся готовое упражнение — так удобно печатать и вставлять списки
 import { useState } from 'react';
 import { Field, Icon } from '../ui';
-import { GAME_TYPES, parseGaps } from './logic';
+import { GAME_TYPES, SHEET_PRESETS, parseGaps } from './logic';
 import { SheetEditor } from './Sheet';
 
 export const EMPTY_GAME = {
@@ -11,13 +11,28 @@ export const EMPTY_GAME = {
   gaps: { type: 'gaps', text: '', mode: 'type', distractors: [] },
   groups: { type: 'groups', groups: [{ name: '', items: [] }, { name: '', items: [] }] },
   sheet: { type: 'sheet', blocks: [{ t: 'text', text: '' }] },
+  // Готовые листы: с примером внутри, его нужно заменить своим
+  write: { type: 'sheet', blocks: [{ t: 'write', q: 'Write about your typical Monday (60–80 words).', min_words: 60, max_words: 80, min_sentences: 6,
+    checks: [{ label: 'Наречия частоты: always, usually, often…', words: 'always|usually|often|sometimes|rarely|never', min: 3 }, { label: 'Слова порядка: first, then, after that…', words: 'first|then|next|after that|finally|later', min: 2 }],
+    caps: true, stop: true, latin: true, starters: ['On Mondays I usually', 'After that,', 'My favourite part of Monday is'], model: '' }] },
+  fix: { type: 'sheet', blocks: [{ t: 'fix', q: 'Find and correct 4 mistakes.', text: "My brother {go=goes} to school by bus. He {don't=doesn't} like Maths, but he {love=loves} Art. We {plays=play} football after school." }] },
+  rewrite: { type: 'sheet', blocks: [
+    { t: 'text', text: 'Make the sentences negative.' },
+    { t: 'rewrite', q: '', src: 'She plays tennis.', a: "She doesn't play tennis.|She does not play tennis." },
+    { t: 'rewrite', q: '', src: 'They live in London.', a: "They don't live in London.|They do not live in London." },
+  ] },
+  dictation: { type: 'sheet', blocks: [
+    { t: 'text', text: 'Listen and write the sentences.' },
+    { t: 'dictation', text: "I usually get up at seven o'clock." },
+    { t: 'dictation', text: 'My sister never drinks coffee.' },
+  ] },
 };
 
 // Выбор типа для нового упражнения
 export function GameTypePicker({ onPick }) {
   return (
     <div className="type-grid">
-      {Object.entries(GAME_TYPES).map(([type, t]) => (
+      {Object.entries({ ...GAME_TYPES, ...SHEET_PRESETS }).map(([type, t]) => (
         <button type="button" key={type} className="type-card" onClick={() => onPick(type)}>
           <span className="type-ill" aria-hidden="true">{ILLUSTRATION[type]}</span>
           <span className="list-title">{t.label}</span>
@@ -34,6 +49,10 @@ const ILLUSTRATION = {
   gaps: (<><i>She</i><u /><i>here</i></>),
   groups: (<><i>go</i><i>play</i><b>|</b><i>see</i></>),
   sheet: (<><i>1.</i><u /><i>фото</i></>),
+  write: (<><i>Dear</i><u /><b>✓</b></>),
+  fix: (<><i>He</i><s>go</s><i>goes</i></>),
+  rewrite: (<><i>He</i><b>→</b><i>doesn't</i></>),
+  dictation: (<><b>♪</b><u /><u /></>),
 };
 
 export default function GameEditor({ game, onChange, itemId }) {
@@ -188,12 +207,13 @@ export function cleanGame(game) {
   if (game.type === 'sheet') {
     const blocks = game.blocks
       .map((b) => {
+        if (b.t === 'write') return { ...b, checks: (b.checks || []).map((c) => ({ ...c, label: c.label.trim(), words: c.words.trim() })).filter((c) => c.words), starters: (b.starters || []).map((x) => x.trim()).filter(Boolean) };
         if (b.t !== 'choice') return b;
         const keep = b.options.map((o, j) => ({ o: o.trim(), j })).filter((x) => x.o);
         const correct = Math.max(0, keep.findIndex((x) => x.j === b.correct));
         return { ...b, options: keep.map((x) => x.o), correct };
       })
-      .filter((b) => !(b.t === 'gaps' && !b.text.trim()));
+      .filter((b) => !(b.t === 'gaps' && !b.text.trim()) && !(b.t === 'dictation' && !b.text.trim()) && !(b.t === 'rewrite' && !b.a.trim()) && !(b.t === 'fix' && !/\{[^}=]+=[^}]*\}/.test(b.text)));
     return { ...game, blocks: blocks.length ? blocks : [{ t: 'text', text: '' }] };
   }
   return game;

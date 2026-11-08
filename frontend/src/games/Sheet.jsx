@@ -5,7 +5,8 @@ import { MathText } from '../components/MathText';
 import { createContext, useContext, useEffect, useId, useRef, useState } from 'react';
 import { api } from '../api';
 import { Icon, useToast } from '../ui';
-import { parseGaps, alts } from './logic';
+import { parseGaps, alts, writeChecks, parseFix, words } from './logic';
+import { say } from '../voice';
 
 // Где проходят лист: в домашнем задании можно записать голос (файл прикрепится к работе)
 export const SheetContext = createContext({ homeworkId: null });
@@ -169,8 +170,137 @@ export function SheetBoard({ game, answers, setAnswers, result }) {
             </div>
           );
         }
+        if (blk.t === 'write') {
+          n++;
+          return <WriteBlock key={i} n={n} blk={blk} value={b[i] || ''} onChange={(v) => set(i, v)} checked={checked} audio={audio} />;
+        }
+        if (blk.t === 'rewrite') {
+          n++;
+          const d = res(i);
+          return (
+            <div key={i} className="sheet-block">
+              {audio}
+              <div className="sheet-q"><span className="sheet-n">{n}</span><span>{blk.q || 'Перепишите предложение'}</span></div>
+              {blk.src && <div className="rw-src"><MathText>{blk.src}</MathText></div>}
+              <input className={`input rw-input ${d ? (d.ok ? 'ok' : 'bad') : ''}`} value={b[i] || ''} disabled={checked} placeholder="Новое предложение"
+                autoCapitalize="none" autoComplete="off" spellCheck="false" onChange={(e) => set(i, e.target.value)} />
+              {d && !d.ok && <div className="rw-fix">Правильно: <b>{d.expected}</b></div>}
+            </div>
+          );
+        }
+        if (blk.t === 'fix') {
+          n++;
+          return <FixBlock key={i} n={n} blk={blk} value={b[i] || {}} onChange={(v) => set(i, v)} result={checked ? result.details.filter((d) => d.block === i) : null} audio={audio} />;
+        }
+        if (blk.t === 'dictation') {
+          n++;
+          const d = res(i);
+          return (
+            <div key={i} className="sheet-block">
+              <div className="sheet-q"><span className="sheet-n">{n}</span><span>Послушайте и запишите</span></div>
+              {blk.audio ? audio : (
+                <div className="row wrap" style={{ gap: 8 }}>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => say(blk.text, 0.9)}><Icon name="sound" /> Слушать</button>
+                  <button type="button" className="btn btn-quiet btn-sm" onClick={() => say(blk.text, 0.6)}>Медленно</button>
+                </div>
+              )}
+              <textarea className={`textarea ${d ? (d.ok ? 'ok' : 'bad') : ''}`} style={{ minHeight: 70 }} value={b[i] || ''} disabled={checked}
+                placeholder="Пишите, что слышите" spellCheck="false" autoCapitalize="sentences" onChange={(e) => set(i, e.target.value)} />
+              {d && !d.ok && <div className="rw-fix">Правильно: <b>{blk.text}</b></div>}
+            </div>
+          );
+        }
         return null;
       })}
+    </div>
+  );
+}
+
+
+/* ---------- Письмо: чек-лист обновляется, пока ученик пишет ---------- */
+function WriteBlock({ n, blk, value, onChange, checked, audio }) {
+  const list = writeChecks(blk, value);
+  const done = list.filter((c) => c.ok).length;
+  const count = words(value).length;
+  const [showModel, setShowModel] = useState(false);
+  const add = (st) => onChange(`${value.trim() ? `${value.trimEnd()} ` : ''}${st} `);
+  return (
+    <div className="sheet-block write-block">
+      {audio}
+      <div className="sheet-q"><span className="sheet-n">{n}</span><MathText>{blk.q || 'Напишите текст'}</MathText></div>
+      {!checked && blk.starters?.length > 0 && (
+        <div className="write-starters">
+          <span className="small muted">Начала фраз:</span>
+          {blk.starters.map((st, k) => <button type="button" key={k} className="chip-btn" onClick={() => add(st)}>{st}</button>)}
+        </div>
+      )}
+      <div className="write-grid">
+        <div className="write-pad">
+          <textarea className="textarea write-area" value={value} disabled={checked} placeholder="Пишите здесь…" spellCheck="false"
+            onChange={(e) => onChange(e.target.value)} />
+          <div className="small muted">Слов: {count}{blk.max_words ? ` из ${blk.max_words}` : blk.min_words ? `, нужно не меньше ${blk.min_words}` : ''}</div>
+        </div>
+        {list.length > 0 && (
+          <div className="write-checks" aria-live="polite">
+            <div className="meta-label">Чек-лист · {done} из {list.length}</div>
+            {list.map((c) => (
+              <div key={c.key} className={`write-check ${c.ok ? 'ok' : ''}`}>
+                <span className="write-tick" aria-hidden="true">{c.ok ? '✓' : ''}</span>
+                <span><span>{c.label}</span>{c.info && <small>{c.info}</small>}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {checked && <div className="small muted">Пункты чек-листа засчитаны сразу, сам текст проверит преподаватель.</div>}
+      {checked && blk.model && (
+        <div>
+          <button type="button" className="btn btn-quiet btn-sm" onClick={() => setShowModel(!showModel)}>{showModel ? 'Скрыть пример' : 'Показать пример ответа'}</button>
+          {showModel && <MathText as="div" className="write-model">{blk.model}</MathText>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Найди и исправь: нажать на слово, вписать верный вариант ---------- */
+function FixBlock({ n, blk, value, onChange, result, audio }) {
+  const toks = parseFix(blk.text);
+  const [edit, setEdit] = useState(null);
+  const errors = toks.filter((t) => t.right).length;
+  const changed = Object.keys(value).filter((k) => value[k] !== toks[k]?.s).length;
+  const resOf = (k) => result?.find((d) => d.k === k);
+  return (
+    <div className="sheet-block">
+      {audio}
+      <div className="sheet-q"><span className="sheet-n">{n}</span><span>{blk.q || 'Найдите и исправьте ошибки'}</span></div>
+      <div className="small muted">{result ? '' : `Ошибок в тексте: ${errors}. Нажмите на слово с ошибкой и впишите верный вариант. Исправлено: ${changed}.`}</div>
+      <div className="fix-text">
+        {toks.map((t, k) => {
+          if (!t.word) return <span key={k}>{t.s}</span>;
+          const v = value[k];
+          const d = resOf(k);
+          const isChanged = v !== undefined && v !== t.s;
+          if (result) {
+            if (d && d.ok) return <span key={k} className="fix-tok ok"><s>{t.s}</s> {v}</span>;
+            if (d && !d.ok) return <span key={k} className="fix-tok bad">{isChanged ? <><s>{v}</s> </> : <s>{t.s}</s>}{' '}<b>{d.expected}</b></span>;
+            return <span key={k}>{t.s}</span>;
+          }
+          if (edit === k) {
+            return (
+              <input key={k} className="fix-input" autoFocus defaultValue={v ?? t.s} style={{ width: `${Math.max(4, (v ?? t.s).length + 2)}ch` }}
+                autoCapitalize="none" autoComplete="off" spellCheck="false"
+                onBlur={(e) => { const nv = { ...value }; const x = e.target.value.trim(); if (x === t.s) delete nv[k]; else nv[k] = x; onChange(nv); setEdit(null); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setEdit(null); }} />
+            );
+          }
+          return (
+            <button type="button" key={k} className={`fix-tok ${isChanged ? 'changed' : ''}`} onClick={() => setEdit(k)}>
+              {isChanged ? <><s>{t.s}</s> {v || '∅'}</> : t.s}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -185,7 +315,10 @@ export function sheetProgress(game, answers) {
       const cnt = blk.t === 'gaps' ? parseGaps(blk.text).gaps.length : blk.fields.length;
       total += cnt;
       done += (Array.isArray(b[i]) ? b[i] : []).filter((v) => String(v || '').trim()).length;
-    } else if (['choice', 'open', 'voice'].includes(blk.t)) {
+    } else if (blk.t === 'fix') {
+      total += parseFix(blk.text).filter((x) => x.right).length;
+      done += Math.min(parseFix(blk.text).filter((x) => x.right).length, Object.keys(b[i] || {}).length);
+    } else if (['choice', 'open', 'voice', 'write', 'rewrite', 'dictation'].includes(blk.t)) {
       total++;
       if (b[i] !== undefined && b[i] !== null && b[i] !== '') done++;
     }
@@ -267,14 +400,19 @@ function VoiceAnswer({ value, disabled, onChange }) {
 /* ============================================================
    Конструктор листа
    ============================================================ */
-const BLOCK_LABEL = { text: 'Текст или инструкция', gaps: 'Пропуски', choice: 'Выбор ответа', open: 'Развёрнутый ответ', voice: 'Ответ голосом', page: 'Фото с полями' };
+export const BLOCK_LABEL = { text: 'Текст или инструкция', gaps: 'Пропуски', choice: 'Выбор ответа', write: 'Письмо с чек-листом', fix: 'Исправь ошибки', rewrite: 'Перепиши предложение', dictation: 'Диктант', open: 'Развёрнутый ответ', voice: 'Ответ голосом', page: 'Фото с полями' };
 const NEW_BLOCK = {
   text: () => ({ t: 'text', text: '' }),
   gaps: () => ({ t: 'gaps', text: '' }),
   choice: () => ({ t: 'choice', q: '', options: ['', ''], correct: 0 }),
+  write: () => ({ t: 'write', q: '', min_words: 50, max_words: 0, min_sentences: 0, checks: [], caps: true, stop: true, latin: true, starters: [], model: '' }),
+  fix: () => ({ t: 'fix', q: '', text: '' }),
+  rewrite: () => ({ t: 'rewrite', q: '', src: '', a: '' }),
+  dictation: () => ({ t: 'dictation', text: '' }),
   open: () => ({ t: 'open', q: '' }),
   voice: () => ({ t: 'voice', q: '' }),
 };
+export { NEW_BLOCK };
 
 export function SheetEditor({ game, onChange, itemId }) {
   const toast = useToast();
@@ -419,8 +557,136 @@ function BlockEditor({ b, onChange, upload }) {
     );
   }
   if (b.t === 'page') return <PageEditor b={b} onChange={onChange} />;
+  if (b.t === 'write') return <WriteEditor b={b} onChange={onChange} upload={upload} />;
+  if (b.t === 'fix') {
+    const toks = parseFix(b.text);
+    const errs = toks.filter((x) => x.right);
+    return (
+      <>
+        <input className="input" value={b.q} placeholder="Инструкция (необязательно): В тексте 4 ошибки в Present Simple" onChange={(e) => onChange({ q: e.target.value })} />
+        <textarea className="textarea" style={{ minHeight: 90 }} value={b.text}
+          placeholder={'Ошибку пишите так: {неверно=верно}\nMy brother {go=goes} to school by bus. He {don\'t=doesn\'t} like {apple=apples}.\nНесколько верных вариантов через |: {dont=don\'t|do not}'}
+          onChange={(e) => onChange({ text: e.target.value })} />
+        <div className="small muted">
+          Ошибок: {errs.length}. {errs.length > 0 && <>Ученик увидит: «{toks.map((x) => x.s).join('')}»</>}
+        </div>
+        <MediaRow b={b} onChange={onChange} upload={upload} />
+      </>
+    );
+  }
+  if (b.t === 'rewrite') {
+    return (
+      <>
+        <input className="input" value={b.q} placeholder="Задание: Make the sentence negative / Поставьте в Past Simple" onChange={(e) => onChange({ q: e.target.value })} />
+        <input className="input" value={b.src} placeholder="Исходное предложение: She plays tennis." onChange={(e) => onChange({ src: e.target.value })} />
+        <input className="input" value={b.a} placeholder="Правильный ответ, варианты через |: She doesn't play tennis.|She does not play tennis." onChange={(e) => onChange({ a: e.target.value })} />
+        <div className="small muted">Регистр букв, апостроф ’ или ' и точка в конце не важны. Сокращение и полную форму укажите как два варианта.</div>
+        <MediaRow b={b} onChange={onChange} upload={upload} />
+      </>
+    );
+  }
+  if (b.t === 'dictation') {
+    return (
+      <>
+        <textarea className="textarea" style={{ minHeight: 60 }} value={b.text} placeholder="Предложение для диктанта: I usually get up at seven o'clock." onChange={(e) => onChange({ text: e.target.value })} />
+        <div className="row wrap" style={{ gap: 8 }}>
+          {b.text && !b.audio && <button type="button" className="btn btn-quiet btn-sm" onClick={() => say(b.text)}><Icon name="sound" /> Как услышит ученик</button>}
+          <span className="small muted">{b.audio ? 'Ученик послушает ваше аудио.' : 'Без аудио текст прочитает британский голос (обычно и медленно).'} Знаки препинания и регистр не проверяются, слова должны совпасть.</span>
+        </div>
+        <MediaRow b={b} onChange={onChange} upload={upload} />
+      </>
+    );
+  }
   return null;
 }
+
+// Готовые пункты чек-листа: то, что чаще всего нужно отрабатывать в письме
+export const WRITE_PRESETS = [
+  { name: 'Наречия частоты', label: 'Наречия частоты: always, usually, often…', words: 'always|usually|often|sometimes|rarely|never', min: 3 },
+  { name: 'Слова порядка', label: 'Слова порядка: first, then, after that…', words: 'first|then|next|after that|finally|later', min: 2 },
+  { name: 'Связки', label: 'Связки: and, but, because, so…', words: 'and|but|because|so|also|however|or', min: 3 },
+  { name: 'Время', label: 'Время: at 7 o’clock, in the morning…', words: "o'clock|half past|quarter past|quarter to|in the morning|in the afternoon|in the evening|at night|at the weekend", min: 2 },
+  { name: 'Past Simple', label: 'Глаголы в прошедшем: …ed, went, was…', words: '*ed|was|were|went|had|did|saw|made|got|came|took|ate|bought|met|left', min: 4 },
+  { name: 'Present Perfect', label: 'Present Perfect: have / has + V3', words: 'have *ed|has *ed|have been|has been|have never|has never|have just|has just|have already|has already', min: 2 },
+  { name: 'Future', label: 'Будущее: will, going to', words: "will|going to|'ll|won't", min: 2 },
+  { name: 'Сравнения', label: 'Сравнения: …er than, more, the most', words: '*er than|more|the most|the best|the worst|better|worse', min: 2 },
+  { name: 'Can / could', label: 'Модальные: can, could, should, must', words: "can|could|should|must|can't|couldn't", min: 2 },
+  { name: 'Мнение', label: 'Мнение: I think, in my opinion…', words: "I think|in my opinion|I believe|I like|I don't like|I love|I prefer", min: 1 },
+  { name: 'Письмо другу', label: 'Приветствие и прощание', words: 'Dear|Hi|Hello|Love|Best wishes|See you|Write soon|Take care', min: 2 },
+];
+
+function NumField({ label, value, onChange }) {
+  return (
+    <label className="write-num">
+      <span className="small muted">{label}</span>
+      <input className="input" type="number" min="0" inputMode="numeric" value={value || ''} placeholder="нет"
+        onChange={(e) => onChange(Math.max(0, Math.min(5000, parseInt(e.target.value, 10) || 0)))} />
+    </label>
+  );
+}
+
+function WriteEditor({ b, onChange, upload }) {
+  const checks = b.checks || [];
+  const setCheck = (k, patch) => onChange({ checks: checks.map((c, j) => (j === k ? { ...c, ...patch } : c)) });
+  const [trial, setTrial] = useState('');
+  const preview = writeChecks(b, trial);
+  return (
+    <>
+      <textarea className="textarea" style={{ minHeight: 70 }} value={b.q}
+        placeholder="Задание: Write about your typical Monday. Use adverbs of frequency and time expressions." onChange={(e) => onChange({ q: e.target.value })} />
+      <div className="row wrap" style={{ gap: 10 }}>
+        <NumField label="Слов не меньше" value={b.min_words} onChange={(v) => onChange({ min_words: v })} />
+        <NumField label="Слов не больше" value={b.max_words} onChange={(v) => onChange({ max_words: v })} />
+        <NumField label="Предложений не меньше" value={b.min_sentences} onChange={(v) => onChange({ min_sentences: v })} />
+      </div>
+
+      <div className="meta-label" style={{ marginTop: 6 }}>Что должно быть в тексте</div>
+      {checks.map((c, k) => (
+        <div key={k} className="write-check-edit">
+          <input className="input" value={c.label} placeholder="Как увидит ученик: Наречия частоты" onChange={(e) => setCheck(k, { label: e.target.value })} />
+          <input className="input" value={c.words} placeholder="Слова через |: always|usually|often" onChange={(e) => setCheck(k, { words: e.target.value })} />
+          <label className="write-min"><span className="small muted">сколько</span>
+            <input className="input" type="number" min="1" max="30" value={c.min} onChange={(e) => setCheck(k, { min: Math.max(1, Math.min(30, parseInt(e.target.value, 10) || 1)) })} />
+          </label>
+          <button type="button" className="icon-btn" aria-label="Убрать пункт" onClick={() => onChange({ checks: checks.filter((_, j) => j !== k) })}><Icon name="close" size={16} /></button>
+        </div>
+      ))}
+      <div className="row wrap" style={{ gap: 6 }}>
+        {checks.length < 15 && <button type="button" className="btn btn-quiet btn-sm" onClick={() => onChange({ checks: [...checks, { label: '', words: '', min: 1 }] })}><Icon name="plus" /> Свой пункт</button>}
+        {WRITE_PRESETS.filter((p) => !checks.some((c) => c.words === p.words)).map((p) => (
+          <button type="button" key={p.name} className="chip-btn" disabled={checks.length >= 15}
+            onClick={() => onChange({ checks: [...checks, { label: p.label, words: p.words, min: p.min }] })}>+ {p.name}</button>
+        ))}
+      </div>
+      <div className="small muted">Звёздочка заменяет любое окончание или начало: <b>watch*</b> найдёт watches и watched, <b>*ed</b> любые глаголы на -ed. Фраза ищется целиком: <b>after that</b>.</div>
+
+      <div className="row wrap" style={{ gap: 14 }}>
+        <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={b.caps} onChange={(e) => onChange({ caps: e.target.checked })} /> <span className="small">Большие буквы в начале предложений</span></label>
+        <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={b.stop} onChange={(e) => onChange({ stop: e.target.checked })} /> <span className="small">Точка в конце</span></label>
+        <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={b.latin} onChange={(e) => onChange({ latin: e.target.checked })} /> <span className="small">Без русских букв</span></label>
+      </div>
+
+      <Field2 label="Начала фраз для подсказки (каждое с новой строки, необязательно)">
+        <textarea className="textarea" style={{ minHeight: 60 }} value={(b.starters || []).join('\n')} placeholder={'On Mondays I usually\nAfter that,\nMy favourite part of the day is'}
+          onChange={(e) => onChange({ starters: e.target.value.split('\n').map((x) => x.slice(0, 160)).slice(0, 20) })} />
+      </Field2>
+      <Field2 label="Пример ответа (ученик увидит после сдачи, необязательно)">
+        <textarea className="textarea" style={{ minHeight: 60 }} value={b.model || ''} onChange={(e) => onChange({ model: e.target.value })} />
+      </Field2>
+
+      <details className="write-try">
+        <summary className="small">Проверить чек-лист на своём тексте</summary>
+        <textarea className="textarea" style={{ minHeight: 60 }} value={trial} placeholder="Вставьте текст, чтобы увидеть, что засчитает сайт" onChange={(e) => setTrial(e.target.value)} />
+        {trial && preview.map((c) => <div key={c.key} className={`write-check ${c.ok ? 'ok' : ''}`}><span className="write-tick">{c.ok ? '✓' : ''}</span><span><span>{c.label}</span>{c.info && <small>{c.info}</small>}</span></div>)}
+      </details>
+      <MediaRow b={b} onChange={onChange} upload={upload} />
+    </>
+  );
+}
+
+const Field2 = ({ label, children }) => (
+  <label className="stack" style={{ gap: 4 }}><span className="small muted">{label}</span>{children}</label>
+);
 
 
 function ChoiceEditor({ b, onChange, upload }) {

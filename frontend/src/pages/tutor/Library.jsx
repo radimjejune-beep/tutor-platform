@@ -12,7 +12,7 @@ import HtmlLesson from '../../components/HtmlLesson';
 import LibraryItem, { ItemMeta, examLabel } from '../../components/LibraryItem';
 import { PublishButton } from './Market';
 import GameEditor, { GameTypePicker, EMPTY_GAME, cleanGame } from '../../games/Editors';
-import { GAME_TYPES, gameSize } from '../../games/logic';
+import { GAME_TYPES, SHEET_PRESETS, gameSize } from '../../games/logic';
 import { relativeDay, dayMonth, time } from '../../format';
 
 const KINDS = { task: 'Задачник', game: 'Упражнения', html: 'Уроки', theory: 'Теория', books: 'Учебники' };
@@ -92,9 +92,9 @@ function FavStar({ item, onChanged }) {
 }
 
 // Лист с заданиями создаётся сразу: к нему прикрепляются фото и аудио
-async function createSheet(title) {
+async function createSheet(title, type = 'sheet') {
   try {
-    const created = await api.createLibraryItem({ kind: 'game', title: (title || '').trim() || 'Лист с заданиями', game: EMPTY_GAME.sheet });
+    const created = await api.createLibraryItem({ kind: 'game', title: (title || '').trim() || SHEET_PRESETS[type]?.label || 'Лист с заданиями', game: EMPTY_GAME[type] });
     navigate(`/library/${created.id}`);
   } catch (err) {
     window.alert(err.message);
@@ -364,7 +364,7 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
             </Field>
             {f.kind === 'game' && !f.game && (
               <Field label="Тип упражнения">
-                <GameTypePicker onPick={(type) => (type === 'sheet' && isNew ? createSheet(f.title) : setF({ ...f, game: EMPTY_GAME[type] }))} />
+                <GameTypePicker onPick={(type) => ((type === 'sheet' || SHEET_PRESETS[type]) && isNew ? createSheet(f.title, type) : setF({ ...f, game: EMPTY_GAME[type] }))} />
               </Field>
             )}
             {f.kind === 'game' && f.game && (

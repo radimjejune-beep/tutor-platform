@@ -119,6 +119,7 @@ protectedApi.use('/bank', require('./routes/bank'));
 protectedApi.use('/library-folders', require('./routes/folders'));
 protectedApi.use('/library-books', require('./routes/books'));
 protectedApi.use('/plan', require('./routes/plans').router);
+protectedApi.use('/pronounce', require('./routes/pronounce'));
 app.use('/api', protectedApi);
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Не найдено' }));

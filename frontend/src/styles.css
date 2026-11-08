@@ -603,6 +603,9 @@ code { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 0.9em;
 .flash-back { transform: rotateY(180deg); background: var(--surface-2); }
 .flash-big { font-size: 42px; line-height: 1.12; font-weight: 500; }
 .flash-example { font-style: italic; color: var(--muted); font-size: 15px; max-width: 46ch; }
+.flash-ipa { font-family: "Charis SIL", "Doulos SIL", "Gentium Plus", "Lucida Sans Unicode", "Segoe UI", sans-serif; color: var(--muted); font-size: 18px; letter-spacing: .02em; }
+.voice-pick { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
+.voice-pick select { width: auto; min-width: 220px; max-width: 100%; }
 .flash-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
 .flash-done { text-align: center; padding: 40px 10px; }
 .flash-done p { margin: 10px 0 24px; }
@@ -1445,3 +1448,43 @@ a.brand-name { color: inherit; text-decoration: none; }
 .plan-cell { display: flex; flex-direction: column; gap: 6px; min-width: 200px; }
 .select-sm, .input-sm { height: 32px; font-size: 13px; padding: 0 8px; }
 @media (max-width: 900px) { .plan-cards { grid-template-columns: 1fr; } .plan-now { grid-template-columns: 1fr; } }
+
+/* ---------- Письмо с чек-листом, исправь ошибки, перепиши, диктант ---------- */
+.chip-btn { border: 1px solid var(--line-strong); background: var(--surface); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 14px; color: var(--ink); cursor: pointer; }
+.chip-btn:hover:not(:disabled) { border-color: var(--ink); }
+.chip-btn:disabled { opacity: .45; cursor: default; }
+.write-starters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.write-grid { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 14px; align-items: start; }
+.write-pad { display: grid; gap: 6px; min-width: 0; }
+.write-area { min-height: 220px; font-size: 17px; line-height: 1.6; }
+.write-checks { display: grid; gap: 6px; position: sticky; top: 12px; }
+.write-check { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; background: var(--surface-2); font-size: 14px; line-height: 1.35; transition: background .2s; }
+.write-check small { display: block; color: var(--muted); font-size: 12.5px; }
+.write-check.ok { background: var(--ok-soft); }
+.write-tick { flex: none; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line-strong); display: grid; place-items: center; font-size: 13px; font-weight: 800; color: #fff; }
+.write-check.ok .write-tick { background: var(--ok); border-color: var(--ok); }
+.write-model { white-space: pre-wrap; background: var(--surface-2); border-radius: 12px; padding: 12px 14px; margin-top: 6px; line-height: 1.55; }
+.write-check-edit { display: grid; grid-template-columns: minmax(0, 1fr) 76px auto; gap: 6px; align-items: end; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.write-check-edit > .input:first-child { grid-column: 1 / -1; }
+.write-min, .write-num { display: grid; gap: 2px; }
+.write-num .input { width: 130px; }
+.write-try { border: 1px dashed var(--line-strong); border-radius: 12px; padding: 8px 12px; display: grid; gap: 6px; }
+.write-try[open] { padding-bottom: 12px; }
+.rw-src { font-size: 18px; padding: 8px 12px; border-left: 3px solid var(--line-strong); background: var(--surface-2); border-radius: 0 10px 10px 0; }
+.rw-input.ok, .textarea.ok { border-color: var(--ok); background: var(--ok-soft); }
+.rw-input.bad, .textarea.bad { border-color: var(--danger); background: var(--danger-soft); }
+.rw-fix { font-size: 14px; color: var(--ok); }
+.fix-text { font-size: 18px; line-height: 2.1; }
+.fix-tok { font: inherit; background: none; border: 0; padding: 1px 3px; border-radius: 6px; color: inherit; cursor: pointer; border-bottom: 1px dashed transparent; }
+button.fix-tok:hover { background: var(--surface-2); border-bottom-color: var(--line-strong); }
+.fix-tok.changed { background: #fff3cf; }
+.fix-tok s { color: var(--danger); opacity: .8; }
+.fix-tok.ok { background: var(--ok-soft); color: var(--ok); cursor: default; }
+.fix-tok.bad { background: var(--danger-soft); cursor: default; }
+.fix-tok.bad b { color: var(--ok); }
+.fix-input { font: inherit; padding: 0 6px; border: 2px solid var(--ink); border-radius: 6px; min-width: 4ch; }
+.type-ill s { color: var(--danger); }
+@media (max-width: 760px) {
+  .write-grid { grid-template-columns: 1fr; }
+  .write-checks { position: static; }
+}

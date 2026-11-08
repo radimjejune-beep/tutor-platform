@@ -212,7 +212,7 @@ function Cards({ deck, subj, done }) {
         </span>
       </button>
       <div className="flash-actions">
-        {canSpeak() ? <button type="button" className="btn btn-quiet btn-sm" onClick={() => speak(`${w.term}. ${w.example || ''}`)}><Icon name="sound" /> Послушать</button> : <span />}
+        {canSpeak() ? <button type="button" className="btn btn-quiet btn-sm" onClick={() => speak(w.term, w.example)}><Icon name="sound" /> Послушать</button> : <span />}
         <div className="row" style={{ gap: 8 }}>
           <button type="button" className="btn btn-secondary" onClick={() => answer(false)}>← Ещё учу</button>
           <button type="button" className="btn" onClick={() => answer(true)}>Знаю →</button>

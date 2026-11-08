@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Icon, Link, Modal, useToast } from '../../ui';
 import { FlashSession, VocabList, VocabStats, wordsWord } from '../../components/Vocab';
+import { VoicePicker } from '../../components/VoiceUi';
 import VocabPractice from '../../components/VocabPractice';
 import Study, { wordsCount } from '../../components/Study';
 import WordPaste from '../../components/WordPaste';
@@ -82,6 +83,7 @@ export default function Words({ student, isParent }) {
             <div>
               <h2 className="section-title" style={{ marginBottom: 12 }}>{subj.myVocab}</h2>
               <VocabStats stats={stats} />
+              <VoicePicker />
             </div>
             <div className="row wrap" style={{ gap: 8 }}>
               {studyWords.length >= 2 && <button className="btn btn-secondary" style={{ height: 48 }} onClick={() => setSession('study')}>Учить все</button>}

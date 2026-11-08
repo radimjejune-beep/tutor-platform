@@ -64,7 +64,7 @@ export function GameResultsPanel({ items, results }) {
                     {mistakes.slice(0, 12).map((d, i) => (
                       <li key={i}>
                         {d.prompt ? <b>{d.prompt}: </b> : null}
-                        <span className="bad-text">{d.given || 'без ответа'}</span> → {d.expected}
+                        {d.expected == null ? <span className="bad-text">не выполнено{d.given ? ` (${d.given})` : ''}</span> : <><span className="bad-text">{d.given || 'без ответа'}</span> → {d.expected}</>}
                       </li>
                     ))}
                   </ul>

@@ -6,35 +6,11 @@ import { Modal, Field, useSubmit, useToast, Icon, Empty, Spinner } from '../ui';
 import { shortDate, todayISO, plural } from '../format';
 import { useSubject } from '../subjects';
 import WordPaste from './WordPaste';
+import { Ipa } from './VoiceUi';
 
-// Озвучка голосом языка предмета (для неязыковых предметов выключена)
-let voice = null;
-let speechLang = 'en-GB';
-function pickVoice() {
-  const vs = window.speechSynthesis?.getVoices() || [];
-  if (!speechLang) { voice = null; return; }
-  const base = speechLang.slice(0, 2);
-  voice = vs.find((v) => v.lang === speechLang) || vs.find((v) => v.lang?.startsWith(base)) || null;
-}
-export function setSpeechLang(lang) {
-  if (lang === speechLang) return;
-  speechLang = lang;
-  if (typeof window !== 'undefined' && 'speechSynthesis' in window) pickVoice();
-}
-export const canSpeak = () => Boolean(speechLang) && typeof window !== 'undefined' && 'speechSynthesis' in window;
-if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-  pickVoice();
-  window.speechSynthesis.onvoiceschanged = pickVoice;
-}
-export function speak(text) {
-  if (!canSpeak() || !text) return;
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text.replace(/\(.*?\)/g, ''));
-  u.lang = speechLang;
-  if (voice) u.voice = voice;
-  u.rate = 0.9;
-  window.speechSynthesis.speak(u);
-}
+// Озвучка: британская запись диктора для слов, лучший британский голос для фраз (см. voice.js)
+export { speak, canSpeak, setSpeechLang } from '../voice';
+import { speak, canSpeak } from '../voice';
 
 export const wordsWord = (n, forms = ['слово', 'слова', 'слов']) => `${n} ${plural(n, ...forms)}`;
 const SOURCE = { tutor: 'от преподавателя', unit: 'из юнита', mistake: 'из ошибок', set: 'из набора', self: 'добавил сам' };
@@ -120,17 +96,19 @@ export function FlashSession({ studentId, subject, onDone }) {
         <span className="flash-inner">
           <span className="flash-face">
             <span className="serif flash-big" style={front.length > 36 ? { fontSize: 26 } : undefined}><MathText>{front}</MathText></span>
+            {dir === 'en' && <Ipa text={w.term} />}
             <span className="small muted">{w.source === 'mistake' ? 'было с ошибкой · ' : ''}нажмите, чтобы перевернуть</span>
           </span>
           <span className="flash-face flash-back">
             <span className="serif flash-big"><MathText>{back}</MathText></span>
+            {dir === 'ru' && <Ipa text={w.term} />}
             {w.example && <span className="flash-example">{w.example}</span>}
           </span>
         </span>
       </button>
 
       <div className="flash-actions">
-        {canSpeak() ? <button className="btn btn-quiet btn-sm" onClick={() => speak(`${w.term}. ${w.example || ''}`)}><Icon name="sound" /> Послушать</button> : <span />}
+        {canSpeak() ? <button className="btn btn-quiet btn-sm" onClick={() => speak(w.term, w.example)}><Icon name="sound" /> Послушать</button> : <span />}
         <div className="row" style={{ gap: 8 }}>
           <button className="btn btn-secondary" onClick={() => answer(false)}>Ещё учу</button>
           <button className="btn" onClick={() => answer(true)}>Знаю</button>
