@@ -1,4 +1,4 @@
-// pages/tutor/Assignments.jsx — задания в стиле Google Classroom:
+// pages/tutor/Assignments.jsx — задания:
 // список → редактор → страница задания → проверка работы ученика
 import FormulaBar from '../../components/FormulaBar';
 import { MathText } from '../../components/MathText';
@@ -547,7 +547,7 @@ function HomeworkWords({ setId, onSetId, words, onWords }) {
       <div className="panel-head">
         <div>
           <h2 className="section-title">{subj.Items} к уроку</h2>
-          <div className="small muted">Карточки прямо в задании: ученик учит их как в Quizlet, вы видите, сколько выучено</div>
+          <div className="small muted">Карточки прямо в задании: ученик учит их в пяти режимах, вы видите, сколько выучено</div>
         </div>
       </div>
       <div className="seg" style={{ marginBottom: 12 }}>

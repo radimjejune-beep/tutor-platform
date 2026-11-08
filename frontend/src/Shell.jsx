@@ -45,7 +45,7 @@ export function Shell({ nav, path, counts = {}, children }) {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          {user.role === 'tutor' ? <Link to="/shop" className="brand-name" title="Главная страница Lessonfold">{BRAND.name}</Link> : <div className="brand-name">{BRAND.name}</div>}
+          {user.role === 'tutor' ? <Link to="/shop" className="brand-name" title="Готовые интерактивные уроки">{BRAND.name}</Link> : <div className="brand-name">{BRAND.name}</div>}
           <div className="brand-rule" />
         </div>
 
@@ -68,7 +68,7 @@ export function Shell({ nav, path, counts = {}, children }) {
 
         {user.role === 'tutor' && (
           <Link to="/shop" className="side-shop">
-            <Icon name="grid" size={16} /> Главная страница и уроки
+            <Icon name="grid" size={16} /> Готовые интерактивные уроки
           </Link>
         )}
 
@@ -132,7 +132,7 @@ export function MoreMenu({ nav, counts = {} }) {
   // Витрина уроков нужна репетиторам; ученикам и родителям её не показываем
   const items = [
     ...nav.filter((i) => i.hideMobile),
-    ...(user.role === 'tutor' ? [{ to: '/shop', label: 'Главная страница и уроки', icon: 'grid' }] : []),
+    ...(user.role === 'tutor' ? [{ to: '/shop', label: 'Готовые интерактивные уроки', icon: 'grid' }] : []),
     { to: '/password', label: 'Сменить пароль', icon: 'key' },
   ];
   return (

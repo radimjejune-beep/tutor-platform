@@ -1,4 +1,4 @@
-// pages/tutor/WordSets.jsx — наборы карточек: список, редактор со вставкой как в Quizlet, кто учит
+// pages/tutor/WordSets.jsx — наборы карточек: список, редактор со вставкой списком, кто учит
 import FormulaBar from '../../components/FormulaBar';
 import { useMemo, useState } from 'react';
 import { api } from '../../api';
@@ -162,7 +162,7 @@ function Editor({ set, students, onSaved }) {
         </div>
         {showPaste ? (
           <>
-            <p className="small muted" style={{ marginTop: 0 }}>Скопируйте две колонки из таблицы (или экспорт из Quizlet) и вставьте сюда. Третья колонка станет примером.</p>
+            <p className="small muted" style={{ marginTop: 0 }}>Скопируйте две колонки из таблицы и вставьте сюда. Третья колонка станет примером.</p>
             <WordPaste onWords={(words, clear) => setPasted({ words, clear })} />
             <div className="row" style={{ justifyContent: 'flex-end', marginTop: 12 }}>
               <button type="button" className="btn" disabled={!pasted.words.length} onClick={addPasted}>Добавить в набор{pasted.words.length ? ` (${pasted.words.length})` : ''}</button>

@@ -362,7 +362,7 @@ export function StudentModal({ student, onClose, onSaved }) {
           <input className="input" type="url" value={f.call_link} placeholder="https://telemost.yandex.ru/j/…" onChange={(e) => setF({ ...f, call_link: e.target.value })} />
         </Field>
         <Field label="Ссылка на доску в Холсте" hint="Ученик откроет её из кабинета одной кнопкой">
-          <input className="input" type="url" value={f.board_link} placeholder="https://holst.so/…" onChange={(e) => setF({ ...f, board_link: e.target.value })} />
+          <input className="input" type="url" value={f.board_link} placeholder="Ссылка на онлайн-доску" onChange={(e) => setF({ ...f, board_link: e.target.value })} />
         </Field>
         <Field label="Заметки" hint="Видите только вы">
           <textarea className="textarea" style={{ minHeight: 70 }} value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} />

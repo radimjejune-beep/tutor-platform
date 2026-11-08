@@ -1,4 +1,4 @@
-// components/Study.jsx — учить набор слов как в Quizlet: карточки, заучивание, письмо, подбор, тест.
+// components/Study.jsx — учить набор слов: карточки, заучивание, письмо, подбор, тест.
 // words: [{ key, term, translation, example, level }] (level 0–3, если есть прогресс)
 // onFinish(mode, results, durationSec) → Promise<string | null>: сохранить итог, вернуть текст для ученика.
 // Каждое слово в итоге встречается один раз: ok = ответил верно с первой попытки.

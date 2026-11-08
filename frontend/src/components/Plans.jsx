@@ -36,7 +36,7 @@ export function PlanTable({ data, current, onPick, pickLabel = 'Выбрать' 
           <article key={p.id} className={`plan-card ${current === p.id ? 'current' : ''} ${p.id === 'tutor' ? 'accent' : ''}`}>
             <div className="row-between">
               <h3 className="plan-name">{p.name}</h3>
-              {current === p.id ? <Badge tone="green">Ваш тариф</Badge> : p.id === 'tutor' ? <Badge>Выбор репетиторов</Badge> : null}
+              {current === p.id ? <Badge tone="green">Ваш тариф</Badge> : p.id === 'tutor' ? <Badge>Всё включено</Badge> : null}
             </div>
             <div className="plan-price">
               {p.price ? (period === 'year' ? <>{rub(p.year)}<small> в год</small></> : <>{rub(p.price)}<small> в месяц</small></>) : <>0 ₽<small> навсегда</small></>}
@@ -54,7 +54,7 @@ export function PlanTable({ data, current, onPick, pickLabel = 'Выбрать' 
         ))}
       </div>
       <p className="small muted" style={{ marginTop: 12 }}>
-        {data.trial_days} {plural(data.trial_days, 'день', 'дня', 'дней')} всё бесплатно: у нового преподавателя сразу открыты все возможности «Про». Потом можно остаться на «Старте» бесплатно.
+        {data.trial_days} {plural(data.trial_days, 'день', 'дня', 'дней')} всё бесплатно: у нового преподавателя сразу открыто всё. Потом можно остаться на «Старте» бесплатно.
       </p>
     </div>
   );
@@ -95,7 +95,7 @@ export function PlanTab() {
           <h2 className="section-title" style={{ marginTop: 4 }}>{c.name}</h2>
           <div className="small muted">
             {c.admin ? 'Сисадмину всё доступно без ограничений.'
-              : c.trial ? `Пробный период: все возможности «Про» ещё ${days} ${plural(days, 'день', 'дня', 'дней')} (до ${fullDate(c.until)}), потом останется «Старт», если не выбрать тариф.`
+              : c.trial ? `Пробный период: всё открыто ещё ${days} ${plural(days, 'день', 'дня', 'дней')} (до ${fullDate(c.until)}), потом останется «Старт», если не выбрать тариф.`
                 : c.until ? `Оплачен до ${fullDate(c.until)}`
                   : c.expired ? 'Срок тарифа закончился, сейчас действует «Старт». Ученики и материалы сохранены.'
                     : c.id === 'start' ? 'Бесплатный тариф.' : 'Бессрочно.'}

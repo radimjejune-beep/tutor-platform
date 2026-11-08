@@ -1,6 +1,7 @@
 // services/plans.js — тарифы платформы для преподавателей: что включено и сколько стоит.
 // Цены и лимиты меняются здесь, в одном месте. null в лимите — без ограничений.
-// Новый преподаватель получает пробный период (все возможности «Про») на TRIAL_DAYS дней.
+// Два тарифа: бесплатный «Старт» с лимитами и «Репетитор» за 499 ₽, где открыто всё.
+// Новый преподаватель получает пробный период (все возможности «Репетитора») на TRIAL_DAYS дней.
 // Сисадмин работает без ограничений. Тариф выдаёт сисадмин (раздел «Учителя»), позже его будет продлевать оплата.
 const { query } = require('../db');
 
@@ -14,18 +15,14 @@ const PLANS = {
     features: { telegram: false, groups: false, finance: false, autocharge: false, booking: true, bank: true },
   },
   tutor: {
-    id: 'tutor', name: 'Репетитор', price: 590, year: 5900,
-    tagline: 'Всё для частной практики',
-    limits: { students: 25, books_mb: 1024, bank_takes: null },
-    features: { telegram: true, groups: false, finance: true, autocharge: true, booking: true, bank: true },
-  },
-  pro: {
-    id: 'pro', name: 'Про', price: 1190, year: 11900,
-    tagline: 'Много учеников и групповые занятия',
+    id: 'tutor', name: 'Репетитор', price: 499, year: 4990,
+    tagline: 'Всё открыто: без лимитов на учеников, группы и задания',
     limits: { students: null, books_mb: 5120, bank_takes: null },
     features: { telegram: true, groups: true, finance: true, autocharge: true, booking: true, bank: true },
   },
 };
+// Старый тариф «Про» больше не продаётся: у кого он выдан, действует «Репетитор» (в нём всё то же самое)
+const LEGACY = { pro: 'tutor' };
 
 // Что показать в таблице сравнения (порядок важен)
 const FEATURE_LIST = [
@@ -62,10 +59,11 @@ function ensure() {
 // Тариф, который действует сейчас: { id, name, trial, until, admin, limits, features }
 function effective(row) {
   if (!row) return { ...PLANS.start, trial: false, until: null, admin: false };
-  if (row.is_admin) return { ...PLANS.pro, name: 'Сисадмин', limits: { students: null, books_mb: 10240, bank_takes: null }, trial: false, until: null, admin: true };
+  if (row.is_admin) return { ...PLANS.tutor, name: 'Сисадмин', limits: { students: null, books_mb: 10240, bank_takes: null }, trial: false, until: null, admin: true };
   const alive = !row.plan_until || new Date(row.plan_until) > new Date();
-  if (row.plan === 'trial' && alive) return { ...PLANS.pro, name: 'Пробный период', trial: true, until: row.plan_until, admin: false };
-  if (PLANS[row.plan] && alive) return { ...PLANS[row.plan], trial: false, until: row.plan_until, admin: false };
+  if (row.plan === 'trial' && alive) return { ...PLANS.tutor, name: 'Пробный период', trial: true, until: row.plan_until, admin: false };
+  const id = LEGACY[row.plan] || row.plan;
+  if (PLANS[id] && alive) return { ...PLANS[id], trial: false, until: row.plan_until, admin: false };
   return { ...PLANS.start, trial: false, until: null, expired: Boolean(row.plan && row.plan !== 'start'), admin: false };
 }
 

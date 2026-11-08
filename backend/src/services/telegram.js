@@ -489,7 +489,7 @@ async function sendLessonSummary(lessonId) {
   const l = rows[0];
   if (!l) return { error: 'Занятие не найдено' };
   const { rows: tut } = await query('SELECT tutor_id FROM students WHERE id = $1', [l.student_id]);
-  if (!(await require('./plans').allows(tut[0]?.tutor_id, 'telegram'))) return { error: 'Telegram-бот входит в тарифы «Репетитор» и «Про». Настройки → Тариф' };
+  if (!(await require('./plans').allows(tut[0]?.tutor_id, 'telegram'))) return { error: 'Telegram-бот входит в тариф «Репетитор». Настройки → Тариф' };
   if (!l.summary && !l.topic) return { error: 'Сначала напишите, что сделали на уроке' };
 
   // Свежие задания этому ученику (выданы за последние 2 дня)

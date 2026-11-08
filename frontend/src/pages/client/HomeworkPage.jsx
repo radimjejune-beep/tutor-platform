@@ -1,4 +1,4 @@
-// pages/client/HomeworkPage.jsx — задание глазами ученика (как в Google Classroom)
+// pages/client/HomeworkPage.jsx — задание глазами ученика
 import { MathText } from '../../components/MathText';
 import { useState } from 'react';
 import { api } from '../../api';

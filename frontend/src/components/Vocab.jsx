@@ -228,7 +228,7 @@ export function AddWordsModal({ studentId, subject, onClose, onSaved }) {
   return (
     <Modal title={subj.isLang ? 'Добавить слова' : 'Добавить термины'} onClose={onClose} wide>
       <form className="form" onSubmit={save.submit}>
-        <div className="small muted">{subj.addHint}. Можно вставить две колонки из Word, Excel или экспорт из Quizlet.</div>
+        <div className="small muted">{subj.addHint}. Можно вставить две колонки из Word или Excel.</div>
         <WordPaste onWords={(w) => setWords(w)} autoFocus subject={subject} />
         {save.error && <div className="alert">{save.error}</div>}
         <div className="modal-actions">

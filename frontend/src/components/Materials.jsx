@@ -1,4 +1,4 @@
-// components/Materials.jsx — материалы задания как в Google Classroom:
+// components/Materials.jsx — материалы задания:
 // фото галереей (открываются крупно), аудио и видео сразу с плеером, ссылки карточками, YouTube прямо в задании.
 // Здесь же загрузка: перетащить файлы, выбрать или записать голос.
 import { useEffect, useRef, useState } from 'react';

@@ -1,5 +1,5 @@
-// components/WordPaste.jsx — вставка слов списком, как импорт в Quizlet.
-// Скопировали таблицу из Word, Excel, Google Таблиц или Quizlet: слово и перевод разделены Tab,
+// components/WordPaste.jsx — вставка слов списком.
+// Скопировали таблицу из Word, Excel или Google Таблиц: слово и перевод разделены Tab,
 // карточки идут с новой строки. Можно выбрать другой разделитель или свой символ.
 import { useSubject } from '../subjects';
 import { useEffect, useMemo, useState } from 'react';
@@ -83,7 +83,7 @@ export default function WordPaste({ onWords, autoFocus, rows = 8, placeholder, s
             requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = a + 1; });
           }
         }}
-        placeholder={placeholder || `Вставьте список из Word, Excel, Google Таблиц или Quizlet.\n\n${subj.pasteExample}`}
+        placeholder={placeholder || `Вставьте список из Word, Excel или Google Таблиц.\n\n${subj.pasteExample}`}
         spellCheck={false}
       />
       <div className="paste-opts">

@@ -227,7 +227,7 @@ router.get(
   tutorOnly,
   asyncHandler(async (req, res) => {
     const plans = require('../services/plans');
-    if (!(await plans.allows(req.user.tid, 'finance'))) return plans.upgradeError(res, 'Советник по цене входит в тарифы «Репетитор» и «Про».');
+    if (!(await plans.allows(req.user.tid, 'finance'))) return plans.upgradeError(res, 'Советник по цене входит в тариф «Репетитор».');
     const { rows } = await query(
       `SELECT s.id, s.full_name, s.category, s.default_price, s.default_duration,
               (SELECT ROUND(x.price_total::numeric / x.lessons_total)::int FROM subscriptions x

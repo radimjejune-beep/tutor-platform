@@ -8,6 +8,7 @@ import { Login, ChangePassword, Register } from './pages/Login';
 import { LegalPage } from './pages/Legal';
 import Join from './pages/Join';
 import Landing from './pages/Landing';
+import Shop from './pages/Shop';
 
 const TutorApp = lazy(() => import('./cabinets/TutorApp'));
 const ClientApp = lazy(() => import('./cabinets/ClientApp'));
@@ -35,12 +36,13 @@ function Root() {
   if (session === undefined) return <Spinner />;
   if (!session) {
     if (path === '/register') return <Register />;
-    // Главная до входа: витрина уроков; вход по кнопке или по любой другой ссылке кабинета
-    if (path === '/' || path === '' || path === '/shop') return <Landing />;
+    // Главная до входа: страница платформы. Витрина готовых уроков отдельно: /shop
+    if (path === '/' || path === '') return <Landing />;
+    if (path === '/shop') return <Shop />;
     return <Login />;
   }
-  // Витрина уроков открывается и после входа (ссылка «Магазин уроков» в меню)
-  if (path === '/shop') return <Landing />;
+  // Витрина уроков открывается и после входа (ссылка «Готовые уроки» в меню)
+  if (path === '/shop') return <Shop />;
   // После входа со страницы /login открываем главную кабинета
   if (path === '/login' || path === '/register') { window.location.hash = '#/'; return <Spinner />; }
   if (user.must_change_password) return <ChangePassword forced />;

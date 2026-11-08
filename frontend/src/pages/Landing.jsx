@@ -1,78 +1,41 @@
-// pages/Landing.jsx — главная до входа: витрина интерактивных уроков Lessonfold и вход на платформу.
-// Уроки берутся из магазина (бэкенд /api/shop). Покупка идёт на сайте магазина или в Telegram-боте.
+// pages/Landing.jsx — главная до входа: платформа для репетитора, тарифы и вход.
+// Готовые интерактивные уроки живут отдельно: страница /shop и сайт магазина.
 import { PlanTable } from '../components/Plans';
-import { useMemo, useState } from 'react';
 import { api } from '../api';
 import { useLoad, Link, Icon } from '../ui';
 import { BRAND } from '../config';
 import { useAuth } from '../auth';
 
-const rub = (n) => `${Number(n).toLocaleString('ru-RU')} ₽`;
-const where = (p) => (p.course ? `Курс на учебный год · ${p.gradeLabel}` : [p.gradeLabel, p.unit || p.moduleTitle].filter(Boolean).join(' · '));
+const FEATURES = [
+  { icon: 'calendar', title: 'Расписание и запись', text: 'Уроки, переносы и отмены по вашим правилам. Ученик сам записывается на свободное время, вы подтверждаете.' },
+  { icon: 'book', title: 'Домашка с автопроверкой', text: 'Тесты, пропуски, исправь ошибки, диктант, письмо с чек-листом, ответ голосом. Проверяет сайт, вы видите только ошибки.' },
+  { icon: 'cards', title: 'Словарь и карточки', text: 'Слова живым британским голосом диктора, транскрипция и пять режимов тренировки. Слова с урока сами попадают ученику.' },
+  { icon: 'layers', title: 'Банк заданий и библиотека', text: 'Готовые задания по популярным учебникам и грамматике, ваши учебники в PDF и свои упражнения в папках.' },
+  { icon: 'video', title: 'Комната урока', text: 'Звонок, доска, материалы и заметки в одном окне. Ученик заходит по одной ссылке.' },
+  { icon: 'users', title: 'Кабинет родителя', text: 'Родитель видит расписание, домашку, прогресс и отчёт после урока. Меньше вопросов в мессенджерах.' },
+  { icon: 'wallet', title: 'Абонементы и доход', text: 'Оплаты, абонементы и автосписание после урока. Доход по месяцам и подсказка, какую цену поставить.' },
+  { icon: 'bell', title: 'Telegram-бот', text: 'Напоминание ученику за час до урока, о домашке и словах. Вам каждое утро сводка дня.' },
+];
 
-function buyLink(p, shop) {
-  if (p.free && p.demo) return { href: p.demo, label: 'Открыть бесплатно' };
-  if (p.status === 'soon') return shop.bot || shop.channel ? { href: shop.channel || `https://t.me/${shop.bot}`, label: 'Узнать о выходе', quiet: true } : null;
-  const label = p.status === 'preorder' ? 'Предзаказ' : 'Купить';
-  if (shop.pay) return { href: `${shop.shop_url}/?buy=${encodeURIComponent(p.sku)}`, label };
-  if (shop.bot) return { href: `https://t.me/${shop.bot}?start=p_${encodeURIComponent(p.sku)}`, label: `${label} в Telegram` };
-  return null;
-}
-
-function Price({ p }) {
-  if (p.free) return <span className="lp-price">Бесплатно</span>;
-  return <span className="lp-price">{rub(p.price)}{p.oldPrice ? <s>{rub(p.oldPrice)}</s> : null}</span>;
-}
-
-function Card({ p, shop }) {
-  const b = buyLink(p, shop);
-  const cover = p.shots?.[0];
-  return (
-    <article className={`lp-card ${p.course ? 'course' : ''} ${p.status === 'soon' ? 'soon' : ''}`}>
-      {cover ? (
-        <div className="lp-cover"><img src={cover.src} alt={cover.caption || p.title} loading="lazy" />{p.shots.length > 1 && <span>{p.shots.length} экранов</span>}</div>
-      ) : (
-        <div className={`lp-cover blank ${p.course ? 'course' : p.type === 'pack' ? 'pack' : ''}`}><span className="serif">{p.course ? 'Весь курс' : p.type === 'pack' ? 'Модуль' : p.short}</span></div>
-      )}
-      <div className="lp-card-body">
-        <span className="lp-where">{where(p)}{p.status === 'preorder' ? ' · предзаказ' : ''}{p.status === 'soon' ? ' · готовится' : ''}</span>
-        <h3 className="lp-card-title">{p.title}</h3>
-        {p.description && <p className="lp-desc">{p.description}</p>}
-        {p.course && <p className="lp-course-note">Готово уроков: {p.ready}{p.total > p.ready ? `, ещё готовятся: ${p.total - p.ready}` : ''}. Новые уроки этого класса приходят сами, без доплаты.</p>}
-        {p.meta?.length > 0 && <div className="lp-facts">{p.meta.slice(0, 4).map((m) => <span key={m}>{m}</span>)}</div>}
-        <div className="lp-buy">
-          {p.status !== 'soon' ? <Price p={p} /> : <span className="lp-badge">Скоро</span>}
-          {b && <a className={`btn ${b.quiet ? 'btn-secondary' : ''} btn-sm`} href={b.href} target="_blank" rel="noopener noreferrer">{b.label}</a>}
-        </div>
-      </div>
-    </article>
-  );
-}
+const scrollTo = (id) => (e) => { e.preventDefault(); document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); };
 
 export default function Landing() {
-  const shop = useLoad(() => api.shop().catch(() => ({ enabled: false, products: [], textbooks: [] })), []);
   const reg = useLoad(() => api.registrationStatus().catch(() => ({ open: false })), []);
   const plans = useLoad(() => api.publicPlans().catch(() => null), []);
-  const [book, setBook] = useState('all');
   const { session } = useAuth();
-  const raw = shop.data || {};
-  const s = { ...raw, enabled: Boolean(raw.enabled), products: Array.isArray(raw.products) ? raw.products : [], textbooks: Array.isArray(raw.textbooks) ? raw.textbooks : [] };
-  const books = s.textbooks.filter((t) => s.products.some((p) => p.book === t.id));
-  const list = useMemo(() => {
-    const rank = (p) => (p.course ? 0 : p.status === 'soon' ? 3 : p.type === 'pack' ? 2 : 1);
-    return s.products.filter((p) => book === 'all' || p.book === book).sort((a, b) => rank(a) - rank(b));
-  }, [s.products, book]);
-  const free = s.products.find((p) => p.free && p.demo);
-  const lessons = s.products.filter((p) => p.type === 'lesson' && p.status !== 'soon').length;
+  const open = !session && reg.data?.open;
+  const paid = plans.data?.plans?.find((p) => p.price > 0);
+  const trial = plans.data?.trial_days || 14;
 
   return (
     <div className="lp">
       <header className="lp-top">
         <div className="lp-wrap lp-top-in">
-          <a href={session ? '#/shop' : '#/'} className="lp-brand"><span className="brand-name">{BRAND.name}</span></a>
+          <a href="#/" className="lp-brand"><span className="brand-name">{BRAND.name}</span></a>
           <nav className="lp-nav">
-            <a href="#lessons" onClick={(e) => { e.preventDefault(); document.getElementById('lessons')?.scrollIntoView({ behavior: 'smooth' }); }}>Уроки</a>
-            <a href="#tutors" onClick={(e) => { e.preventDefault(); document.getElementById('tutors')?.scrollIntoView({ behavior: 'smooth' }); }}>Для репетиторов</a>
+            <a href="#features" onClick={scrollTo('features')}>Возможности</a>
+            <a href="#pricing" onClick={scrollTo('pricing')}>Тарифы</a>
+            <Link to="/shop">Готовые уроки</Link>
             {session ? <Link to="/" className="btn btn-sm">Мой кабинет</Link> : <Link to="/login" className="btn btn-sm">Войти</Link>}
           </nav>
         </div>
@@ -80,95 +43,84 @@ export default function Landing() {
 
       <section className="lp-hero">
         <div className="lp-wrap">
-          <div className="lp-kicker">Интерактивные уроки английского</div>
-          <h1 className="lp-h1">Готовые уроки к школьным учебникам. Открыл, вывел на доску, провёл.</h1>
-          <p className="lp-lead">В каждом уроке озвучка, игры с автопроверкой, режимы для сильных и слабых, счёт команд и PDF для учителя с ответами. Для школьных учителей и репетиторов.</p>
+          <div className="lp-kicker">Платформа для репетитора</div>
+          <h1 className="lp-h1">Вы ведёте уроки. Расписание, домашку и оплаты платформа берёт на себя.</h1>
+          <p className="lp-lead">Кабинеты для вас, учеников и родителей: расписание с напоминаниями, домашние задания с автопроверкой, словарь с британской озвучкой, банк заданий и абонементы. Для репетиторов английского и любого другого предмета.</p>
           <div className="lp-cta">
-            <a href="#lessons" className="btn" onClick={(e) => { e.preventDefault(); document.getElementById('lessons')?.scrollIntoView({ behavior: 'smooth' }); }}>Смотреть уроки</a>
-            {free && <a href={free.demo} className="btn btn-ghost-light" target="_blank" rel="noopener noreferrer">Бесплатный урок</a>}
-            {!free && s.bot && <a href={`https://t.me/${s.bot}`} className="btn btn-ghost-light" target="_blank" rel="noopener noreferrer">Бот с уроками</a>}
+            {open ? <Link to="/register" className="btn">Попробовать бесплатно</Link> : <Link to={session ? '/' : '/login'} className="btn">{session ? 'Открыть кабинет' : 'Войти в кабинет'}</Link>}
+            <a href="#features" className="btn btn-ghost-light" onClick={scrollTo('features')}>Что умеет платформа</a>
           </div>
-          {s.enabled && lessons > 0 && (
-            <div className="lp-stats">
-              <div><b className="serif">{lessons}</b><span>{lessons === 1 ? 'урок готов' : 'уроков готово'}</span></div>
-              <div><b className="serif">{books.length}</b><span>{books.length === 1 ? 'учебник' : 'учебника'}</span></div>
-              <div><b className="serif">40-60</b><span>минут урок</span></div>
-            </div>
-          )}
+          <div className="lp-stats">
+            <div><b className="serif">{trial}</b><span>дней всё открыто бесплатно</span></div>
+            {paid && <div><b className="serif">{paid.price} ₽</b><span>в месяц, без лимитов</span></div>}
+            <div><b className="serif">0 ₽</b><span>ученикам и родителям</span></div>
+          </div>
         </div>
       </section>
 
-      <section className="lp-wrap lp-section" id="lessons">
-        <div className="lp-head">
-          <h2 className="lp-h2">Уроки и курсы</h2>
-          {books.length > 1 && (
-            <div className="seg">
-              <button type="button" className={book === 'all' ? 'on' : ''} onClick={() => setBook('all')}>Все</button>
-              {books.map((t) => <button key={t.id} type="button" className={book === t.id ? 'on' : ''} onClick={() => setBook(t.id)}>{t.short || t.title}</button>)}
+      <section className="lp-wrap lp-section" id="features">
+        <div className="lp-kicker" style={{ color: 'var(--brass)' }}>Возможности</div>
+        <h2 className="lp-h2">Всё для частной практики в одном месте</h2>
+        <div className="lp-feat">
+          {FEATURES.map((f) => (
+            <div key={f.title} className="lp-feat-card">
+              <span className="lp-feat-ic"><Icon name={f.icon} size={20} /></span>
+              <b>{f.title}</b>
+              <p>{f.text}</p>
             </div>
-          )}
+          ))}
         </div>
-        {shop.loading ? <div className="spinner" /> : !list.length ? (
-          <div className="lp-empty">
-            <div className="serif">Первые уроки скоро появятся</div>
-            <p className="muted">{s.bot ? <>Подпишитесь на бота <a href={`https://t.me/${s.bot}`} target="_blank" rel="noopener noreferrer">@{s.bot}</a>, он пришлёт новые уроки.</> : 'Загляните чуть позже.'}</p>
-          </div>
-        ) : (
-          <div className="lp-grid">{list.map((p) => <Card key={p.sku} p={p} shop={s} />)}</div>
-        )}
       </section>
 
       <section className="lp-wrap lp-section">
-        <h2 className="lp-h2">Как это работает</h2>
+        <h2 className="lp-h2">Как начать</h2>
         <div className="lp-steps">
-          <div><span className="serif">1</span><b>Выберите урок</b><p>По учебнику, классу и модулю. Начните с бесплатного, чтобы посмотреть, как всё устроено.</p></div>
-          <div><span className="serif">2</span><b>Оплатите</b><p>Картой или СБП через ЮKassa прямо на сайте. Ссылка на урок придёт на почту, файлы навсегда ваши.</p></div>
-          <div><span className="serif">3</span><b>Проведите урок</b><p>Откройте файл урока в браузере и выведите на доску или экран. Ничего устанавливать не нужно.</p></div>
-        </div>
-      </section>
-
-      <section className="lp-tutors" id="tutors">
-        <div className="lp-wrap lp-tutors-in">
-          <div>
-            <div className="lp-kicker">Платформа для репетитора любого предмета</div>
-            <h2 className="lp-h2 light">Кабинеты для вас, учеников и родителей</h2>
-            <ul className="lp-features">
-              <li><Icon name="calendar" size={18} /> Расписание, запись и переносы уроков</li>
-              <li><Icon name="book" size={18} /> Домашние задания как в Google Classroom: фото, аудио, тесты</li>
-              <li><Icon name="cards" size={18} /> Карточки как в Quizlet: слова, термины, даты и формулы</li>
-              <li><Icon name="chart" size={18} /> Сайт сам подсказывает ученику, что повторить</li>
-              <li><Icon name="wallet" size={18} /> Абонементы, оплаты и отчёты родителям</li>
-            </ul>
-          </div>
-          <div className="lp-login-box">
-            <div className="serif" style={{ fontSize: 28, lineHeight: 1.1 }}>Уже занимаетесь?</div>
-            <p>Ученики и родители входят по логину и паролю от преподавателя.</p>
-            {session ? <Link to="/" className="btn btn-light">Открыть кабинет</Link> : <Link to="/login" className="btn btn-light">Войти в кабинет</Link>}
-            {!session && reg.data?.open && <Link to="/register" className="btn btn-ghost-light">Я репетитор: создать кабинет</Link>}
-          </div>
+          <div><span className="serif">1</span><b>Создайте кабинет</b><p>Две минуты: имя, предмет, цена урока. {trial} дней открыто всё, карта не нужна.</p></div>
+          <div><span className="serif">2</span><b>Добавьте учеников</b><p>Платформа выдаст ученику и родителю логин и пароль. Почта и телефон не нужны.</p></div>
+          <div><span className="serif">3</span><b>Ведите уроки</b><p>Расписание, домашка, слова и оплаты собираются сами. Ученик и родитель видят всё в своих кабинетах.</p></div>
         </div>
       </section>
 
       {plans.data?.plans?.length > 0 && (
         <section className="lp-wrap lp-section" id="pricing">
-          <div className="lp-kicker" style={{ color: 'var(--brass)' }}>Для преподавателей</div>
-          <h2 className="lp-h2">Тарифы платформы</h2>
+          <div className="lp-kicker" style={{ color: 'var(--brass)' }}>Тарифы</div>
+          <h2 className="lp-h2">Один тариф, где открыто всё</h2>
           <PlanTable data={plans.data} />
-          {!session && reg.data?.open && <div style={{ marginTop: 18 }}><Link to="/register" className="btn">Попробовать бесплатно</Link></div>}
+          {open && <div style={{ marginTop: 18 }}><Link to="/register" className="btn">Попробовать бесплатно</Link></div>}
         </section>
       )}
 
+      <section className="lp-wrap lp-section">
+        <div className="lp-shop-teaser">
+          <div>
+            <div className="lp-kicker" style={{ color: 'var(--brass)' }}>Отдельно от платформы</div>
+            <h2 className="lp-h2" style={{ marginBottom: 8 }}>Готовые интерактивные уроки</h2>
+            <p className="muted" style={{ margin: 0, maxWidth: 620 }}>Уроки на 40–60 минут к школьным учебникам: озвучка, игры с автопроверкой и подсказки для учителя. Покупаются отдельно, подписка на платформу не нужна.</p>
+          </div>
+          <Link to="/shop" className="btn btn-secondary">Смотреть уроки</Link>
+        </div>
+      </section>
+
+      <section className="lp-tutors">
+        <div className="lp-wrap lp-tutors-in">
+          <div>
+            <div className="lp-kicker">Ученикам и родителям</div>
+            <h2 className="lp-h2 light">Уже занимаетесь с преподавателем?</h2>
+            <p style={{ color: 'rgba(255,255,255,.8)', maxWidth: 560 }}>Войдите по логину и паролю, которые выдал преподаватель. Там расписание, домашние задания, словарь и оплаты.</p>
+          </div>
+          <div className="lp-login-box">
+            {session ? <Link to="/" className="btn btn-light">Открыть кабинет</Link> : <Link to="/login" className="btn btn-light">Войти в кабинет</Link>}
+            {open && <Link to="/register" className="btn btn-ghost-light">Я репетитор: создать кабинет</Link>}
+          </div>
+        </div>
+      </section>
+
       <footer className="lp-wrap lp-foot">
         <span className="brand-name" style={{ fontSize: 20 }}>{BRAND.name}</span>
-        {s.enabled && (
-          <nav>
-            <a href={`${s.shop_url}/my`} target="_blank" rel="noopener noreferrer">Мои уроки</a>
-            <a href={`${s.shop_url}/offer`} target="_blank" rel="noopener noreferrer">Оферта</a>
-            <a href={`${s.shop_url}/privacy`} target="_blank" rel="noopener noreferrer">Персональные данные</a>
-            <a href={`${s.shop_url}/seller`} target="_blank" rel="noopener noreferrer">Продавец</a>
-            {s.bot && <a href={`https://t.me/${s.bot}`} target="_blank" rel="noopener noreferrer">Telegram-бот</a>}
-          </nav>
-        )}
+        <nav>
+          <Link to="/shop">Готовые уроки</Link>
+          <Link to="/login">Вход</Link>
+        </nav>
       </footer>
     </div>
   );

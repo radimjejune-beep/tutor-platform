@@ -49,7 +49,7 @@ async function run() {
   const plans = require('./plans');
   const allowed = new Map();
   for (const r of rows) {
-    // автосписание входит в тарифы «Репетитор» и «Про»
+    // автосписание входит в тариф «Репетитор»
     if (!allowed.has(r.tutor_id)) allowed.set(r.tutor_id, await plans.allows(r.tutor_id, 'autocharge').catch(() => true));
     if (!allowed.get(r.tutor_id)) continue;
     const done = await transaction(async (client) => {

@@ -116,7 +116,7 @@ router.put(
 // Выдать тариф: plan = start | tutor | pro | trial, until — дата окончания (без даты — бессрочно)
 router.put(
   '/tutors/:id/plan',
-  validateBody(z.object({ plan: z.enum(['start', 'tutor', 'pro', 'trial']), until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional() }).strict()),
+  validateBody(z.object({ plan: z.enum(['start', 'tutor', 'trial']), until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional() }).strict()),
   asyncHandler(async (req, res) => {
     await plans.ensure();
     const id = Number(req.params.id);

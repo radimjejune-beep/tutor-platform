@@ -189,7 +189,7 @@ router.post(
   })
 );
 
-// Ученик (или родитель) добавляет свои слова: вставкой списком, как в Quizlet
+// Ученик (или родитель) добавляет свои слова: вставкой списком
 router.post(
   '/mine',
   validateBody(z.object({ student_id: z.number().int().positive(), items: z.array(wordSchema).min(1).max(300) }).strict()),

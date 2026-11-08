@@ -1110,7 +1110,7 @@ kbd { font-family: var(--sans); font-size: 11px; color: var(--muted); border: 1p
 .lb-next svg { transform: scaleX(-1); }
 
 /* ============================================================
-   v13: вставка списком, тренировки как в Quizlet, наборы, объявления
+   v13: вставка списком, тренировки по карточкам, наборы, объявления
    ============================================================ */
 .paste { display: flex; flex-direction: column; gap: 14px; }
 .paste-area { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 14px; line-height: 1.55; tab-size: 18; min-height: 160px; }
@@ -1488,3 +1488,13 @@ button.fix-tok:hover { background: var(--surface-2); border-bottom-color: var(--
   .write-grid { grid-template-columns: 1fr; }
   .write-checks { position: static; }
 }
+
+/* ---------- Главная платформы ---------- */
+.lp-feat { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
+.lp-feat-card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px; display: grid; gap: 8px; align-content: start; }
+.lp-feat-card b { font-size: 17px; }
+.lp-feat-card p { margin: 0; color: var(--muted); font-size: 14.5px; line-height: 1.5; }
+.lp-feat-ic { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--surface-2); color: var(--ink); }
+.lp-shop-teaser { display: flex; gap: 20px; align-items: center; justify-content: space-between; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 24px 28px; }
+@media (max-width: 980px) { .lp-feat { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .lp-feat { grid-template-columns: 1fr; } }

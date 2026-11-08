@@ -147,7 +147,6 @@ function PlanCell({ t, onSaved }) {
         <select className="select select-sm" value={plan} onChange={(e) => setPlan(e.target.value)} aria-label="Тариф">
           <option value="start">Старт</option>
           <option value="tutor">Репетитор</option>
-          <option value="pro">Про</option>
           <option value="trial">Пробный</option>
         </select>
         <input type="date" className="input input-sm" value={until} onChange={(e) => setUntil(e.target.value)} aria-label="До даты" />

@@ -1,5 +1,5 @@
 // pages/client/Words.jsx — словарь ученика: наборы карточек от преподавателя, личный словарь,
-// свои слова (вставкой, как в Quizlet) и самостоятельная тренировка в любое время
+// свои слова (вставкой списком) и самостоятельная тренировка в любое время
 import { useState } from 'react';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Icon, Link, Modal, useToast } from '../../ui';
@@ -130,7 +130,7 @@ function AddMine({ student, subj, onClose, onSaved }) {
   };
   return (
     <Modal title={subj.isLang ? 'Добавить свои слова' : 'Добавить свои термины'} onClose={onClose} wide>
-      <p className="small muted" style={{ marginTop: 0 }}>Вставь список из заметок, Word или Quizlet: {subj.isLang ? 'слово' : 'термин'} и {subj.meaning} через Tab, тире или запятую, каждая карточка с новой строки.</p>
+      <p className="small muted" style={{ marginTop: 0 }}>Вставь список из заметок или Word: {subj.isLang ? 'слово' : 'термин'} и {subj.meaning} через Tab, тире или запятую, каждая карточка с новой строки.</p>
       <WordPaste onWords={(w) => setWords(w)} autoFocus rows={7} subject={student?.subject} />
       {words.length > 300 && <div className="small" style={{ color: 'var(--danger)' }}>За раз можно добавить до 300 карточек.</div>}
       {error && <div className="alert" style={{ marginTop: 12 }}>{error}</div>}

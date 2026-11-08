@@ -391,7 +391,7 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
                 <textarea className="textarea" style={{ minHeight: 90 }} value={f.answer} onChange={(e) => setF({ ...f, answer: e.target.value })} />
               </Field>
             )}
-            <Field label="Ссылки" hint="Видео, Wordwall и т. п. — каждая с новой строки">
+            <Field label="Ссылки" hint="Видео, онлайн-упражнения, статьи: каждая ссылка с новой строки">
               <textarea className="textarea" style={{ minHeight: 60 }} value={f.links} onChange={(e) => setF({ ...f, links: e.target.value })} />
             </Field>
             <Field label="Файлы" hint="PDF, картинки, аудио — до 10 МБ">

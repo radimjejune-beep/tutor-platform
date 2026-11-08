@@ -1,4 +1,4 @@
-// routes/assignments.js — задания (как в Google Classroom): одно задание — несколько учеников
+// routes/assignments.js — задания: одно задание — несколько учеников
 const express = require('express');
 const { syncSet } = require('../services/setsync');
 const { z } = require('zod');
