@@ -1,3 +1,4 @@
+import { BackLink } from '../../Shell';
 // pages/tutor/Library.jsx — библиотека преподавателя: теория и задачник
 import { useSubject, hasBank } from '../../subjects';
 import { FolderTree, FolderSelect, MoveModal, dragItems } from '../../components/Folders';
@@ -333,7 +334,7 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
 
   return (
     <>
-      <Link to={back} className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 10 }}><Icon name="back" /> Библиотека</Link>
+      <BackLink to={back}>Библиотека</BackLink>
       <div className="page-head">
         <h1 className="page-title">{isNew ? { task: 'Новая задача', game: 'Новое упражнение', html: 'Новый урок', theory: 'Новая теория' }[f.kind] : f.title || 'Материал'}</h1>
         {!isNew && (

@@ -1,3 +1,4 @@
+import { BackLink } from '../../Shell';
 // pages/client/ReportView.jsx — ежемесячный отчёт преподавателя
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Icon, Link } from '../../ui';
@@ -20,9 +21,7 @@ export default function ReportView({ id }) {
 
   return (
     <>
-      <Link to="/progress" className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 10 }}>
-        <Icon name="back" /> Прогресс
-      </Link>
+      <BackLink to="/progress">Прогресс</BackLink>
       <article className="panel" style={{ maxWidth: 760, padding: '36px 40px' }}>
         <div className="muted small">Отчёт преподавателя</div>
         <h1 className="page-title" style={{ marginTop: 6 }}>{monthName(d.month_key)}</h1>

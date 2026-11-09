@@ -1,3 +1,4 @@
+import { BackLink } from '../../Shell';
 // pages/tutor/StudentPage.jsx — карточка ученика с вкладками
 import { useState } from 'react';
 import { subjectInfo } from '../../subjects';
@@ -40,9 +41,7 @@ export default function StudentPage({ id, tab }) {
 
   return (
     <>
-      <Link to="/students" className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 10 }}>
-        <Icon name="back" /> Ученики
-      </Link>
+      <BackLink to="/students">Ученики</BackLink>
       <div className="page-head">
         <div>
           <h1 className="page-title">{s.full_name}</h1>

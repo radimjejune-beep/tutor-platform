@@ -1,3 +1,4 @@
+import { BackLink } from '../../Shell';
 // pages/tutor/WordSets.jsx — наборы карточек: список, редактор со вставкой списком, кто учит
 import FormulaBar from '../../components/FormulaBar';
 import { useMemo, useState } from 'react';
@@ -135,7 +136,7 @@ function Editor({ set, students, onSaved }) {
 
   return (
     <>
-      <Link to="/wordsets" className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 10 }}><Icon name="back" /> Наборы</Link>
+      <BackLink to="/wordsets">Наборы</BackLink>
       <div className="page-head">
         <div>
           <h1 className="page-title">{set ? set.title : 'Новый набор'}</h1>

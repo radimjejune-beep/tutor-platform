@@ -1,3 +1,4 @@
+import { BackLink } from '../../Shell';
 // pages/client/HomeworkPage.jsx — задание глазами ученика
 import { MathText } from '../../components/MathText';
 import { useState } from 'react';
@@ -46,7 +47,7 @@ function HomeworkView({ h, isParent, reload }) {
 
   return (
     <>
-      <Link to="/homework" className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 10 }}><Icon name="back" /> Задания</Link>
+      <BackLink to="/homework">Задания</BackLink>
       <div className="assign-layout">
         <div>
           <div className="assign-head">

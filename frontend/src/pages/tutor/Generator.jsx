@@ -1,3 +1,4 @@
+import { BackLink } from '../../Shell';
 // pages/tutor/Generator.jsx — конструктор по тексту или видео (как Twee, но без нейросети).
 // Вставили текст статьи, песни или субтитры ролика, ссылку на YouTube. Сайт сам предлагает пропуски,
 // слова для словаря и предложения для сборки, а вопросы на понимание и обсуждение пишет учитель.
@@ -247,7 +248,7 @@ export default function Generator() {
 
   return (
     <>
-      <Link to="/library/games" className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 10 }}><Icon name="back" /> Библиотека</Link>
+      <BackLink to="/library/games">Библиотека</BackLink>
       <div className="page-head">
         <div>
           <h1 className="page-title">Задания по тексту и видео</h1>

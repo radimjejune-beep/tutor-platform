@@ -1,3 +1,4 @@
+import { BackLink } from '../../Shell';
 // pages/client/Theory.jsx — теория для учеников и родителей
 import { useState } from 'react';
 import { api } from '../../api';
@@ -44,7 +45,7 @@ export function TheoryView({ id }) {
   const item = useLoad(() => api.libraryItem(id), [id]);
   return (
     <>
-      <Link to="/theory" className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 10 }}><Icon name="back" /> Теория</Link>
+      <BackLink to="/theory">Теория</BackLink>
       {item.loading && <Spinner />}
       {item.error && <ErrorBox error={item.error} onRetry={item.reload} />}
       {item.data && <div style={{ maxWidth: 820 }}><LibraryItem item={item.data} /></div>}

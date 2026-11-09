@@ -1,3 +1,4 @@
+import { BackLink } from '../../Shell';
 // pages/tutor/Groups.jsx — группы: список, состав, занятия группы
 import { useState } from 'react';
 import { api } from '../../api';
@@ -142,7 +143,7 @@ export function GroupPage({ id }) {
 
   return (
     <>
-      <Link to="/groups" className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 10 }}><Icon name="back" /> Группы</Link>
+      <BackLink to="/groups">Группы</BackLink>
       <div className="page-head">
         <div>
           <h1 className="page-title">{g.name}</h1>

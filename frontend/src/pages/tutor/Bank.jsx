@@ -1,3 +1,4 @@
+import { BackLink } from '../../Shell';
 // pages/tutor/Bank.jsx — банк заданий по учебникам: учебник → юнит → задания.
 // Задания можно посмотреть, проверить на себе и взять в свою библиотеку. Своими заданиями можно поделиться.
 import { useState } from 'react';
@@ -42,7 +43,7 @@ export default function BankPage({ book, unit }) {
     <>
       <div className="page-head">
         <div>
-          <Link to="/library" className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 6 }}><Icon name="back" /> Библиотека</Link>
+          <BackLink to="/library">Библиотека</BackLink>
           <h1 className="page-title">Банк заданий</h1>
           <div className="lead">Готовые задания по разделам учебников от Lessonfold и других репетиторов. Посмотрите, пройдите сами и возьмите себе в библиотеку: оттуда их можно выдать в задании или открыть на уроке.</div>
         </div>

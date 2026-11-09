@@ -1,8 +1,8 @@
 // Shell.jsx — каркас кабинета: боковое меню (компьютер) и нижнее меню (телефон)
 import { useAuth } from './auth';
 import { BRAND } from './config';
-import { Fragment, useState } from 'react';
-import { Icon, Link } from './ui';
+import { createContext, Fragment, useContext, useLayoutEffect, useState } from 'react';
+import { Icon, Link, goBack } from './ui';
 import NotificationBell from './components/Notifications';
 import CommandPalette, { usePaletteHotkey } from './components/CommandPalette';
 
@@ -36,9 +36,55 @@ export const CLIENT_NAV = [
 const isActive = (path, to) =>
   to === '/' ? path === '/' : path === to || path.startsWith(`${to}/`) || (to === '/students' && path.startsWith('/groups'));
 
+// Куда ведёт «Назад» со страницы, если в кабинете ещё не было переходов. null: кнопка не нужна (раздел верхнего уровня или вкладка)
+const TABS = { library: ['theory', 'games', 'lessons', 'books', 'tasks'], market: ['mine'], finance: ['pricing'] };
+export function parentOf(rawPath) {
+  const s = rawPath.split('?')[0].split('/').filter(Boolean);
+  if (s.length === 0 || s[0] === 'more') return null;
+  if (s[0] === 'password') return '/profile';
+  if (s[0] === 'profile' || s[0] === 'help') return null;
+  if (s[0] === 'lesson') return '/schedule';
+  if (s[0] === 'groups') return '/students';
+  if (s.length === 1) return null;
+  if (s[0] === 'settings') return null;
+  if (TABS[s[0]]?.includes(s[1])) return null;
+  if (s[0] === 'homework' && s.length > 2) return `/homework/${s[1]}`;
+  if (s[0] === 'bank' && s.length > 2) return `/bank/${s[1]}`;
+  if (s[0] === 'words') return '/words';
+  if (s[0] === 'reports') return '/progress';
+  return `/${s[0]}`;
+}
+
+// Своя кнопка «Назад» на странице (с подписью раздела). Пока она есть, общая из каркаса не показывается.
+// Обе возвращают туда, откуда пришли, а при открытии по прямой ссылке ведут в раздел to.
+const BackCtx = createContext(null);
+export function BackLink({ to, children }) {
+  const mark = useContext(BackCtx);
+  useLayoutEffect(() => {
+    if (!mark) return undefined;
+    mark(true);
+    return () => mark(false);
+  }, [mark]);
+  return <BackButton to={to}>{children}</BackButton>;
+}
+function BackButton({ to, children }) {
+  return (
+    <button type="button" className="back-btn" onClick={() => goBack(to)}>
+      <Icon name="back" size={16} /> <span className="back-label">{children || 'Назад'}</span>
+    </button>
+  );
+}
+
+function BackBar({ path, hidden }) {
+  const parent = parentOf(path);
+  if (!parent || hidden) return null;
+  return <BackButton to={parent}>Назад</BackButton>;
+}
+
 export function Shell({ nav, path, counts = {}, children }) {
   const { user, logout } = useAuth();
   const [palette, setPalette] = useState(false);
+  const [ownBack, setOwnBack] = useState(false);
   usePaletteHotkey(setPalette);
 
   return (
@@ -76,13 +122,16 @@ export function Shell({ nav, path, counts = {}, children }) {
         )}
 
         <div className="sidebar-foot">
-          <div className="who">{user.full_name}</div>
-          <div className="who-role">
-            {ROLE_LABEL[user.role]}, логин {user.login}
-          </div>
-          <div className="row" style={{ marginTop: 12, gap: 4 }}>
-            <Link to="/password" className="btn btn-quiet btn-sm">
-              <Icon name="key" /> Пароль
+          <Link to="/profile" className={`who-link${path === '/profile' ? ' active' : ''}`} title="Профиль">
+            <span className="who-ava">{String(user.full_name || '?').trim()[0]?.toUpperCase()}</span>
+            <span style={{ minWidth: 0 }}>
+              <span className="who truncate">{user.full_name}</span>
+              <span className="who-role truncate">{ROLE_LABEL[user.role]}, логин {user.login}</span>
+            </span>
+          </Link>
+          <div className="row" style={{ marginTop: 10, gap: 4 }}>
+            <Link to="/help" className="btn btn-quiet btn-sm">
+              <Icon name="book" /> Помощь
             </Link>
             <button className="btn btn-quiet btn-sm" onClick={logout}>
               <Icon name="logout" /> Выйти
@@ -97,8 +146,8 @@ export function Shell({ nav, path, counts = {}, children }) {
           <div className="row" style={{ gap: 2 }}>
             <button className="icon-btn" onClick={() => setPalette(true)} aria-label="Поиск"><Icon name="search" size={20} /></button>
             <NotificationBell path={path} compact />
-            <Link to="/password" className="icon-btn" aria-label="Сменить пароль">
-              <Icon name="key" size={20} />
+            <Link to="/profile" className="icon-btn" aria-label="Профиль">
+              <Icon name="user" size={20} />
             </Link>
             <button className="icon-btn" onClick={logout} aria-label="Выйти">
               <Icon name="logout" size={20} />
@@ -106,7 +155,9 @@ export function Shell({ nav, path, counts = {}, children }) {
           </div>
         </header>
 
-        <main className="content">{children}</main>
+        <BackCtx.Provider value={setOwnBack}>
+          <main className="content"><BackBar path={path} hidden={ownBack} />{children}</main>
+        </BackCtx.Provider>
         <CommandPalette open={palette} onClose={() => setPalette(false)} role={user.role} nav={nav} />
 
         <nav className="tabbar" aria-label="Разделы">
@@ -136,7 +187,8 @@ export function MoreMenu({ nav, counts = {} }) {
   const items = [
     ...nav.filter((i) => i.hideMobile),
     ...(user.role === 'tutor' ? [{ to: '/shop', label: 'Готовые интерактивные уроки', icon: 'grid' }] : []),
-    { to: '/password', label: 'Сменить пароль', icon: 'key' },
+    { to: '/profile', label: 'Профиль', icon: 'user' },
+    { to: '/help', label: 'Как пользоваться', icon: 'book' },
   ];
   return (
     <>

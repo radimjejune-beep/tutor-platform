@@ -75,8 +75,8 @@ h1, h2, h3 { margin: 0; font-weight: 400; }
 /* ---------- Каркас ---------- */
 .shell { display: grid; grid-template-columns: 252px 1fr; min-height: 100vh; }
 .sidebar {
-  position: sticky; top: 0; height: 100vh;
-  display: flex; flex-direction: column; gap: 28px;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+  display: flex; flex-direction: column; gap: 22px;
   padding: 36px 20px;
   background: var(--bg);
   border-right: 1px solid var(--line);
@@ -87,6 +87,9 @@ h1, h2, h3 { margin: 0; font-weight: 400; }
 .brand-rule { width: 24px; height: 1px; background: var(--ink); margin: 16px 0 0; }
 
 .nav { display: flex; flex-direction: column; gap: 2px; }
+.back-label { max-width: 46ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.back-btn { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 14px -4px; padding: 6px 10px 6px 6px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font: inherit; font-size: 14px; cursor: pointer; }
+.back-btn:hover { color: var(--ink); background: var(--surface-2); }
 .nav-group { font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 14px 0 4px; }
 .nav-group:first-child { margin-top: 0; }
 .nav a {
@@ -1622,3 +1625,27 @@ button.fix-tok:hover { background: var(--surface-2); border-bottom-color: var(--
 .sys-list li.bad > span { background: var(--danger); }
 .err-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 8px; }
 @media (max-width: 760px) { .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ---------- Профиль и помощь ---------- */
+.who-link { display: flex; align-items: center; gap: 10px; padding: 6px; margin: 0 -6px; border-radius: 10px; color: inherit; text-decoration: none; }
+.who-link:hover, .who-link.active { background: var(--surface-2); text-decoration: none; }
+.who-link .who, .who-link .who-role { display: block; }
+.who-ava { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--bg); font-weight: 600; font-size: 14px; }
+.profile-card { display: flex; align-items: center; gap: 18px; }
+.profile-avatar { flex: none; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--bg); font-size: 26px; }
+.profile-name { font-size: 22px; font-weight: 600; margin-bottom: 2px; }
+.profile-links { padding: 6px 0; }
+.profile-row { display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 12px; width: 100%; padding: 14px 22px; border: 0; border-top: 1px solid var(--line); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; text-decoration: none; }
+.profile-row:first-child { border-top: 0; }
+.profile-row:hover { background: var(--surface-2); text-decoration: none; }
+.profile-logout { margin-top: 24px; width: 100%; max-width: 460px; height: 48px; justify-content: center; }
+.help-list { display: grid; gap: 12px; max-width: 820px; }
+.help-item { padding: 0; }
+.help-head { display: flex; align-items: center; gap: 12px; width: 100%; padding: 18px 22px; border: 0; background: none; font: inherit; font-size: 17px; font-weight: 500; color: inherit; text-align: left; cursor: pointer; }
+.help-chev { margin-left: auto; display: inline-flex; transform: rotate(-90deg); transition: transform 0.15s; color: var(--muted); }
+.help-item.open .help-chev { transform: rotate(90deg); }
+.help-body { padding: 0 22px 20px 56px; }
+.help-body ol { margin: 0 0 16px; padding-left: 18px; display: grid; gap: 8px; line-height: 1.55; }
+@media (max-width: 760px) { .help-body { padding-left: 22px; } .profile-row { padding: 14px 16px; } }
+/* Строки-ссылки (div с переходом): видно фокус с клавиатуры */
+.assign-row[tabindex]:focus-visible, .clickable[tabindex]:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }

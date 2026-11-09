@@ -4,6 +4,8 @@ import { useAuth } from '../auth';
 import { api } from '../api';
 import { Shell, TUTOR_NAV, CLIENT_NAV, MoreMenu } from '../Shell';
 import { Spinner, Empty, Link, useLoad } from '../ui';
+import Profile from '../pages/Profile';
+import Help from '../pages/Help';
 import { ChangePassword } from '../pages/Login';
 import { NotFound } from './NotFound';
 import { AcceptDocuments } from '../pages/Legal';
@@ -74,6 +76,8 @@ function ClientCabinet({ path }) {
   else if (parts[0] === 'payments') page = <ClientPayments {...props} />;
   else if (parts[0] === 'reports' && parts[1]) page = <ReportView id={Number(parts[1])} />;
   else if (parts[0] === 'password') page = <ChangePassword />;
+  else if (parts[0] === 'profile') page = <Profile />;
+  else if (parts[0] === 'help') page = <Help />;
   else if (parts[0] === 'more') page = <MoreMenu nav={clientNav} counts={counts} />;
   else page = <NotFound />;
 

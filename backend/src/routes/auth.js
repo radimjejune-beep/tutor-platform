@@ -128,6 +128,18 @@ router.put(
   })
 );
 
+// Профиль: имя, которое видят ученики и родители (только преподаватель; имена учеников меняет преподаватель)
+router.put(
+  '/profile',
+  authenticate,
+  validateBody(z.object({ full_name: z.string().trim().min(2, 'Введите имя').max(120) }).strict()),
+  asyncHandler(async (req, res) => {
+    if (req.user.role !== 'tutor') return res.status(403).json({ error: 'Имя меняет преподаватель' });
+    await query('UPDATE users SET full_name = $1 WHERE id = $2', [req.body.full_name, req.user.id]);
+    res.json({ full_name: req.body.full_name });
+  })
+);
+
 // Кто я + к каким ученикам есть доступ (для ученика — он сам, для родителя — его дети)
 router.get(
   '/me',

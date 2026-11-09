@@ -149,6 +149,7 @@ export const api = {
   // Библиотека
   library: (params) => request('GET', `/library${qs(params || {})}`),
   setSubject: (subject) => request('PUT', '/auth/subject', { subject }),
+  setProfile: (full_name) => request('PUT', '/auth/profile', { full_name }),
   libraryFacets: () => request('GET', '/library/facets'),
   folders: () => request('GET', '/library-folders'),
   createFolder: (data) => request('POST', '/library-folders', data),

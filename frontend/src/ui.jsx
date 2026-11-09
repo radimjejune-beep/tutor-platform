@@ -6,6 +6,21 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
    ============================================================ */
 const getPath = () => window.location.hash.replace(/^#/, '') || '/';
 
+// История переходов внутри кабинета: «Назад» возвращает туда, откуда пришли,
+// а если страницу открыли по ссылке сразу, ведёт в родительский раздел
+const visited = [getPath()];
+if (typeof window !== 'undefined') {
+  window.addEventListener('hashchange', () => {
+    const p = getPath();
+    if (visited.length > 1 && visited[visited.length - 2] === p) visited.pop();
+    else visited.push(p);
+  });
+}
+export const goBack = (fallback = '/') => {
+  if (visited.length > 1) window.history.back();
+  else navigate(fallback);
+};
+
 export function useRoute() {
   const [path, setPath] = useState(getPath);
   useEffect(() => {
@@ -208,6 +223,7 @@ const PATHS = {
   logout: 'M15 4h3a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-3M10 16l4-4-4-4M14 12H4',
   board: 'M4 5h16v11H4zM9 20h6M12 16v4',
   back: 'M15 18l-6-6 6-6',
+  user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4.5 20a7.5 7.5 0 0 1 15 0',
   key: 'M14.5 9.5a4 4 0 1 1-1.2-2.8M14.5 9.5H20v3M17.5 9.5v2.5',
   edit: 'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4',
   trash: 'M5 7h14M10 11v6M14 11v6M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12M9 7V4h6v3',

@@ -1,3 +1,4 @@
+import { BackLink } from '../../Shell';
 // pages/tutor/Courses.jsx — курсы по учебнику: юниты, материалы к уроку, ДЗ и слова каждого юнита
 import { useSubject } from '../../subjects';
 import { useState } from 'react';
@@ -109,7 +110,7 @@ export function CourseEditor({ id }) {
 
   return (
     <>
-      <Link to="/courses" className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 10 }}><Icon name="back" /> Курсы</Link>
+      <BackLink to="/courses">Курсы</BackLink>
       <div className="page-head">
         <div>
           <h1 className="page-title">{c.title}</h1>

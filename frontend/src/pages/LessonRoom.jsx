@@ -1,3 +1,4 @@
+import { BackLink } from '../Shell';
 // pages/LessonRoom.jsx — комната урока: звонок, доска и задачи урока
 // Ученик видит задачи сразу, как только преподаватель их добавил (обновляется сама)
 import { useEffect, useState } from 'react';
@@ -63,9 +64,7 @@ export default function LessonRoom({ id }) {
 
   return (
     <>
-      <Link to={isTutor ? '/schedule' : '/schedule'} className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 10 }}>
-        <Icon name="back" /> Расписание
-      </Link>
+      <BackLink to={isTutor ? '/schedule' : '/schedule'}>Расписание</BackLink>
 
       <div className="room-head">
         <div>

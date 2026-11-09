@@ -1,3 +1,4 @@
+import { BackLink } from '../../Shell';
 // pages/client/SetStudy.jsx — ученик учит набор карточек от преподавателя
 import { useState } from 'react';
 import { api } from '../../api';
@@ -62,7 +63,7 @@ export default function SetStudy({ id, student }) {
 
   return (
     <>
-      <Link to="/words" className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 10 }}><Icon name="back" /> {subj.vocabTitle}</Link>
+      <BackLink to="/words">{subj.vocabTitle}</BackLink>
       <div className="page-head">
         <div>
           <h1 className="page-title">{s.title}</h1>

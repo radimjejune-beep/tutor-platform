@@ -1,3 +1,4 @@
+import { BackLink } from '../../Shell';
 // pages/tutor/Assignments.jsx — задания:
 // список → редактор → страница задания → проверка работы ученика
 import FormulaBar from '../../components/FormulaBar';
@@ -144,9 +145,7 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
 
   return (
     <>
-      <Link to={isNew ? '/homework' : `/homework/${assignment.id}`} className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 10 }}>
-        <Icon name="back" /> {isNew ? 'Задания' : 'К заданию'}
-      </Link>
+      <BackLink to={isNew ? '/homework' : `/homework/${assignment.id}`}>{isNew ? 'Задания' : 'К заданию'}</BackLink>
       <div className="page-head"><h1 className="page-title">{isNew ? 'Новое задание' : 'Изменить задание'}</h1></div>
 
       <form onSubmit={submit} className="assign-layout">
@@ -297,7 +296,7 @@ export function AssignmentPage({ id }) {
 
   return (
     <>
-      <Link to="/homework" className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 10 }}><Icon name="back" /> Задания</Link>
+      <BackLink to="/homework">Задания</BackLink>
       <div className="assign-layout">
         <div>
           <div className="assign-head">
@@ -424,7 +423,7 @@ function ReviewForm({ hw, assignment, items, results, reload }) {
 
   return (
     <>
-      <Link to={`/homework/${assignment.id}`} className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 10 }}><Icon name="back" /> {assignment.title}</Link>
+      <BackLink to={`/homework/${assignment.id}`}>{assignment.title}</BackLink>
       <div className="assign-layout">
         <div>
           <div className="assign-head">
