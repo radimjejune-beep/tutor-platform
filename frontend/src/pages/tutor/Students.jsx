@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, navigate } from '../../ui';
 import { StudentModal } from './modals';
+import ImportStudents from './ImportStudents';
 import { PeopleTabs } from './Groups';
 import { CATEGORY, rub, relativeDay, time } from '../../format';
 
@@ -15,6 +16,7 @@ const FILTERS = [
 export default function Students() {
   const [status, setStatus] = useState('active');
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [q, setQ] = useState('');
   const list = useLoad(() => api.students(status), [status]);
 
@@ -27,7 +29,10 @@ export default function Students() {
           <h1 className="page-title">Ученики</h1>
           {list.data && status === 'active' && <div className="lead">Сейчас занимаются {list.data.length}</div>}
         </div>
-        <button className="btn" onClick={() => setAdding(true)}><Icon name="plus" /> Ученик</button>
+        <div className="row" style={{ gap: 8 }}>
+          <button className="btn btn-secondary" onClick={() => setImporting(true)}><Icon name="list" /> Списком</button>
+          <button className="btn" onClick={() => setAdding(true)}><Icon name="plus" /> Ученик</button>
+        </div>
       </div>
 
       <PeopleTabs active="students" />
@@ -72,6 +77,7 @@ export default function Students() {
         </div>
       </div>
 
+      {importing && <ImportStudents onClose={() => setImporting(false)} onDone={list.reload} />}
       {adding && (
         <StudentModal onClose={() => setAdding(false)} onSaved={(s) => navigate(`/students/${s.id}/access`)} />
       )}

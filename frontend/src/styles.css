@@ -1649,3 +1649,10 @@ button.fix-tok:hover { background: var(--surface-2); border-bottom-color: var(--
 @media (max-width: 760px) { .help-body { padding-left: 22px; } .profile-row { padding: 14px 16px; } }
 /* Строки-ссылки (div с переходом): видно фокус с клавиатуры */
 .assign-row[tabindex]:focus-visible, .clickable[tabindex]:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.demo-banner { display: flex; align-items: center; gap: 14px; padding: 14px 18px; margin-bottom: 20px; border: 1px dashed var(--line-strong); border-radius: 14px; background: var(--surface-2); }
+.demo-banner > div { flex: 1; line-height: 1.5; }
+.onb-demo { display: flex; align-items: center; gap: 16px; margin: 12px 0 4px; padding: 14px 16px; border-radius: 12px; background: var(--surface-2); }
+.onb-demo > div { flex: 1; display: grid; gap: 2px; }
+@media (max-width: 760px) { .demo-banner, .onb-demo { flex-direction: column; align-items: flex-start; } }
+.invite-text { white-space: pre-wrap; font: inherit; font-size: 13px; line-height: 1.5; margin: 10px 0 0; padding: 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); }
+.import-table { width: 100%; border-collapse: collapse; font-size: 14px; } .import-table th { text-align: left; font-size: 12px; font-weight: 500; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); } .import-table td { padding: 8px; border-bottom: 1px solid var(--line); } .import-table code { font-size: 14px; }

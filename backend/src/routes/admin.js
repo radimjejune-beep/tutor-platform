@@ -134,12 +134,13 @@ router.get(
   '/metrics',
   asyncHandler(async (req, res) => {
     await plans.ensure();
+    await require('./demo').ensure();
     const days = plans.TRIAL_DAYS;
     const { rows } = await query(
       `WITH t AS (SELECT * FROM users WHERE role = 'tutor' AND NOT is_admin),
        act AS (
          SELECT t.id,
-                EXISTS (SELECT 1 FROM students s WHERE s.tutor_id = t.id) AS has_student,
+                EXISTS (SELECT 1 FROM students s WHERE s.tutor_id = t.id AND NOT s.is_demo) AS has_student,
                 EXISTS (SELECT 1 FROM homework h JOIN students s ON s.id = h.student_id WHERE s.tutor_id = t.id) AS has_hw,
                 EXISTS (SELECT 1 FROM students s JOIN users u ON u.id = s.user_id WHERE s.tutor_id = t.id AND u.last_login_at IS NOT NULL)
                   OR EXISTS (SELECT 1 FROM parent_students ps JOIN students s ON s.id = ps.student_id JOIN users u ON u.id = ps.parent_user_id WHERE s.tutor_id = t.id AND u.last_login_at IS NOT NULL) AS client_in,

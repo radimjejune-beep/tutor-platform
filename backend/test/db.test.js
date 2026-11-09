@@ -169,6 +169,31 @@ test('база данных', opts, async (t) => {
     assert.equal(await storage.sweep(), 1);
   });
 
+  await t.test('пример для нового преподавателя: создаётся, не мешает тарифу и первым шагам, удаляется целиком', async () => {
+    const { mod } = loadRoutes('routes/demo.js');
+    const dash = loadRoutes('routes/dashboard.js').mod;
+    const plans = require(src('services/plans.js'));
+    const a = await tutor({ sql: "UPDATE users SET plan = 'start', plan_until = NULL WHERE id = $1" });
+    plans.forget(a.id);
+    assert.equal((await call(mod, 'GET', '/', { user: a })).body.active, false);
+    const made = await call(mod, 'POST', '/', { user: a });
+    assert.equal(made.status, 201, JSON.stringify(made.body));
+    assert.equal((await call(mod, 'POST', '/', { user: a })).status, 409);
+    const { rows: st } = await query('SELECT id FROM students WHERE tutor_id = $1', [a.id]);
+    assert.equal(st.length, 2);
+    const { studentFinance } = require(src('services/billing.js'));
+    const fin = await Promise.all(st.map((s) => studentFinance({ query }, s.id)));
+    assert.ok(fin.some((f) => f.lessons_remaining > 0), JSON.stringify(fin));
+    const onb = await call(dash, 'GET', '/onboarding', { user: a });
+    assert.equal(onb.body.steps.find((s) => s.key === 'student').done, false);
+    assert.equal(await plans.studentLimit(a.id), null);
+    const sub = await query("SELECT COUNT(*)::int AS n FROM homework h JOIN students s ON s.id = h.student_id WHERE s.tutor_id = $1 AND h.status = 'submitted'", [a.id]);
+    assert.equal(sub.rows[0].n, 1);
+    await call(mod, 'DELETE', '/', { user: a });
+    const left = await query('SELECT (SELECT COUNT(*) FROM students WHERE tutor_id = $1)::int AS s, (SELECT COUNT(*) FROM assignments WHERE tutor_id = $1)::int AS a', [a.id]);
+    assert.deepEqual(left.rows[0], { s: 0, a: 0 });
+  });
+
   await t.test('фоновая задача не запускается дважды одновременно', async () => {
     const { withLock } = require(src('services/jobs.js'));
     const { pool } = require(src('db.js'));

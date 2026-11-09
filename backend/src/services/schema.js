@@ -12,6 +12,7 @@ async function ensureAll() {
     ['reminders', () => require('./reminders').ensure()],
     ['pronounce', () => require('../routes/pronounce').ensure()],
     ['trial', () => require('./trial').ensure()],
+    ['demo', () => require('../routes/demo').ensure()],
   ];
   for (const [name, fn] of steps) {
     try { await fn(); } catch (err) { console.error(`⚠️ Схема «${name}»: ${err.message}`); throw err; }

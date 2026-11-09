@@ -25,11 +25,13 @@ router.get(
   asyncHandler(async (req, res) => {
     if (req.user.role !== 'tutor') return res.json({ steps: [] });
     const tid = req.user.id;
+    await require('./demo').ensure();
+    // Ученики из примера (is_demo) не засчитываются: шаги нужно пройти со своими учениками
     const { rows } = await query(
       `SELECT
-         EXISTS (SELECT 1 FROM students WHERE tutor_id = $1) AS student,
-         EXISTS (SELECT 1 FROM lessons l JOIN students s ON s.id = l.student_id WHERE s.tutor_id = $1) AS lesson,
-         EXISTS (SELECT 1 FROM homework h JOIN students s ON s.id = h.student_id WHERE s.tutor_id = $1) AS homework,
+         EXISTS (SELECT 1 FROM students WHERE tutor_id = $1 AND NOT is_demo) AS student,
+         EXISTS (SELECT 1 FROM lessons l JOIN students s ON s.id = l.student_id WHERE s.tutor_id = $1 AND NOT s.is_demo) AS lesson,
+         EXISTS (SELECT 1 FROM homework h JOIN students s ON s.id = h.student_id WHERE s.tutor_id = $1 AND NOT s.is_demo) AS homework,
          EXISTS (SELECT 1 FROM students s JOIN users u ON u.id = s.user_id WHERE s.tutor_id = $1 AND u.last_login_at IS NOT NULL)
            OR EXISTS (SELECT 1 FROM parent_students ps JOIN students s ON s.id = ps.student_id JOIN users u ON u.id = ps.parent_user_id
                        WHERE s.tutor_id = $1 AND u.last_login_at IS NOT NULL) AS client_login,

@@ -12,8 +12,31 @@ import { time, dayMonth, weekday, cap, rub, relativeDay, LESSON_STATUS, monthNam
 
 
 // Первые шаги: показывается новому преподавателю, пока не пройдены все шаги (можно скрыть)
-function Onboarding() {
+// Пример: два ученика с занятиями, домашкой и оплатами, чтобы увидеть платформу в работе
+function DemoBanner({ demo, onChange }) {
+  const [busy, setBusy] = useState(false);
+  if (!demo.data?.active) return null;
+  const remove = async () => {
+    if (!window.confirm('Удалить пример? Анна и Миша пропадут вместе с занятиями, заданием и оплатами. Ваши ученики не пострадают.')) return;
+    setBusy(true);
+    try { await api.demoDelete(); onChange(); } finally { setBusy(false); }
+  };
+  return (
+    <div className="demo-banner">
+      <Icon name="star" size={18} />
+      <div><b>В кабинете пример.</b> Анна и Миша не настоящие: посмотрите расписание, задания, оплаты и карточки учеников. Когда разберётесь, удалите пример одной кнопкой.</div>
+      <button className="btn btn-secondary btn-sm" disabled={busy} onClick={remove}>{busy ? 'Удаляем…' : 'Удалить пример'}</button>
+    </div>
+  );
+}
+
+function Onboarding({ demo, onDemo }) {
   const ob = useLoad(() => api.onboarding().catch(() => null), []);
+  const [making, setMaking] = useState(false);
+  const makeDemo = async () => {
+    setMaking(true);
+    try { await api.demoCreate(); onDemo(); } catch (e) { window.alert(e.message); } finally { setMaking(false); }
+  };
   const [hidden, setHidden] = useState(() => { try { return localStorage.getItem('lf-onb-hide') === '1'; } catch { return false; } });
   const steps = ob.data?.steps || [];
   const done = steps.filter((s) => s.done).length;
@@ -29,6 +52,12 @@ function Onboarding() {
         <button className="btn btn-quiet btn-sm" onClick={hide}>Скрыть</button>
       </div>
       <div className="bar" style={{ margin: "12px 0 6px", height: 4 }}><span style={{ width: `${(done / steps.length) * 100}%` }} /></div>
+      {done === 0 && demo.data && !demo.data.active && (
+        <div className="onb-demo">
+          <div><b>Сначала посмотреть, как это выглядит?</b><span className="small muted">Добавим двух учеников-примеров с расписанием, домашкой и оплатами. Удаляются одной кнопкой.</span></div>
+          <button className="btn btn-sm" disabled={making} onClick={makeDemo}>{making ? 'Заполняем…' : 'Заполнить примером'}</button>
+        </div>
+      )}
       <ol className="onb-list">
         {steps.map((s) => (
           <li key={s.key} className={s.done ? 'done' : ''}>
@@ -44,6 +73,7 @@ function Onboarding() {
 
 export default function TutorDashboard() {
   const dash = useLoad(() => Promise.all([api.dashboard(), api.summary()]), []);
+  const demo = useLoad(() => api.demoStatus().catch(() => null), []);
   const [modal, setModal] = useState(null);
   const { user } = useAuth();
   // Приветствие по имени из учётки (у «Преподаватель» — без имени)
@@ -78,7 +108,8 @@ export default function TutorDashboard() {
         </div>
       </div>
 
-      <Onboarding />
+      <DemoBanner demo={demo} onChange={() => window.location.reload()} />
+      <Onboarding demo={demo} onDemo={() => window.location.reload()} />
 
       <section className="today-section">
         <div className="row-between" style={{ marginBottom: 16 }}>

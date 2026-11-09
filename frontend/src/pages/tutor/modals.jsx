@@ -390,19 +390,44 @@ export function StudentModal({ student, onClose, onSaved }) {
 /* ============================================================
    Выданный логин и пароль — показать один раз
    ============================================================ */
-export function CredentialsCard({ login, password, who }) {
+// Готовое приглашение для мессенджера: что это, как войти и что сделать в первый раз
+export function inviteText({ login, password, who, role, tutor }) {
+  const site = window.location.origin;
+  const parent = role === 'parent';
+  const hello = who ? `${String(who).split(/\s+/)[0]}, здравствуйте!` : 'Здравствуйте!';
+  return [
+    hello,
+    `${tutor ? `Это ${tutor}. ` : ''}Я веду занятия через платформу Lessonfold. В личном кабинете ${parent ? 'вы увидите расписание ребёнка, домашние задания, прогресс и оплаты' : 'будут расписание, домашние задания, слова для повторения и ваш прогресс'}.`,
+    '',
+    `Сайт: ${site}`,
+    `Логин: ${login}`,
+    `Пароль: ${password}`,
+    '',
+    'При первом входе сайт попросит придумать свой пароль.',
+    'Чтобы получать напоминания об уроках, в кабинете откройте «Профиль» и подключите Telegram.',
+  ].join('\n');
+}
+
+export function CredentialsCard({ login, password, who, role }) {
   const toast = useToast();
-  const text = `Вход в кабинет\nЛогин: ${login}\nПароль: ${password}\nСайт: ${window.location.origin}`;
+  const { user } = useAuth();
+  const tutor = user?.full_name && user.full_name !== 'Преподаватель' ? user.full_name : '';
+  const text = inviteText({ login, password, who, role, tutor });
+  const [show, setShow] = useState(false);
   return (
     <div className="secret">
       <div className="small muted" style={{ marginBottom: 6 }}>{who}</div>
       <div className="secret-row"><span>Логин</span><strong>{login}</strong></div>
       <div className="secret-row"><span>Пароль</span><strong>{password}</strong></div>
-      <button type="button" className="btn btn-secondary btn-sm" style={{ marginTop: 10 }}
-        onClick={() => navigator.clipboard?.writeText(text).then(() => toast('Скопировано, можно отправить в мессенджер'))}>
-        Скопировать для отправки
-      </button>
-      <div className="small muted" style={{ marginTop: 8 }}>Пароль больше нигде не покажется. Если потеряется — задайте новый.</div>
+      <div className="row wrap" style={{ gap: 6, marginTop: 10 }}>
+        <button type="button" className="btn btn-sm"
+          onClick={() => navigator.clipboard?.writeText(text).then(() => toast('Приглашение скопировано, вставьте его в мессенджер'))}>
+          <Icon name="send" size={16} /> Скопировать приглашение
+        </button>
+        <button type="button" className="btn btn-quiet btn-sm" onClick={() => setShow((v) => !v)}>{show ? 'Скрыть текст' : 'Показать текст'}</button>
+      </div>
+      {show && <pre className="invite-text">{text}</pre>}
+      <div className="small muted" style={{ marginTop: 8 }}>Пароль больше нигде не покажется. Если потеряется, задайте новый.</div>
     </div>
   );
 }
@@ -431,7 +456,7 @@ export function AccountModal({ student, kind, onClose, onSaved }) {
   if (result) {
     return (
       <Modal title="Вход создан" onClose={onClose}>
-        <CredentialsCard login={result.login} password={result.password} who={result.full_name} />
+        <CredentialsCard login={result.login} password={result.password} who={result.full_name} role={isParent ? 'parent' : 'student'} />
         <div className="modal-actions"><button className="btn" onClick={onClose}>Готово</button></div>
       </Modal>
     );
@@ -494,7 +519,7 @@ export function ResetPasswordModal({ account, onClose }) {
     <Modal title="Новый пароль" onClose={onClose}>
       {result ? (
         <>
-          <CredentialsCard login={result.login} password={result.password} who={account.full_name} />
+          <CredentialsCard login={result.login} password={result.password} who={account.full_name} role={account.role} />
           <div className="modal-actions"><button className="btn" onClick={onClose}>Готово</button></div>
         </>
       ) : (

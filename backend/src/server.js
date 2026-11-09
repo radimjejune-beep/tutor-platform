@@ -136,6 +136,7 @@ protectedApi.use('/library-folders', require('./routes/folders'));
 protectedApi.use('/library-books', require('./routes/books'));
 protectedApi.use('/plan', require('./routes/plans').router);
 protectedApi.use('/pronounce', require('./routes/pronounce'));
+protectedApi.use('/demo', require('./routes/demo'));
 protectedApi.use('/platform-terms', require('./routes/platformDocs').protectedRouter);
 app.use('/api', protectedApi);
 

@@ -31,8 +31,9 @@ async function once(userId, kind, msg) {
 }
 
 async function stats(tid) {
+  await require('../routes/demo').ensure();
   const { rows } = await query(
-    `SELECT (SELECT COUNT(*) FROM students WHERE tutor_id = $1)::int AS students,
+    `SELECT (SELECT COUNT(*) FROM students WHERE tutor_id = $1 AND NOT is_demo)::int AS students,
             (SELECT COUNT(*) FROM lessons l JOIN students s ON s.id = l.student_id WHERE s.tutor_id = $1 AND l.status = 'done')::int AS lessons,
             (SELECT COUNT(*) FROM homework h JOIN students s ON s.id = h.student_id WHERE s.tutor_id = $1 AND h.status IN ('submitted', 'checked'))::int AS homework`,
     [tid]

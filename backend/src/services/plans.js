@@ -95,7 +95,8 @@ async function studentLimit(tutorId) {
   const plan = await planOf(tutorId);
   const max = plan.limits.students;
   if (max == null) return null;
-  const { rows } = await query("SELECT COUNT(*)::int AS n FROM students WHERE tutor_id = $1 AND status = 'active'", [tutorId]);
+  await require('../routes/demo').ensure();
+  const { rows } = await query("SELECT COUNT(*)::int AS n FROM students WHERE tutor_id = $1 AND status = 'active' AND NOT is_demo", [tutorId]);
   return rows[0].n >= max ? `На тарифе «${plan.name}» до ${max} активных учеников. Переведите кого-то в архив или выберите тариф больше.` : null;
 }
 
