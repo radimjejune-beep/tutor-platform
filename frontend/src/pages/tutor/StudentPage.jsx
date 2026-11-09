@@ -448,7 +448,7 @@ function AccessTab({ student, onChange }) {
     <section className="panel">
       <div className="panel-head"><h2 className="section-title">Кто заходит в кабинет</h2></div>
       <p className="muted" style={{ marginTop: -6 }}>
-        Для входа нужны только логин и пароль. Ученик видит расписание, задания, прогресс и опубликованные отчёты; родитель — то же самое по своим детям.
+        Для входа нужны только логин и пароль. Ученик видит расписание, задания, прогресс и опубликованные отчёты; родитель видит то же самое по своим детям.
       </p>
       <div className="list">
         {own ? (

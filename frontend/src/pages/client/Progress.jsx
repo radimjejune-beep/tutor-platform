@@ -132,9 +132,9 @@ function MonthSummaries({ studentId }) {
             </div>
             <div className="month-stats">
               <div><b className="num">{m.lessons_done}</b><span>{plural(m.lessons_done, 'занятие', 'занятия', 'занятий')}</span></div>
-              <div><b className="num">{attendance === null ? '—' : `${attendance}%`}</b><span>посещаемость</span></div>
-              <div><b className="num">{m.homework_given ? `${m.homework_done}/${m.homework_given}` : '—'}</b><span>заданий сдано</span></div>
-              <div><b className="num">{m.homework_avg_score === null ? '—' : `${m.homework_avg_score}%`}</b><span>средняя оценка</span></div>
+              <div><b className="num">{attendance === null ? 'нет' : `${attendance}%`}</b><span>посещаемость</span></div>
+              <div><b className="num">{m.homework_given ? `${m.homework_done}/${m.homework_given}` : 'нет'}</b><span>заданий сдано</span></div>
+              <div><b className="num">{m.homework_avg_score === null ? 'нет' : `${m.homework_avg_score}%`}</b><span>средняя оценка</span></div>
             </div>
             {m.topics_completed?.length > 0 && (
               <div className="small" style={{ marginTop: 12 }}>
@@ -183,13 +183,13 @@ function Achievements({ d }) {
 
       <div className="achv-tile">
         <span className="meta-label">Упражнения, 3 месяца</span>
-        <div className="achv-num"><b className="serif">{g.attempts ? `${g.avg_score}%` : '—'}</b><span>средний результат</span></div>
+        <div className="achv-num"><b className="serif">{g.attempts ? `${g.avg_score}%` : 'нет'}</b><span>средний результат</span></div>
         {g.attempts > 0 && <div className="small muted">Пройдено: {g.attempts}. Без ошибок: {g.perfect}</div>}
       </div>
 
       <div className="achv-tile">
         <span className="meta-label">Задания, 3 месяца</span>
-        <div className="achv-num"><b className="serif">{h.given ? `${h.done}/${h.given}` : '—'}</b><span>сдано</span></div>
+        <div className="achv-num"><b className="serif">{h.given ? `${h.done}/${h.given}` : 'нет'}</b><span>сдано</span></div>
         {h.done > 0 && <div className="small muted">Вовремя: {h.on_time} из {h.done}{h.avg_score ? `. Средняя оценка ${h.avg_score}%` : ''}</div>}
       </div>
 

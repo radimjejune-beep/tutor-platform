@@ -44,7 +44,7 @@ export function GameTypePicker({ onPick }) {
 }
 
 const ILLUSTRATION = {
-  match: (<><i>cat</i><b>—</b><i>кот</i></>),
+  match: (<><i>cat</i><b>-</b><i>кот</i></>),
   order: (<><i>to</i><i>I</i><i>go</i></>),
   gaps: (<><i>She</i><u /><i>here</i></>),
   groups: (<><i>go</i><i>play</i><b>|</b><i>see</i></>),
@@ -120,7 +120,7 @@ function OrderEditor({ game, onChange }) {
     onChange({ ...game, sentences: v.split('\n').map((s) => s.trim()).filter(Boolean) });
   };
   return (
-    <Field label="Предложения — каждое с новой строки" hint={`Слова перемешаются автоматически. Предложений: ${game.sentences.length}`}>
+    <Field label="Предложения, каждое с новой строки" hint={`Слова перемешаются автоматически. Предложений: ${game.sentences.length}`}>
       <textarea className="textarea" style={{ minHeight: 160 }} value={text} onChange={(e) => update(e.target.value)}
         placeholder={'I have never been to London.\nShe is reading a book now.'} />
     </Field>
@@ -133,7 +133,7 @@ function GapsEditor({ game, onChange }) {
   const n = parseGaps(game.text).gaps.length;
   return (
     <div className="form">
-      <Field label="Текст" hint="Пропуск — слово в квадратных скобках: [since]. Несколько верных вариантов — через черту: [has|'s]">
+      <Field label="Текст" hint="Пропуск обозначается словом в квадратных скобках: [since]. Несколько верных вариантов пишутся через черту: [has|'s]">
         <textarea className="textarea" style={{ minHeight: 160 }} value={game.text} onChange={(e) => onChange({ ...game, text: e.target.value })}
           placeholder={"She [has|'s] lived here [since] 2010. We [went] to the cinema yesterday."} />
       </Field>
@@ -145,7 +145,7 @@ function GapsEditor({ game, onChange }) {
         </div>
       </Field>
       {game.mode === 'bank' && (
-        <Field label="Лишние слова" hint="Через запятую — добавятся к правильным, чтобы было из чего выбирать">
+        <Field label="Лишние слова" hint="Через запятую, добавятся к правильным, чтобы было из чего выбирать">
           <input className="input" value={distractors} placeholder="for, during, ago"
             onChange={(e) => {
               setDistractors(e.target.value);

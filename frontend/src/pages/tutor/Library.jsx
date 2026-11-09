@@ -182,7 +182,7 @@ export function LibraryPage({ kind = 'task' }) {
             {f.fav && 'Нажмите звёздочку у задачи, чтобы она появилась здесь и в выборе задач на уроке.'}
             {kind === 'task' && !f.q && !f.fav && 'Добавляйте задачи с пометками: номер задания ОГЭ/ЕГЭ, теги, заметка для себя.'}
             {kind === 'html' && !f.q && 'Загрузите готовый HTML-урок (например, тренажёр слов). Его можно открыть на уроке и выдать как ДЗ, результат ученика сохранится сам.'}
-            {kind === 'game' && !f.q && 'Найди пару, собери предложение, вставь пропуск, распредели по группам — ученик проходит прямо в кабинете, оценка ставится сама.'}
+            {kind === 'game' && !f.q && 'Найди пару, собери предложение, вставь пропуск, распредели по группам. Ученик проходит прямо в кабинете, оценка ставится сама.'}
           </Empty>
         )}
         {(list.data || []).map((i) => (
@@ -383,7 +383,7 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
                 <input className="input" value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} placeholder="Соедините термины с определениями" />
               </Field>
             ) : (
-              <Field label={f.kind === 'task' ? 'Условие' : 'Текст'} hint={f.kind === 'task' ? 'Это увидит ученик' : 'Пустая строка — новый абзац'}>
+              <Field label={f.kind === 'task' ? 'Условие' : 'Текст'} hint={f.kind === 'task' ? 'Это увидит ученик' : 'Пустая строка начинает новый абзац'}>
                 <textarea className="textarea" style={{ minHeight: 220 }} value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} />
               </Field>
             )}
@@ -395,10 +395,10 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
             <Field label="Ссылки" hint="Видео, онлайн-упражнения, статьи: каждая ссылка с новой строки">
               <textarea className="textarea" style={{ minHeight: 60 }} value={f.links} onChange={(e) => setF({ ...f, links: e.target.value })} />
             </Field>
-            <Field label="Файлы" hint="PDF, картинки, аудио — до 10 МБ">
+            <Field label="Файлы" hint="PDF, картинки, аудио до 10 МБ">
               {isNew ? (
                 <>
-                  {pending.length > 0 && <div className="small muted" style={{ marginBottom: 8 }}>{pending.map((p) => p.name).join(', ')} — загрузятся при сохранении</div>}
+                  {pending.length > 0 && <div className="small muted" style={{ marginBottom: 8 }}>{pending.map((p) => p.name).join(', ')}: загрузятся при сохранении</div>}
                   <FileUploadButton upload={async (file) => file} onUploaded={(file) => setPending((p) => [...p, file])} />
                 </>
               ) : (

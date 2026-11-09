@@ -55,7 +55,7 @@ export default function Profile() {
         <div>
           <div className="profile-name">{user.full_name}</div>
           <div className="muted">{ROLE[user.role]}, логин <b>{user.login}</b></div>
-          {!tutor && students.length > 0 && (
+          {user.role === 'parent' && students.length > 0 && (
             <div className="muted small" style={{ marginTop: 4 }}>{user.role === 'parent' ? 'Дети' : 'Ученик'}: {students.map((s) => s.full_name).join(', ')}</div>
           )}
         </div>

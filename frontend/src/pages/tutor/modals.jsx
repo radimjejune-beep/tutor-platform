@@ -239,7 +239,7 @@ export function LessonModal({ lesson, onClose, onSaved }) {
             <input type="checkbox" checked={f.notify} onChange={(e) => setF({ ...f, notify: e.target.checked })} />
             <span>
               Отправить итоги родителям в Telegram при сохранении{f.status !== 'done' ? ' (когда урок отмечен проведённым)' : ''}
-              {lesson.summary_sent_at && <span className="muted"> — уже отправлялись {dayMonth(lesson.summary_sent_at)} в {time(lesson.summary_sent_at)}</span>}
+              {lesson.summary_sent_at && <span className="muted">, уже отправлялись {dayMonth(lesson.summary_sent_at)} в {time(lesson.summary_sent_at)}</span>}
             </span>
           </label>
         )}
@@ -247,7 +247,7 @@ export function LessonModal({ lesson, onClose, onSaved }) {
           <textarea className="textarea" style={{ minHeight: 70 }} value={f.private_notes}
             onChange={(e) => setF({ ...f, private_notes: e.target.value })} />
         </Field>
-        <Field label="Ссылка на звонок для этого урока" hint="Если пусто — берётся постоянная ссылка из карточки ученика">
+        <Field label="Ссылка на звонок для этого урока" hint="Если пусто, берётся постоянная ссылка из карточки ученика">
           <input className="input" type="url" value={f.call_link} onChange={(e) => setF({ ...f, call_link: e.target.value })} placeholder="https://telemost.yandex.ru/j/…" />
         </Field>
         <div className="form-row">
@@ -358,7 +358,7 @@ export function StudentModal({ student, onClose, onSaved }) {
             <input className="input" type="number" min={15} max={240} step={5} value={f.default_duration} onChange={(e) => setF({ ...f, default_duration: e.target.value })} />
           </Field>
         </div>
-        <Field label="Постоянная ссылка на звонок" hint="Телемост, Zoom или Meet — появится кнопка «Войти в звонок» у ученика">
+        <Field label="Постоянная ссылка на звонок" hint="Телемост, Zoom или Meet: появится кнопка «Войти в звонок» у ученика">
           <input className="input" type="url" value={f.call_link} placeholder="https://telemost.yandex.ru/j/…" onChange={(e) => setF({ ...f, call_link: e.target.value })} />
         </Field>
         <Field label="Ссылка на доску в Холсте" hint="Ученик откроет её из кабинета одной кнопкой">
@@ -525,7 +525,7 @@ export function ResetPasswordModal({ account, onClose }) {
       ) : (
         <form className="form" onSubmit={submit}>
           <p className="muted" style={{ margin: 0 }}>{account.full_name}, логин {account.login}. Старый пароль перестанет работать.</p>
-          <Field label="Новый пароль" hint="Оставьте пустым — придумаем сами">
+          <Field label="Новый пароль" hint="Оставьте пустым, придумаем сами">
             <input className="input" value={password} onChange={(e) => setPassword(e.target.value)} minLength={6} />
           </Field>
           {error && <div className="alert">{error}</div>}

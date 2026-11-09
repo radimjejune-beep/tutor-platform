@@ -196,7 +196,7 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
             <div className="panel-head">
               <div>
                 <h2 className="section-title">Задачи из задачника</h2>
-                <div className="small muted">Ученик увидит условия; ответы и ваши заметки — нет</div>
+                <div className="small muted">Ученик увидит условия; ответы и ваши заметки не увидит</div>
               </div>
             </div>
             <PickedTasks ids={f.items} onChange={(items) => setF({ ...f, items })} onAdd={() => setPicking(true)} />

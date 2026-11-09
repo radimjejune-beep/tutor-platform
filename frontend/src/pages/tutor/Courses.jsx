@@ -127,7 +127,7 @@ export function CourseEditor({ id }) {
         <section className="panel" style={{ padding: 0 }}>
           {!c.units.length && open !== 'new' && (
             <Empty title="Юнитов пока нет" action={<button className="btn" onClick={() => setOpen('new')}>Добавить юнит</button>}>
-              Юнит — это один урок по учебнику: упражнения на урок, ДЗ и слова.
+              Юнит: это один урок по учебнику: упражнения на урок, ДЗ и слова.
             </Empty>
           )}
           {c.units.map((u, i) => (
@@ -180,7 +180,7 @@ export function CourseEditor({ id }) {
   );
 }
 
-const vocabToText = (vocab = []) => vocab.map((w) => [w.term, w.translation, w.example].filter(Boolean).join(' — ')).join('\n');
+const vocabToText = (vocab = []) => vocab.map((w) => [w.term, w.translation, w.example].filter(Boolean).join(' - ')).join('\n');
 
 function UnitEditor({ unit, courseId, onClose, onSaved }) {
   const subj = useSubject();
@@ -244,9 +244,9 @@ function UnitEditor({ unit, courseId, onClose, onSaved }) {
         </div>
       </div>
 
-      <Field label={`${subj.Items} юнита`} hint={`По одному на строку: ${subj.item[0]} — ${subj.meaning} — пример. Попадут ${subj.toVocab} ученика, когда он перейдёт на юнит`}>
+      <Field label={`${subj.Items} юнита`} hint={`По одному на строку: ${subj.item[0]} - ${subj.meaning} - пример. Попадут ${subj.toVocab} ученика, когда он перейдёт на юнит`}>
         <textarea className="textarea" style={{ minHeight: 140 }} value={vocab} onChange={(e) => setVocab(e.target.value)}
-          placeholder={subj.lessonExample.replace(/ - /g, ' — ')} />
+          placeholder={subj.lessonExample.replace(/ - /g, ' - ')} />
       </Field>
 
       {save.error && <div className="alert">{save.error}</div>}

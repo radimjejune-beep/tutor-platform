@@ -59,7 +59,7 @@ export default function Pricing() {
           <section className="price-hero">
             <div>
               <span className="meta-label">Реально в час</span>
-              <b className="serif">{hours ? rub(Math.round(income / hours)) : '—'}</b>
+              <b className="serif">{hours ? rub(Math.round(income / hours)) : 'нет'}</b>
               <span className="small muted">{rub(income)} за {Math.round(hours)} ч занятий</span>
             </div>
             <div>
@@ -98,7 +98,7 @@ export default function Pricing() {
                       </td>
                       <td className="num">{rub(r.price)}</td>
                       <td className="num">{rub(r.price_per_60)}</td>
-                      <td className="num">{r.real_per_hour ? rub(r.real_per_hour) : '—'}</td>
+                      <td className="num">{r.real_per_hour ? rub(r.real_per_hour) : 'нет'}</td>
                       <td className="num">{r.lessons_per_month}</td>
                       <td className="num">{r.lost_90 ? <Badge tone="red">{r.lost_90}</Badge> : '0'}</td>
                       <td className="num">{r.below ? <b>{rub(r.newPrice)}</b> : <span className="muted">уже по цели</span>}</td>

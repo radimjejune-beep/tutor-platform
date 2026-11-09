@@ -65,7 +65,7 @@ export function QuizEditor({ questions, onChange }) {
 
           {q.type === 'choice' ? (
             <>
-              <div className="small muted" style={{ marginTop: 10 }}>Варианты — отметьте правильный</div>
+              <div className="small muted" style={{ marginTop: 10 }}>Варианты: отметьте правильный</div>
               {q.options.map((o, k) => (
                 <div key={k} className="q-option-row">
                   <input type="radio" name={`c-${q.id}`} checked={q.correct[0] === k} onChange={() => set(i, { correct: [k] })} aria-label="Правильный ответ" />
@@ -90,7 +90,7 @@ export function QuizEditor({ questions, onChange }) {
             </>
           ) : (
             <>
-              <div className="small muted" style={{ marginTop: 10 }}>Правильные ответы — засчитается любой. Регистр и точка в конце не важны</div>
+              <div className="small muted" style={{ marginTop: 10 }}>Правильные ответы: засчитается любой. Регистр и точка в конце не важны</div>
               {q.correct.map((c, k) => (
                 <div key={k} className="q-option-row">
                   <input className="input" style={{ height: 38 }} value={c} placeholder={k === 0 ? 'went' : 'другой допустимый вариант'}

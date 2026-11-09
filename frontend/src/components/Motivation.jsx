@@ -16,6 +16,8 @@ export function MotivationCard({ studentId, compact }) {
   const d = m.data;
   const max = Math.max(1, ...d.days.map((x) => x.points));
   const me = d.league?.find((r) => r.me);
+  // Пока никто не набрал очков, у всех «1 место»: вместо этого показываем, как попасть в лигу
+  const started = Boolean(d.league?.some((r) => r.points > 0));
 
   return (
     <section className="motiv">
@@ -28,10 +30,16 @@ export function MotivationCard({ studentId, compact }) {
           <b className="serif">{d.points.week}</b>
           <span>{pointsWord(d.points.week)} за неделю</span>
         </div>
-        {me && (
+        {me && started && me.points > 0 && (
           <div>
             <b className="serif">{me.rank}</b>
             <span>место в лиге из {d.league_size}</span>
+          </div>
+        )}
+        {me && (!started || me.points === 0) && (
+          <div>
+            <b className="serif">{d.league_size}</b>
+            <span>{started ? 'участников в лиге, наберите очки, чтобы занять место' : 'участников в лиге недели'}</span>
           </div>
         )}
       </div>
@@ -44,7 +52,8 @@ export function MotivationCard({ studentId, compact }) {
       {!compact && d.league && (
         <div className="motiv-league">
           <span className="meta-label">Лига недели</span>
-          <ol>
+          {!started && <p className="small muted" style={{ margin: '6px 0 10px' }}>На этой неделе очков пока нет ни у кого. Повторите слова или сдайте задание, чтобы открыть таблицу.</p>}
+          {started && <ol>
             {d.league.map((r) => (
               <li key={`${r.rank}-${r.name}`} className={r.me ? 'me' : ''}>
                 <span className="lg-rank">{r.rank}</span>
@@ -52,7 +61,7 @@ export function MotivationCard({ studentId, compact }) {
                 <span className="lg-pts num">{r.points}</span>
               </li>
             ))}
-          </ol>
+          </ol>}
           <div className="small muted">Очки: карточка 1, верный ответ в тренировке 2, верный ответ в упражнении 1, сданное ДЗ 10 и ещё 5, если вовремя. Неделя начинается в понедельник.</div>
         </div>
       )}

@@ -161,7 +161,7 @@ export function VocabList({ items, tutor, onChanged }) {
                 {w.translation && <span className="vocab-tr-sm"><MathText>{w.translation}</MathText></span>}
                 {w.example && <span className="small muted vocab-example">{w.example}</span>}
               </td>
-              <td className="vocab-tr">{w.translation || <span className="muted">—</span>}</td>
+              <td className="vocab-tr">{w.translation || <span className="muted">нет</span>}</td>
               <td className="vocab-meta">
                 <BoxDots box={w.box} />
                 <span className="small muted">{w.due_on <= today ? 'сегодня' : shortDate(w.due_on)}</span>

@@ -188,7 +188,7 @@ export default function TutorDashboard() {
             </div>
             <div>
               <div className="stat-label">Доход за час</div>
-              <div className="stat-value num" style={{ fontSize: 30 }}>{month.income_per_hour ? rub(month.income_per_hour) : '—'}</div>
+              <div className="stat-value num" style={{ fontSize: 30 }}>{month.income_per_hour ? rub(month.income_per_hour) : 'нет'}</div>
             </div>
           </div>
           {month.payments_without_receipt > 0 && (

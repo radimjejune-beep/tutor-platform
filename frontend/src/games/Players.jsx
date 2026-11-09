@@ -69,7 +69,7 @@ function Round({ game, onFinish, footer, onRetry }) {
       ) : (
         <div className="game-foot">
           <button type="button" className="btn" onClick={check}>{game.type === 'sheet' ? 'Сдать и проверить' : 'Проверить'}</button>
-          {!onFinish && <span className="small muted">Тренировка — результат не сохраняется</span>}
+          {!onFinish && <span className="small muted">Тренировка, результат не сохраняется</span>}
         </div>
       )}
       {footer}
@@ -159,7 +159,7 @@ function MatchBoard({ game, answers, setAnswers, result }) {
           );
         })}
       </div>
-      {!checked && <p className="small muted match-hint">Нажмите слово слева, затем подходящее справа. Чтобы перевыбрать — нажмите слово слева ещё раз.</p>}
+      {!checked && <p className="small muted match-hint">Нажмите слово слева, затем подходящее справа. Чтобы перевыбрать, нажмите слово слева ещё раз.</p>}
     </div>
   );
 }
@@ -371,7 +371,7 @@ function GroupsBoard({ game, answers, setAnswers, result }) {
           </div>
         ))}
       </div>
-      {!checked && <p className="small muted" style={{ marginTop: 10 }}>Нажмите слово, затем группу. Чтобы убрать слово из группы — нажмите на него.</p>}
+      {!checked && <p className="small muted" style={{ marginTop: 10 }}>Нажмите слово, затем группу. Чтобы убрать слово из группы, нажмите на него.</p>}
     </div>
   );
 }

@@ -115,7 +115,7 @@ function BookingForm({ initial }) {
           Ученики могут записываться и переносить сами
         </label>
         <div className="small muted" style={{ marginTop: -8 }}>Каждую запись и перенос вы подтверждаете.</div>
-        <Field label="Отмена и перенос без списания" hint="Позже — только через вас">
+        <Field label="Отмена и перенос без списания" hint="Позже только через вас">
           <select className="select" value={f.notice_hours} onChange={(e) => setF({ ...f, notice_hours: e.target.value })}>
             {[12, 24, 48].map((h) => <option key={h} value={h}>Не позже чем за {h} ч</option>)}
           </select>
@@ -196,7 +196,7 @@ function DocumentsTab() {
       </section>
       <p className="small muted" style={{ marginTop: 14 }}>
         Оферта и политика открыты всем по ссылкам со страницы входа:{' '}
-        <Link to="/legal/offer">оферта</Link>, <Link to="/legal/privacy">политика</Link>. Кто и когда принял документы — во вкладке «Доступ» каждого ученика.
+        <Link to="/legal/offer">оферта</Link>, <Link to="/legal/privacy">политика</Link>. Кто и когда принял документы, видно во вкладке «Доступ» каждого ученика.
       </p>
     </>
   );
@@ -280,7 +280,7 @@ function DocEditor({ doc, onClose, onSaved }) {
         <Field label="Название">
           <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} />
         </Field>
-        <Field label="Текст" hint="Пустая строка — новый абзац">
+        <Field label="Текст" hint="Пустая строка начинает новый абзац">
           <textarea className="textarea" style={{ minHeight: 560, fontSize: 14, lineHeight: 1.6 }} value={body} onChange={(e) => setBody(e.target.value)} />
         </Field>
       </section>

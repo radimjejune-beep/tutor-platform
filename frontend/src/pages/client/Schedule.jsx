@@ -65,7 +65,7 @@ export default function ClientSchedule({ student }) {
         <div>
           <h1 className="page-title">Расписание</h1>
           {info.enabled && (
-            <div className="lead">Перенести или отменить занятие можно не позже чем за {info.notice_hours} ч. Позже — через преподавателя</div>
+            <div className="lead">Перенести или отменить занятие можно не позже чем за {info.notice_hours} ч. Позже только через преподавателя</div>
           )}
         </div>
         {info.enabled && (
@@ -135,7 +135,7 @@ export default function ClientSchedule({ student }) {
                             <button className="btn btn-quiet btn-sm" style={{ color: 'var(--danger)' }} onClick={() => cancel(l)}>Отменить</button>
                           </div>
                         ) : (
-                          <span className="small muted">Перенос — через преподавателя</span>
+                          <span className="small muted">Перенос только через преподавателя</span>
                         )
                       )}
                     </div>
@@ -196,7 +196,7 @@ function SlotPicker({ student, lesson, onClose, onSent }) {
       {slots.loading && <Spinner />}
       {slots.error && <div className="alert">{slots.error.message}</div>}
       {slots.data && !days.length && (
-        <Empty title="Свободного времени пока нет">Напишите преподавателю — он подберёт время.</Empty>
+        <Empty title="Свободного времени пока нет">Напишите преподавателю, он подберёт время.</Empty>
       )}
       {days.length > 0 && (
         <form className="form" onSubmit={submit}>

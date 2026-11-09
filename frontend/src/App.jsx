@@ -10,8 +10,19 @@ import Join from './pages/Join';
 import Landing from './pages/Landing';
 import Shop from './pages/Shop';
 
-const TutorApp = lazy(() => import('./cabinets/TutorApp'));
-const ClientApp = lazy(() => import('./cabinets/ClientApp'));
+// Если файл кабинета не загрузился (сайт обновился, пока вкладка была открыта), перезагружаем страницу один раз
+const retry = (load) => () => load().catch((err) => {
+  let last = 0;
+  try { last = Number(sessionStorage.getItem('lf-reloaded') || 0); } catch { /* нет хранилища */ }
+  if (Date.now() - last > 60000) {
+    try { sessionStorage.setItem('lf-reloaded', String(Date.now())); } catch { /* нет хранилища */ }
+    window.location.reload();
+    return new Promise(() => {});
+  }
+  throw err;
+});
+const TutorApp = lazy(retry(() => import('./cabinets/TutorApp')));
+const ClientApp = lazy(retry(() => import('./cabinets/ClientApp')));
 
 export default function App() {
   return (

@@ -79,7 +79,7 @@ export default function LessonRoom({ id }) {
               <Icon name="video" /> Войти в {callService(l.join_link)}
             </a>
           ) : (
-            <span className="small muted">{isTutor ? 'Ссылка на звонок не задана — добавьте её в карточке ученика' : 'Ссылку на звонок пришлёт преподаватель'}</span>
+            <span className="small muted">{isTutor ? 'Ссылка на звонок не задана. Добавьте её в карточке ученика' : 'Ссылку на звонок пришлёт преподаватель'}</span>
           )}
           {l.board_link && (
             <a className="btn btn-secondary" href={l.board_link} target="_blank" rel="noreferrer" style={{ height: 46 }}>
@@ -125,7 +125,7 @@ export default function LessonRoom({ id }) {
             <>
               <iframe className="board-frame" src={boardEmbed(l.board_link)} title="Доска" allow="clipboard-read; clipboard-write; fullscreen; microphone; camera" />
               <div className="small muted" style={{ padding: '8px 18px' }}>
-                Если доска не загрузилась, откройте её кнопкой «Доска в новой вкладке» — некоторые сервисы не разрешают показывать себя внутри других сайтов.
+                Если доска не загрузилась, откройте её кнопкой «Доска в новой вкладке»: некоторые сервисы не разрешают показывать себя внутри других сайтов.
               </div>
             </>
           )}
@@ -140,7 +140,7 @@ export default function LessonRoom({ id }) {
         {!l.items.length && (
           <div className="panel">
             <Empty title={isTutor ? 'Задач пока нет' : 'Здесь появятся задачи урока'}>
-              {isTutor ? 'Добавьте задачи — ученик увидит их у себя через несколько секунд.' : 'Страница обновляется сама.'}
+              {isTutor ? 'Добавьте задачи, и ученик увидит их у себя через несколько секунд.' : 'Страница обновляется сама.'}
             </Empty>
           </div>
         )}

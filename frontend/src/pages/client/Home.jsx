@@ -97,7 +97,7 @@ export default function ClientHome({ student, isParent }) {
               </div>
               <PassMarks total={activeSub.lessons_total} remaining={activeSub.lessons_remaining} />
               {activeSub.expires_on && <div className="small muted">Действует до {shortDate(activeSub.expires_on)}</div>}
-              {s.finance.lessons_remaining <= 1 && <div className="note" style={{ marginTop: 12 }}>Абонемент заканчивается — пора продлить.</div>}
+              {s.finance.lessons_remaining <= 1 && <div className="note" style={{ marginTop: 12 }}>Абонемент заканчивается, пора продлить.</div>}
             </>
           ) : (
             <div style={{ marginTop: 14 }}>

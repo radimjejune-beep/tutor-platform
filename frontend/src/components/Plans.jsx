@@ -16,11 +16,11 @@ function cell(plan, f) {
   if (f.all) return <span className="plan-yes" aria-label="Есть">✓</span>;
   if (f.limit === true) return limitText(plan.limits[f.key], f.unit === 'МБ' ? 'МБ' : '');
   if (typeof f.limit === 'string') {
-    if (!plan.features[f.key]) return <span className="plan-no" aria-label="Нет">—</span>;
+    if (!plan.features[f.key]) return <span className="plan-no" aria-label="Нет">нет</span>;
     const v = plan.limits[f.limit];
     return v == null ? <span className="plan-yes" aria-label="Без ограничений">✓</span> : `${v} ${f.unit || ''}`.trim();
   }
-  return plan.features[f.key] ? <span className="plan-yes" aria-label="Есть">✓</span> : <span className="plan-no" aria-label="Нет">—</span>;
+  return plan.features[f.key] ? <span className="plan-yes" aria-label="Есть">✓</span> : <span className="plan-no" aria-label="Нет">нет</span>;
 }
 
 export function PlanTable({ data, current, onPick, pickLabel = 'Выбрать' }) {

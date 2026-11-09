@@ -79,7 +79,7 @@ export default function Finance() {
         </div>
         <div className="panel">
           <div className="stat-label">Доход за час</div>
-          <div className="stat-value num">{s.income_per_hour ? rub(s.income_per_hour) : '—'}</div>
+          <div className="stat-value num">{s.income_per_hour ? rub(s.income_per_hour) : 'нет'}</div>
           <div className="stat-note">Главный показатель для повышения цены</div>
         </div>
       </div>

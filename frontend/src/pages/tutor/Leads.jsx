@@ -63,7 +63,7 @@ export default function Leads() {
         <div className="list">
           {leads.map((l) => (
             <div key={l.id} className="lead-row">
-              <div className="lead-level serif">{l.level || '—'}</div>
+              <div className="lead-level serif">{l.level || 'нет'}</div>
               <div className="list-main">
                 <div className="list-title">{l.full_name} <Badge tone={STATUS[l.status][1]}>{STATUS[l.status][0]}</Badge></div>
                 <div className="list-sub">
