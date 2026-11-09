@@ -19,6 +19,36 @@ router.get(
   })
 );
 
+// Первые шаги нового преподавателя: что уже сделано (карточка на главной, пока не пройдено всё)
+router.get(
+  '/onboarding',
+  asyncHandler(async (req, res) => {
+    if (req.user.role !== 'tutor') return res.json({ steps: [] });
+    const tid = req.user.id;
+    const { rows } = await query(
+      `SELECT
+         EXISTS (SELECT 1 FROM students WHERE tutor_id = $1) AS student,
+         EXISTS (SELECT 1 FROM lessons l JOIN students s ON s.id = l.student_id WHERE s.tutor_id = $1) AS lesson,
+         EXISTS (SELECT 1 FROM homework h JOIN students s ON s.id = h.student_id WHERE s.tutor_id = $1) AS homework,
+         EXISTS (SELECT 1 FROM students s JOIN users u ON u.id = s.user_id WHERE s.tutor_id = $1 AND u.last_login_at IS NOT NULL)
+           OR EXISTS (SELECT 1 FROM parent_students ps JOIN students s ON s.id = ps.student_id JOIN users u ON u.id = ps.parent_user_id
+                       WHERE s.tutor_id = $1 AND u.last_login_at IS NOT NULL) AS client_login,
+         EXISTS (SELECT 1 FROM telegram_links WHERE user_id = $1) AS telegram`,
+      [tid]
+    );
+    const r = rows[0];
+    res.json({
+      steps: [
+        { key: 'student', done: r.student, title: 'Добавьте первого ученика', text: 'Платформа выдаст ему и родителю логин и пароль.', link: '/students' },
+        { key: 'lesson', done: r.lesson, title: 'Поставьте занятие в расписание', text: 'Ученик получит напоминание за час до урока.', link: '/schedule' },
+        { key: 'homework', done: r.homework, title: 'Выдайте домашнее задание', text: 'Из банка заданий или своё: проверит платформа.', link: '/homework' },
+        { key: 'client_login', done: r.client_login, title: 'Ученик или родитель вошёл в кабинет', text: 'Отправьте им логин и пароль из карточки ученика.', link: '/students' },
+        { key: 'telegram', done: r.telegram, title: 'Подключите Telegram', text: 'Утренняя сводка и уведомления о сданных работах.', link: '/settings/telegram' },
+      ],
+    });
+  })
+);
+
 // Репетитор: сегодня + «требует внимания»
 async function tutorDashboard(tid) {
   const { rows: today } = await query(

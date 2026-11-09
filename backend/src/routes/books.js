@@ -11,6 +11,7 @@
 const express = require('express');
 const { z } = require('zod');
 const { query } = require('../db');
+const storage = require('../services/storage');
 const { requireRole } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { ownFolder } = require('../services/folders');
@@ -65,7 +66,7 @@ function ensure() {
   }
   return ready;
 }
-router.use(asyncHandler(async (req, res, next) => { await ensure(); next(); }));
+router.use(asyncHandler(async (req, res, next) => { await ensure(); await storage.ensure(); next(); }));
 
 async function ownBook(id, tutorId) {
   const { rows } = await query('SELECT * FROM library_books WHERE id = $1 AND tutor_id = $2', [id, tutorId]);
@@ -76,7 +77,12 @@ router.get(
   '/',
   asyncHandler(async (req, res) => {
     // недогруженные дольше суток — мусор после закрытой вкладки
-    await query("DELETE FROM library_books WHERE tutor_id = $1 AND status = 'uploading' AND created_at < NOW() - INTERVAL '1 day'", [req.user.tid]);
+    const { rows: stale } = await query(
+      `WITH d AS (DELETE FROM library_books WHERE tutor_id = $1 AND status = 'uploading' AND created_at < NOW() - INTERVAL '1 day' RETURNING id)
+       SELECT p.s3_key FROM library_book_parts p WHERE p.book_id IN (SELECT id FROM d) AND p.s3_key IS NOT NULL`,
+      [req.user.tid]
+    );
+    if (stale.length) await storage.release(stale.map((r) => r.s3_key));
     const { rows } = await query(
       `SELECT id, title, filename, mime, size_bytes, folder_id, status, created_at FROM library_books
         WHERE tutor_id = $1 AND status = 'ready' ORDER BY created_at DESC`,
@@ -128,7 +134,14 @@ router.put(
     const buf = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
     const expected = n === book.parts - 1 ? Number(book.size_bytes) - PART * (book.parts - 1) : PART;
     if (buf.length !== expected) return res.status(422).json({ error: `Часть ${n + 1} пришла не целиком, загрузите ещё раз` });
-    await query('INSERT INTO library_book_parts (book_id, n, data) VALUES ($1, $2, $3) ON CONFLICT (book_id, n) DO UPDATE SET data = EXCLUDED.data', [book.id, n, buf]);
+    const { rows: prev } = await query('SELECT s3_key FROM library_book_parts WHERE book_id = $1 AND n = $2', [book.id, n]);
+    const stored = await storage.put(`books/${book.id}`, buf, book.mime);
+    await query(
+      `INSERT INTO library_book_parts (book_id, n, data, s3_key, size_bytes) VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (book_id, n) DO UPDATE SET data = EXCLUDED.data, s3_key = EXCLUDED.s3_key, size_bytes = EXCLUDED.size_bytes`,
+      [book.id, n, stored.data, stored.s3_key, buf.length]
+    );
+    if (prev[0]?.s3_key) await storage.release([prev[0].s3_key]);
     res.json({ ok: true });
   })
 );
@@ -138,7 +151,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const book = await ownBook(Number(req.params.id), req.user.tid);
     if (!book) return res.status(404).json({ error: 'Учебник не найден' });
-    const { rows } = await query('SELECT COUNT(*)::int AS n, COALESCE(SUM(length(data)), 0)::bigint AS size FROM library_book_parts WHERE book_id = $1', [book.id]);
+    const { rows } = await query('SELECT COUNT(*)::int AS n, COALESCE(SUM(COALESCE(length(data), size_bytes)), 0)::bigint AS size FROM library_book_parts WHERE book_id = $1', [book.id]);
     if (rows[0].n !== book.parts || Number(rows[0].size) !== Number(book.size_bytes)) return res.status(422).json({ error: 'Загрузились не все части, попробуйте ещё раз' });
     await query("UPDATE library_books SET status = 'ready' WHERE id = $1", [book.id]);
     console.log(`📘 Учебник загружен: «${book.title}», ${Math.round(Number(book.size_bytes) / 1024 / 1024)} МБ`);
@@ -161,9 +174,9 @@ router.get(
       'X-Content-Type-Options': 'nosniff',
     });
     for (let n = 0; n < book.parts; n++) {
-      const { rows } = await query('SELECT data FROM library_book_parts WHERE book_id = $1 AND n = $2', [book.id, n]);
+      const { rows } = await query('SELECT data, s3_key FROM library_book_parts WHERE book_id = $1 AND n = $2', [book.id, n]);
       if (!rows[0]) break;
-      if (!res.write(rows[0].data)) await new Promise((r) => res.once('drain', r));
+      if (!res.write(await storage.read(rows[0]))) await new Promise((r) => res.once('drain', r));
     }
     res.end();
   })
@@ -187,8 +200,11 @@ router.patch(
 router.delete(
   '/:id',
   asyncHandler(async (req, res) => {
-    const { rows } = await query('DELETE FROM library_books WHERE id = $1 AND tutor_id = $2 RETURNING id', [Number(req.params.id), req.user.tid]);
-    if (!rows[0]) return res.status(404).json({ error: 'Учебник не найден' });
+    const book = await ownBook(Number(req.params.id), req.user.tid);
+    if (!book) return res.status(404).json({ error: 'Учебник не найден' });
+    const { rows: keys } = await query('SELECT s3_key FROM library_book_parts WHERE book_id = $1 AND s3_key IS NOT NULL', [book.id]);
+    await query('DELETE FROM library_books WHERE id = $1', [book.id]);
+    await storage.release(keys.map((r) => r.s3_key));
     res.json({ ok: true });
   })
 );

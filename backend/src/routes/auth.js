@@ -92,7 +92,7 @@ router.post(
         login: z.string().trim().toLowerCase().regex(/^[a-z0-9._-]{3,64}$/, 'Логин: латиница, цифры, точка, от 3 символов'),
         password: z.string().min(8, 'Пароль: минимум 8 символов').max(100),
         subject: z.string().trim().min(2, 'Укажите предмет').max(100),
-        accept: z.literal(true, { errorMap: () => ({ message: 'Нужно согласие с условиями' }) }),
+        accept: z.literal(true, { errorMap: () => ({ message: 'Нужно принять условия платформы' }) }),
       })
       .strict()
   ),
@@ -109,6 +109,7 @@ router.post(
       [b.login, hash, b.full_name, b.subject, require('../services/plans').TRIAL_DAYS]
     );
     const { password_hash: _ph, ...user } = rows[0];
+    await require('./platformDocs').acceptOnRegister(user.id, req.ip);
     const token = signToken(rows[0]);
     console.log(`✅ Новый репетитор зарегистрировался: ${user.login}`);
     res.status(201).json({ token, user });

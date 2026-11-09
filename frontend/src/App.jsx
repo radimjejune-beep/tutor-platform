@@ -5,7 +5,7 @@ import { lazy, Suspense } from 'react';
 import { AuthProvider, useAuth } from './auth';
 import { ToastProvider, Spinner, useRoute } from './ui';
 import { Login, ChangePassword, Register } from './pages/Login';
-import { LegalPage } from './pages/Legal';
+import { LegalPage, PlatformDocPage } from './pages/Legal';
 import Join from './pages/Join';
 import Landing from './pages/Landing';
 import Shop from './pages/Shop';
@@ -30,6 +30,7 @@ function Root() {
   const params = new URLSearchParams(search || '');
 
   // Документы открываются и без входа
+  if (path.startsWith('/terms/')) return <PlatformDocPage kind={path.split('/')[2]} />;
   if (path.startsWith('/legal/')) return <LegalPage kind={path.split('/')[2]} tutor={params.get('t') || undefined} />;
   // Страница записи репетитора открывается без входа
   if (path.startsWith('/join/')) return <Join login={decodeURIComponent(path.split('/')[2] || '')} />;

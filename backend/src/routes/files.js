@@ -3,6 +3,7 @@
 const express = require('express');
 const { z } = require('zod');
 const { query } = require('../db');
+const storage = require('../services/storage');
 const { canAccessStudent, owns } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { visibleTaskIds } = require('./library');
@@ -72,6 +73,8 @@ async function canRead(user, file) {
 // Имя файла без путей и управляющих символов
 const safeName = (name) => name.replace(/[/\\\u0000-\u001f]/g, '_').slice(0, 255);
 
+router.use(asyncHandler(async (req, res, next) => { await storage.ensure(); next(); }));
+
 router.post(
   '/',
   express.json({ limit: '15mb' }),
@@ -84,12 +87,13 @@ router.post(
     if (!buf.length) return res.status(400).json({ error: 'Файл пустой' });
     if (buf.length > MAX_BYTES) return res.status(413).json({ error: 'Файл больше 10 МБ' });
 
+    const stored = await storage.put('files', buf, b.mime);
     const { rows } = await query(
-      `INSERT INTO files (assignment_id, homework_id, library_item_id, filename, mime, size_bytes, data, uploaded_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO files (assignment_id, homework_id, library_item_id, filename, mime, size_bytes, data, s3_key, uploaded_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING id, filename, mime, size_bytes, uploaded_by, created_at`,
-      [b.assignment_id || null, b.homework_id || null, b.library_item_id || null, safeName(b.filename), b.mime, buf.length, buf, req.user.id]
-    );
+      [b.assignment_id || null, b.homework_id || null, b.library_item_id || null, safeName(b.filename), b.mime, buf.length, stored.data, stored.s3_key, req.user.id]
+    ).catch(async (err) => { if (stored.s3_key) await storage.release([stored.s3_key]); throw err; });
     console.log(`✅ Файл «${rows[0].filename}» (${Math.round(buf.length / 1024)} КБ)`);
     res.status(201).json(rows[0]);
   })
@@ -109,7 +113,7 @@ router.get(
       'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(file.filename)}`,
       'Cache-Control': 'private, max-age=3600',
     });
-    res.send(file.data);
+    res.send(await storage.read(file));
   })
 );
 
@@ -118,7 +122,7 @@ router.delete(
   '/:id',
   asyncHandler(async (req, res) => {
     const { rows } = await query(
-      `SELECT f.id, f.uploaded_by, f.assignment_id, f.homework_id, f.library_item_id, h.status
+      `SELECT f.id, f.uploaded_by, f.assignment_id, f.homework_id, f.library_item_id, f.s3_key, h.status
          FROM files f LEFT JOIN homework h ON h.id = f.homework_id
         WHERE f.id = $1`,
       [Number(req.params.id)]
@@ -127,6 +131,7 @@ router.delete(
     const allowed = f && (req.user.role === 'tutor' ? await tutorOwnsTarget(req.user, f) : f.uploaded_by === req.user.id && f.status !== 'checked');
     if (!allowed) return res.status(404).json({ error: 'Файл не найден' });
     await query('DELETE FROM files WHERE id = $1', [f.id]);
+    await storage.release([f.s3_key]);
     console.log(`🗑️ Файл #${f.id} удалён`);
     res.json({ ok: true });
   })

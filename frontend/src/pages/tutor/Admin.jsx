@@ -6,6 +6,67 @@ import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Badge, Icon, Modal, Field, useSubmit, useToast } from '../../ui';
 import { relativeDay, shortDate } from '../../format';
 
+
+// Метрики продукта и состояние сервиса (только сисадмин)
+function Metrics() {
+  const m = useLoad(() => api.adminMetrics(), []);
+  if (!m.data) return null;
+  const d = m.data;
+  const tiles = [
+    ['Репетиторов', d.tutors, `новых за 7 дней: ${d.new_7}, за 30: ${d.new_30}`],
+    ['Платят сейчас', d.paying, `≈ ${d.mrr.toLocaleString('ru-RU')} ₽ в месяц · в пробном: ${d.in_trial}`],
+    ['Активация', d.activation_pct == null ? 'нет данных' : `${d.activation_pct}%`, 'ученик добавлен, вошёл и сдал задание (за первые 7+ дней)'],
+    ['Удержание, 4-я неделя', d.retention_w4_pct == null ? 'нет данных' : `${d.retention_w4_pct}%`, 'урок на этой неделе у тех, кто пришёл 4–8 недель назад'],
+    ['Пробный → оплата', d.conversion_pct == null ? 'нет данных' : `${d.conversion_pct}%`, `из ${d.trial_done ?? 0} закончивших пробный`],
+    ['Отток за 30 дней', d.churn_pct == null ? 'нет данных' : `${d.churn_pct}%`, `не продлили: ${d.churned_30}`],
+    ['Активны на неделе', d.active_week, 'был хотя бы один урок за 7 дней'],
+    ['Учеников', d.students, 'активных у всех репетиторов'],
+  ];
+  return (
+    <section className="panel" style={{ marginBottom: 24 }}>
+      <h2 className="section-title">Метрики</h2>
+      <div className="metric-grid">
+        {tiles.map(([t, v, h]) => <div key={t} className="metric"><span className="small muted">{t}</span><b className={`serif${v === 'нет данных' ? ' metric-none' : ''}`}>{v}</b><span className="small muted">{h}</span></div>)}
+      </div>
+    </section>
+  );
+}
+
+function SystemState() {
+  const toast = useToast();
+  const s = useLoad(() => api.adminSystem(), []);
+  const [busy, setBusy] = useState(false);
+  if (!s.data) return null;
+  const d = s.data;
+  const b = d.backup;
+  const run = async () => {
+    setBusy(true);
+    try { const r = await api.adminBackup(); toast(`Копия готова: ${Math.round(r.size / 1024)} КБ`); s.reload(); } catch (err) { toast(err.message, 'error'); } finally { setBusy(false); }
+  };
+  const row = (ok, text, hint) => <li className={ok ? 'ok' : 'bad'}><span>{ok ? '✓' : '!'}</span><div><b>{text}</b>{hint && <div className="small muted">{hint}</div>}</div></li>;
+  return (
+    <section className="panel" style={{ marginBottom: 24 }}>
+      <div className="row-between wrap">
+        <h2 className="section-title">Состояние сервиса</h2>
+        <button className="btn btn-secondary btn-sm" disabled={busy || !d.backup_key} onClick={run}>{busy ? 'Делаем копию…' : 'Сделать копию сейчас'}</button>
+      </div>
+      <ul className="sys-list">
+        {row(b?.ok && Date.now() - new Date(b.at) < 36 * 36e5, b?.ok ? `Резервная копия: ${new Date(b.at).toLocaleString('ru-RU')}` : b ? 'Последняя копия не удалась' : 'Копий ещё не было', b?.ok ? `${Math.round(b.size / 1024)} КБ, ${b.where === 's3' ? 'в хранилище S3' : 'только на сервере'}` : b?.error || 'Копия делается каждую ночь')}
+        {row(d.backup_key, d.backup_key ? 'Ключ шифрования копий задан' : 'Не задан BACKUP_KEY', 'Храните его отдельно от сервера: без него копию не расшифровать')}
+        {row(d.s3, d.s3 ? 'Хранилище S3 подключено' : 'Хранилище S3 не подключено', 'S3_BUCKET, S3_ACCESS_KEY, S3_SECRET_KEY: копии и файлы вне сервера')}
+        {row(d.legal, d.legal ? 'Реквизиты для документов заданы' : 'Реквизиты не заданы', 'PLATFORM_OWNER_NAME, PLATFORM_OWNER_INN, PLATFORM_EMAIL: попадают в оферту и подвал сайта')}
+        {row(d.telegram, d.telegram ? 'Telegram-бот работает' : 'Telegram-бот выключен', 'TELEGRAM_BOT_TOKEN: напоминания ученикам и сообщения вам о сбоях')}
+      </ul>
+      {d.errors?.length > 0 && (
+        <details style={{ marginTop: 12 }}>
+          <summary className="small">Последние ошибки сервера: {d.errors.length}</summary>
+          <ul className="err-list">{d.errors.map((e, i) => <li key={i}><span className="small muted">{new Date(e.at).toLocaleString('ru-RU')} · {e.where}</span><div className="small">{e.message}</div></li>)}</ul>
+        </details>
+      )}
+    </section>
+  );
+}
+
 export default function AdminPage() {
   const toast = useToast();
   const data = useLoad(() => api.adminTutors(), []);
@@ -52,6 +113,9 @@ export default function AdminPage() {
         </div>
         <button className="btn" onClick={() => setCreating(true)}><Icon name="plus" /> Репетитор</button>
       </div>
+
+      <Metrics />
+      <SystemState />
 
       <section className="panel" style={{ marginBottom: 24 }}>
         <div className="row-between wrap">

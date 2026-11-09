@@ -112,3 +112,78 @@ export function AcceptDocuments({ docs, onDone }) {
     </div>
   );
 }
+
+/* ---------- Документы платформы (между владельцем Lessonfold и преподавателями) ---------- */
+export const PLATFORM_DOCS = [
+  { kind: 'terms', label: 'Условия использования' },
+  { kind: 'privacy', label: 'Политика конфиденциальности' },
+  { kind: 'dpa', label: 'Поручение на обработку данных' },
+];
+
+export function PlatformDocPage({ kind }) {
+  const doc = useLoad(() => api.platformDoc(kind), [kind]);
+  return (
+    <div className="legal-page">
+      <div className="legal-wrap">
+        <Link to="/" className="btn btn-quiet btn-sm" style={{ marginLeft: -10 }}><Icon name="back" /> {BRAND.name}</Link>
+        {doc.loading && <Spinner />}
+        {doc.error && <ErrorBox error={doc.error} onRetry={doc.reload} />}
+        {doc.data && (
+          <article className="panel" style={{ marginTop: 14 }}>
+            <h1 className="page-title">{doc.data.title}</h1>
+            <div className="muted small" style={{ margin: '8px 0 24px' }}>Редакция {doc.data.version}</div>
+            <LegalText body={doc.data.body} />
+          </article>
+        )}
+        <nav className="legal-links">{PLATFORM_DOCS.filter((d) => d.kind !== kind).map((d) => <Link key={d.kind} to={`/terms/${d.kind}`}>{d.label}</Link>)}</nav>
+      </div>
+    </div>
+  );
+}
+
+// Преподаватель принимает новую редакцию условий платформы перед входом в кабинет
+export function AcceptPlatformTerms({ docs, onDone }) {
+  const { logout, user } = useAuth();
+  const [open, setOpen] = useState(null);
+  const [ok, setOk] = useState(false);
+  const { busy, error, submit } = useSubmit(async () => { await api.platformAccept(); onDone(); });
+  return (
+    <div className="legal-page">
+      <div className="legal-wrap">
+        <div className="brand-name" style={{ fontSize: 28 }}>{BRAND.name}</div>
+        <div className="brand-rule" />
+        <h1 className="page-title" style={{ marginTop: 26 }}>Условия платформы</h1>
+        <p className="muted" style={{ margin: '8px 0 22px' }}>{user.full_name}, мы оформили условия использования платформы и порядок работы с данными ваших учеников. Пожалуйста, ознакомьтесь и подтвердите.</p>
+        <div className="panel">
+          {docs.map((d) => (
+            <div key={d.kind} className="accept-row">
+              <span>{d.title}</span>
+              <button type="button" className="btn btn-quiet btn-sm" onClick={() => setOpen(open === d.kind ? null : d.kind)}>{open === d.kind ? 'Свернуть' : 'Читать'}</button>
+              {open === d.kind && <div className="accept-doc"><LegalText body={d.body} /></div>}
+            </div>
+          ))}
+          <label className="check" style={{ alignItems: 'flex-start', marginTop: 14 }}>
+            <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} style={{ marginTop: 2 }} />
+            <span>Принимаю условия использования и поручение на обработку данных учеников, ознакомлен(а) с политикой конфиденциальности</span>
+          </label>
+          {error && <div className="alert" style={{ marginTop: 14 }}>{error}</div>}
+          <button className="btn" style={{ width: '100%', height: 48, marginTop: 18 }} disabled={!ok || busy} onClick={submit}>{busy ? 'Сохраняем…' : 'Подтвердить и продолжить'}</button>
+        </div>
+        <button className="btn btn-quiet btn-sm" style={{ marginTop: 14 }} onClick={logout}>Выйти</button>
+      </div>
+    </div>
+  );
+}
+
+// Подвал публичных страниц: реквизиты и ссылки на документы (обязательно для продажи подписки)
+export function LegalFooter() {
+  const info = useLoad(() => api.platformDocs().catch(() => null), []);
+  const o = info.data?.owner;
+  return (
+    <div className="legal-foot">
+      {o?.name && <span>Самозанятый {o.name}{o.inn ? `, ИНН ${o.inn}` : ''}</span>}
+      {o?.email && <a href={`mailto:${o.email}`}>{o.email}</a>}
+      {PLATFORM_DOCS.map((d) => <Link key={d.kind} to={`/terms/${d.kind}`}>{d.label}</Link>)}
+    </div>
+  );
+}

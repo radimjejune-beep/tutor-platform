@@ -65,6 +65,9 @@ export const api = {
 
   // Сисадмин
   adminTutors: () => request('GET', '/admin/tutors'),
+  adminMetrics: () => request('GET', '/admin/metrics'),
+  adminSystem: () => request('GET', '/admin/system'),
+  adminBackup: () => request('POST', '/admin/backup'),
   adminCreateTutor: (data) => request('POST', '/admin/tutors', data),
   adminSetTutorActive: (id, is_active) => request('PATCH', `/admin/tutors/${id}`, { is_active }),
   adminSetTutorAdmin: (id, is_admin) => request('PATCH', `/admin/tutors/${id}`, { is_admin }),
@@ -156,6 +159,11 @@ export const api = {
   myPlan: () => request('GET', '/plan'),
   requestPlan: (plan, period) => request('POST', '/plan/request', { plan, period }),
   publicPlans: () => request('GET', '/plans'),
+  onboarding: () => request('GET', '/dashboard/onboarding'),
+  platformDocs: () => request('GET', '/platform-docs'),
+  platformDoc: (kind) => request('GET', `/platform-docs/${encodeURIComponent(kind)}`),
+  platformTerms: () => request('GET', '/platform-terms'),
+  platformAccept: () => request('POST', '/platform-terms/accept'),
   adminSetPlan: (id, plan, until) => request('PUT', `/admin/tutors/${id}/plan`, { plan, until: until || null }),
   books: () => request('GET', '/library-books'),
   createBook: (data) => request('POST', '/library-books', data),

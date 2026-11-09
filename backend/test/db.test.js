@@ -1,0 +1,186 @@
+// test/db.test.js — проверки с базой данных. Нужен DATABASE_URL на пустую тестовую базу:
+//   DATABASE_URL=postgres://postgres@localhost:5432/lessonfold_test npm test
+// Без DATABASE_URL эти проверки пропускаются.
+const { src, loadRoutes, call, uniq, hasDb } = require('./helpers');
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+const opts = { skip: hasDb ? false : 'нет DATABASE_URL' };
+
+test('база данных', opts, async (t) => {
+  process.env.BACKUP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'lf-bk-'));
+  process.env.BACKUP_KEY = 'test-key-for-backups-only';
+  const { query, pool } = require(src('db.js'));
+  t.after(() => pool.end && pool.end().catch(() => {}));
+
+  await t.test('миграции и схема накатываются, повторный запуск ничего не ломает', async () => {
+    const { migrate } = require(src('services/migrate.js'));
+    const { ensureAll } = require(src('services/schema.js'));
+    await migrate();
+    await ensureAll();
+    await migrate();
+    const { rows } = await query('SELECT COUNT(*)::int AS n FROM schema_migrations');
+    const files = fs.readdirSync(path.join(__dirname, '..', 'migrations')).filter((f) => /^\d{3}_.*\.sql$/.test(f));
+    assert.equal(rows[0].n, files.length);
+  });
+
+  const tutor = async (extra = {}) => {
+    const login = uniq('t');
+    const { rows } = await query(
+      `INSERT INTO users (role, login, password_hash, full_name, is_admin) VALUES ('tutor', $1, 'x', $1, $2) RETURNING id`,
+      [login, Boolean(extra.is_admin)]
+    );
+    const id = rows[0].id;
+    if (extra.sql) await query(extra.sql, [id]);
+    return { id, tid: id, role: 'tutor', login, is_admin: Boolean(extra.is_admin) };
+  };
+  const student = async (tid, name = 'Ученик') => (await query('INSERT INTO students (full_name, tutor_id) VALUES ($1, $2) RETURNING id', [name, tid])).rows[0].id;
+
+  await t.test('преподаватель не видит чужих учеников', async () => {
+    const auth = require(src('middleware/auth.js'));
+    const a = await tutor();
+    const b = await tutor();
+    const sa = await student(a.id);
+    assert.equal(await auth.canAccessStudent(a, sa), true);
+    assert.equal(await auth.canAccessStudent(b, sa), false);
+    assert.equal(await auth.owns(b, 'students', sa), false);
+    const ids = await auth.accessibleStudentIds(b);
+    assert.equal((ids || []).includes(sa), false);
+  });
+
+  await t.test('на «Старте» не больше 3 учеников', async () => {
+    const plans = require(src('services/plans.js'));
+    const a = await tutor({ sql: "UPDATE users SET plan = 'start', plan_until = NULL WHERE id = $1" });
+    plans.forget(a.id);
+    for (const n of ['А', 'Б']) await student(a.id, n);
+    assert.equal(await plans.studentLimit(a.id), null);
+    await student(a.id, 'В');
+    assert.match(String(await plans.studentLimit(a.id)), /3/);
+  });
+
+  await t.test('условия платформы: новая редакция ждёт согласия, после принятия больше не спрашивает', async () => {
+    const { mod } = loadRoutes('routes/platformDocs.js');
+    const prot = mod.protectedRouter;
+    const a = await tutor();
+    let out = await call(prot, 'GET', '/', { user: a });
+    assert.equal(out.body.pending, true);
+    assert.equal(out.body.docs.length, 3);
+    out = await call(prot, 'POST', '/accept', { user: a });
+    assert.equal(out.body.ok, true);
+    out = await call(prot, 'GET', '/', { user: a });
+    assert.equal(out.body.pending, false);
+    const b = await tutor();
+    await mod.acceptOnRegister(b.id, '10.0.0.1');
+    assert.equal((await call(prot, 'GET', '/', { user: b })).body.pending, false);
+    const pub = await call(mod.publicRouter, 'GET', '/:kind', { params: { kind: 'nope' } });
+    assert.equal(pub.status, 404);
+  });
+
+  await t.test('первые шаги на главной отмечаются по мере работы', async () => {
+    const { mod } = loadRoutes('routes/dashboard.js');
+    const a = await tutor();
+    let out = await call(mod, 'GET', '/onboarding', { user: a });
+    assert.equal(out.body.steps.length, 5);
+    assert.equal(out.body.steps.find((s) => s.key === 'student').done, false);
+    await student(a.id);
+    out = await call(mod, 'GET', '/onboarding', { user: a });
+    assert.equal(out.body.steps.find((s) => s.key === 'student').done, true);
+  });
+
+  await t.test('метрики для сисадмина: только сисадмину, числа считаются', async () => {
+    const { mod } = loadRoutes('routes/admin.js');
+    const plain = await tutor();
+    const admin = await tutor({ is_admin: true });
+    const denied = await call(mod, 'GET', '/metrics', { user: plain });
+    assert.equal(denied.status, 403);
+    const out = await call(mod, 'GET', '/metrics', { user: admin });
+    assert.equal(out.status, 200);
+    assert.ok(out.body.tutors >= 1);
+    assert.equal(typeof out.body.mrr, 'number');
+    const sys = await call(mod, 'GET', '/system', { user: admin });
+    assert.equal(sys.body.backup_key, true);
+  });
+
+  await t.test('сообщения пробного периода уходят один раз', async () => {
+    const trial = require(src('services/trial.js'));
+    const a = await tutor({ sql: "UPDATE users SET plan = 'trial', plan_until = NOW() + INTERVAL '1 day', created_at = NOW() - INTERVAL '13 days' WHERE id = $1" });
+    await trial.run();
+    await trial.run();
+    const { rows } = await query("SELECT kind FROM trial_messages WHERE user_id = $1", [a.id]);
+    assert.deepEqual(rows.map((r) => r.kind), ['ending']);
+    const n = await query("SELECT COUNT(*)::int AS n FROM notifications WHERE user_id = $1 AND kind = 'trial'", [a.id]);
+    assert.equal(n.rows[0].n, 1);
+  });
+
+  await t.test('резервная копия: шифруется, читается своим ключом и не читается чужим', async () => {
+    const backup = require(src('services/backup.js'));
+    const a = await tutor();
+    const r = await backup.run({ reason: 'тест' });
+    assert.equal(r.ok, true, r.error);
+    const file = path.join(process.env.BACKUP_DIR, r.file);
+    const lines = backup.openFile(file, process.env.BACKUP_KEY);
+    const head = lines.findIndex((l) => l.table === 'users');
+    const cols = lines[head].columns;
+    const loginAt = cols.indexOf('login');
+    const users = [];
+    for (let i = head + 1; i < lines.length && Array.isArray(lines[i]); i++) users.push(lines[i][loginAt]);
+    assert.ok(users.includes(a.login));
+    assert.throws(() => backup.openFile(file, 'wrong-key'));
+    assert.equal((await backup.state()).ok, true);
+  });
+
+  await t.test('учебники и файлы уходят в S3, если оно настроено, и удаляются оттуда', async () => {
+    const s3 = require(src('services/s3.js'));
+    const bucket = new Map();
+    const saved = { ...s3 };
+    Object.assign(s3, {
+      enabled: () => true,
+      putBuffer: async (k, buf) => { bucket.set(k, Buffer.from(buf)); },
+      getBuffer: async (k) => { if (!bucket.has(k)) throw new Error('нет объекта'); return bucket.get(k); },
+      remove: async (k) => { bucket.delete(k); },
+      list: async (prefix) => [...bucket.keys()].filter((k) => k.startsWith(prefix)).map((key) => ({ key, size: 1, modified: new Date(0) })),
+    });
+    t.after(() => Object.assign(s3, saved));
+    const { mod } = loadRoutes('routes/books.js');
+    const a = await tutor();
+    const content = Buffer.from('%PDF-1.4 test book '.repeat(50));
+    const made = await call(mod, 'POST', '/', { user: a, body: { title: 'Книга', filename: 'b.pdf', mime: 'application/pdf', size_bytes: content.length } });
+    assert.equal(made.status, 201, JSON.stringify(made.body));
+    const { id, part_size: partSize, parts } = made.body;
+    for (let n = 0; n < parts; n++) {
+      const r = await call(mod, 'PUT', '/:id/parts/:n', { user: a, params: { id, n }, body: content.subarray(n * partSize, (n + 1) * partSize) });
+      assert.equal(r.body.ok, true, JSON.stringify(r.body));
+    }
+    assert.equal((await call(mod, 'POST', '/:id/finish', { user: a, params: { id } })).body.ok, true);
+    const { rows } = await query('SELECT data, s3_key FROM library_book_parts WHERE book_id = $1', [id]);
+    assert.ok(rows.every((r) => r.data === null && r.s3_key));
+    const file = await call(mod, 'GET', '/:id/file', { user: a, params: { id }, query: {} });
+    assert.equal(Buffer.compare(file.body, content), 0);
+    const other = await tutor();
+    assert.equal((await call(mod, 'GET', '/:id/file', { user: other, params: { id }, query: {} })).status, 404);
+    assert.equal(bucket.size, parts);
+    await call(mod, 'DELETE', '/:id', { user: a, params: { id } });
+    assert.equal(bucket.size, 0);
+    const storage = require(src('services/storage.js'));
+    bucket.set('files/2020-01/lost', Buffer.from('x'));
+    assert.equal(await storage.sweep(), 1);
+  });
+
+  await t.test('фоновая задача не запускается дважды одновременно', async () => {
+    const { withLock } = require(src('services/jobs.js'));
+    const { pool } = require(src('db.js'));
+    const [c1, c2] = [await pool.connect(), await pool.connect()];
+    const pids = [(await c1.query('SELECT pg_backend_pid() AS p')).rows[0].p, (await c2.query('SELECT pg_backend_pid() AS p')).rows[0].p];
+    c1.release(); c2.release();
+    if (pids[0] === pids[1]) return; // упрощённый драйвер с одним соединением: блокировка общая, проверять нечего
+    let inside = 0;
+    let max = 0;
+    const job = () => withLock('test-lock', async () => { inside++; max = Math.max(max, inside); await new Promise((r) => setTimeout(r, 150)); inside--; return 'done'; });
+    const res = await Promise.all([job(), job()]);
+    assert.equal(max, 1);
+    assert.ok(res.some((x) => x?.skipped || x === undefined || x === null));
+  });
+});

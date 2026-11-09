@@ -14,6 +14,7 @@ const KIND_LABEL = { html: 'Интерактивный урок', game: 'Упр�
 
 // Копия материала в библиотеку покупателя (вместе с файлами)
 async function copyItem(client, srcId, buyerId) {
+  await require('../services/storage').ensure();
   const { rows } = await client.query(
     `INSERT INTO library_items (kind, subject, title, body, answer, exam, exam_task, tags, links, game, html, tutor_id)
      SELECT kind, subject, title, body, answer, exam, exam_task, array_append(tags, 'каталог'), links, game, html, $2
@@ -27,8 +28,8 @@ async function copyItem(client, srcId, buyerId) {
   const map = {};
   for (const f of files) {
     const { rows: c } = await client.query(
-      `INSERT INTO files (library_item_id, filename, mime, size_bytes, data, uploaded_by)
-       SELECT $2, filename, mime, size_bytes, data, $3 FROM files WHERE id = $1 RETURNING id`,
+      `INSERT INTO files (library_item_id, filename, mime, size_bytes, data, s3_key, uploaded_by)
+       SELECT $2, filename, mime, size_bytes, data, s3_key, $3 FROM files WHERE id = $1 RETURNING id`,
       [f.id, rows[0].id, buyerId]
     );
     map[f.id] = c[0].id;

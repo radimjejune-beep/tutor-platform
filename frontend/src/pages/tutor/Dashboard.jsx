@@ -10,6 +10,38 @@ import { LeagueBoard } from '../../components/Motivation';
 import { useAuth } from '../../auth';
 import { time, dayMonth, weekday, cap, rub, relativeDay, LESSON_STATUS, monthName, prevMonth, plural } from '../../format';
 
+
+// Первые шаги: показывается новому преподавателю, пока не пройдены все шаги (можно скрыть)
+function Onboarding() {
+  const ob = useLoad(() => api.onboarding().catch(() => null), []);
+  const [hidden, setHidden] = useState(() => { try { return localStorage.getItem('lf-onb-hide') === '1'; } catch { return false; } });
+  const steps = ob.data?.steps || [];
+  const done = steps.filter((s) => s.done).length;
+  if (hidden || !steps.length || done === steps.length) return null;
+  const hide = () => { try { localStorage.setItem('lf-onb-hide', '1'); } catch { /* приватный режим */ } setHidden(true); };
+  return (
+    <section className="panel onb">
+      <div className="row-between">
+        <div>
+          <h2 className="section-title">Первые шаги · {done} из {steps.length}</h2>
+          <div className="small muted">Пять шагов, и платформа начнёт работать на вас.</div>
+        </div>
+        <button className="btn btn-quiet btn-sm" onClick={hide}>Скрыть</button>
+      </div>
+      <div className="bar" style={{ margin: "12px 0 6px", height: 4 }}><span style={{ width: `${(done / steps.length) * 100}%` }} /></div>
+      <ol className="onb-list">
+        {steps.map((s) => (
+          <li key={s.key} className={s.done ? 'done' : ''}>
+            <span className="onb-tick" aria-hidden="true">{s.done ? '✓' : ''}</span>
+            <div><b>{s.title}</b><span className="small muted">{s.text}</span></div>
+            {!s.done && <Link to={s.link} className="btn btn-secondary btn-sm">Сделать</Link>}
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 export default function TutorDashboard() {
   const dash = useLoad(() => Promise.all([api.dashboard(), api.summary()]), []);
   const [modal, setModal] = useState(null);
@@ -45,6 +77,8 @@ export default function TutorDashboard() {
           </button>
         </div>
       </div>
+
+      <Onboarding />
 
       <section className="today-section">
         <div className="row-between" style={{ marginBottom: 16 }}>

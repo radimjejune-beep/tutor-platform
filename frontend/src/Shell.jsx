@@ -1,7 +1,7 @@
 // Shell.jsx — каркас кабинета: боковое меню (компьютер) и нижнее меню (телефон)
 import { useAuth } from './auth';
 import { BRAND } from './config';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { Icon, Link } from './ui';
 import NotificationBell from './components/Notifications';
 import CommandPalette, { usePaletteHotkey } from './components/CommandPalette';
@@ -9,17 +9,17 @@ import CommandPalette, { usePaletteHotkey } from './components/CommandPalette';
 const ROLE_LABEL = { tutor: 'Преподаватель', student: 'Ученик', parent: 'Родитель' };
 
 export const TUTOR_NAV = [
-  { to: '/', label: 'Главная', icon: 'home' },
-  { to: '/schedule', label: 'Расписание', short: 'Уроки', icon: 'calendar' },
-  { to: '/students', label: 'Ученики', icon: 'users' },
-  { to: '/homework', label: 'Задания', short: 'Задания', icon: 'book', countKey: 'homework' },
-  { to: '/library', label: 'Библиотека', short: 'Библ.', icon: 'library' },
-  { to: '/wordsets', label: 'Карточки', icon: 'cards', hideMobile: true },
-  { to: '/courses', label: 'Курсы', icon: 'layers', hideMobile: true },
-  { to: '/finance', label: 'Доход', icon: 'wallet', hideMobile: true },
-  { to: '/bank', label: 'Банк заданий', icon: 'library', hideMobile: true },
-  { to: '/market', label: 'Каталог', icon: 'grid', hideMobile: true },
-  { to: '/settings', label: 'Настройки', icon: 'settings', hideMobile: true },
+  { to: '/', label: 'Главная', icon: 'home', group: 'Работа' },
+  { to: '/schedule', label: 'Расписание', short: 'Уроки', icon: 'calendar', group: 'Работа' },
+  { to: '/students', label: 'Ученики', icon: 'users', group: 'Работа' },
+  { to: '/homework', label: 'Задания', short: 'Задания', icon: 'book', countKey: 'homework', group: 'Работа' },
+  { to: '/library', label: 'Библиотека', short: 'Библ.', icon: 'library', group: 'Материалы' },
+  { to: '/wordsets', label: 'Карточки', icon: 'cards', hideMobile: true, group: 'Материалы' },
+  { to: '/courses', label: 'Курсы', icon: 'layers', hideMobile: true, group: 'Материалы' },
+  { to: '/bank', label: 'Банк заданий', icon: 'library', hideMobile: true, group: 'Материалы' },
+  { to: '/market', label: 'Каталог', icon: 'grid', hideMobile: true, group: 'Материалы' },
+  { to: '/finance', label: 'Доход', icon: 'wallet', hideMobile: true, group: 'Учёт' },
+  { to: '/settings', label: 'Настройки', icon: 'settings', hideMobile: true, group: 'Учёт' },
 ];
 
 export const CLIENT_NAV = [
@@ -57,12 +57,15 @@ export function Shell({ nav, path, counts = {}, children }) {
         </div>
 
         <nav className="nav" aria-label="Разделы">
-          {nav.map((item) => (
-            <Link key={item.to} to={item.to} className={isActive(path, item.to) ? 'active' : ''}>
+          {nav.map((item, i) => (
+            <Fragment key={item.to}>
+            {item.group && item.group !== nav[i - 1]?.group && <div className="nav-group">{item.group}</div>}
+            <Link to={item.to} className={isActive(path, item.to) ? 'active' : ''}>
               <Icon name={item.icon} />
               {item.label}
               {counts[item.countKey] > 0 && <span className="count">{counts[item.countKey]}</span>}
             </Link>
+            </Fragment>
           ))}
         </nav>
 

@@ -17,7 +17,7 @@
   --surface-2: #f3f1ec;
   --ink: #151515;
   --ink-2: #3a3936;
-  --muted: #8b8a85;
+  --muted: #6f6e69;
   --line: #e8e5de;
   --line-strong: #d6d2c9;
 
@@ -87,6 +87,8 @@ h1, h2, h3 { margin: 0; font-weight: 400; }
 .brand-rule { width: 24px; height: 1px; background: var(--ink); margin: 16px 0 0; }
 
 .nav { display: flex; flex-direction: column; gap: 2px; }
+.nav-group { font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin: 14px 0 4px; }
+.nav-group:first-child { margin-top: 0; }
 .nav a {
   display: flex; align-items: center; gap: 12px;
   padding: 10px 12px; border-radius: var(--r-control);
@@ -1595,3 +1597,28 @@ button.fix-tok:hover { background: var(--surface-2); border-bottom-color: var(--
   .lx-section { padding-top: 60px; }
   .lx-calc-out b { font-size: 32px; }
 }
+.legal-links { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px; font-size: 14px; }
+.legal-foot { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+.legal-foot a { color: var(--muted); }
+.legal-links { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px; font-size: 14px; }
+.legal-foot { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+.legal-foot a { color: var(--muted); }
+/* Первые шаги на главной преподавателя */
+.onb { margin-bottom: 22px; }
+.onb-list { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 4px; }
+.onb-list li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.onb-list li > div { flex: 1; display: grid; gap: 2px; min-width: 0; }
+.onb-list li.done b { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--line-strong); }
+.onb-tick { flex: none; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line-strong); display: grid; place-items: center; font-size: 13px; color: #fff; }
+.onb-list li.done .onb-tick { background: var(--ok); border-color: var(--ok); }
+/* Метрики и состояние сервиса (сисадмин) */
+.metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.metric { display: grid; gap: 4px; padding: 14px; border: 1px solid var(--line); border-radius: 12px; }
+.metric b { font-size: 30px; font-weight: 500; line-height: 1.1; }
+.metric b.metric-none { font-size: 18px; color: var(--muted); padding: 7px 0 4px; }
+.sys-list { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 8px; }
+.sys-list li { display: flex; gap: 10px; align-items: flex-start; }
+.sys-list li > span { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; color: #fff; background: var(--ok); }
+.sys-list li.bad > span { background: var(--danger); }
+.err-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 8px; }
+@media (max-width: 760px) { .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

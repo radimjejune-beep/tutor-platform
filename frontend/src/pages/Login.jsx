@@ -148,7 +148,7 @@ export function Register() {
     <AuthLayout>
       <h1 className="page-title">Свой кабинет репетитора</h1>
       <p className="muted" style={{ margin: '8px 0 28px' }}>
-        Расписание, оплаты, задания, курсы по учебникам и кабинеты для учеников и родителей. Сейчас бесплатно.
+        Расписание, домашние задания с автопроверкой, словарь и учёт оплат. 14 дней всё открыто бесплатно.
       </p>
       <form className="form" onSubmit={submit}>
         <Field label="Имя и фамилия">
@@ -170,7 +170,7 @@ export function Register() {
         </div>
         <label className="check" style={{ alignItems: 'flex-start' }}>
           <input type="checkbox" checked={f.accept} onChange={(e) => setF({ ...f, accept: e.target.checked })} required style={{ marginTop: 3 }} />
-          <span className="small">Понимаю, что сервис работает в тестовом режиме. За данные своих учеников и их согласия на обработку отвечаю я сам.</span>
+          <span className="small">Принимаю <a href="#/terms/terms" target="_blank" rel="noopener">условия использования</a> и <a href="#/terms/dpa" target="_blank" rel="noopener">поручение на обработку данных учеников</a>, ознакомлен(а) с <a href="#/terms/privacy" target="_blank" rel="noopener">политикой конфиденциальности</a>.</span>
         </label>
         {error && <div className="alert">{error}</div>}
         <button className="btn" disabled={busy || !f.accept} style={{ height: 48 }}>{busy ? 'Создаём…' : 'Создать кабинет'}</button>

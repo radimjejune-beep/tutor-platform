@@ -415,12 +415,21 @@ const DESCRIPTION = [
 ].join('\n');
 const SHORT_DESCRIPTION = 'Интерактивные уроки английского. Ученикам: расписание, домашка и напоминания.';
 
-async function describe() {
+// Отдельный бот платформы (не общий с магазином): только про учёбу
+const PLATFORM_DESCRIPTION = [
+  'Lessonfold: напоминания об уроках, домашка и слова на повторение.',
+  '',
+  'Ученикам и родителям: подключите бота в личном кабинете кнопкой «Подключить Telegram».',
+  'Преподавателям: утренняя сводка и уведомления о сданных заданиях.',
+].join('\n');
+const PLATFORM_SHORT = 'Напоминания об уроках, домашка и слова. Подключается из кабинета Lessonfold.';
+
+async function describe(shared) {
   try {
     const d = await call('getMyDescription');
-    if (!d?.description) await call('setMyDescription', { description: DESCRIPTION });
+    if (!d?.description) await call('setMyDescription', { description: shared ? DESCRIPTION : PLATFORM_DESCRIPTION });
     const sd = await call('getMyShortDescription');
-    if (!sd?.short_description) await call('setMyShortDescription', { short_description: SHORT_DESCRIPTION });
+    if (!sd?.short_description) await call('setMyShortDescription', { short_description: shared ? SHORT_DESCRIPTION : PLATFORM_SHORT });
   } catch (e) {
     console.error('⚠️ Telegram: описание бота:', e.message);
   }
@@ -434,7 +443,7 @@ async function start() {
   try {
     const me = await call('getMe');
     botUsername = me.username;
-    describe();
+    describe(SHARED);
     if (SHARED) {
       // сообщения читает бот магазина и отдаёт их сюда первыми
       try {
@@ -444,6 +453,12 @@ async function start() {
         return;
       }
       console.log(`✅ Telegram: @${botUsername} общий с магазином (ученики и родители получают учебное меню)`);
+      return;
+    }
+    // Сообщения бота читает только одна копия сервера, иначе Telegram отвечает ошибкой 409
+    if (!(await require('./jobs').holdLock('telegram-poll'))) {
+      console.log('ℹ️ Telegram: сообщения читает другая копия сервера, эта только отправляет');
+      setTimeout(start, 60000);
       return;
     }
     await call('deleteWebhook', { drop_pending_updates: false });

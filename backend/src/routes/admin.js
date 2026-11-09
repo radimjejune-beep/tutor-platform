@@ -129,4 +129,77 @@ router.put(
   })
 );
 
+// Метрики продукта: активация, удержание, конверсия пробного периода, отток
+router.get(
+  '/metrics',
+  asyncHandler(async (req, res) => {
+    await plans.ensure();
+    const days = plans.TRIAL_DAYS;
+    const { rows } = await query(
+      `WITH t AS (SELECT * FROM users WHERE role = 'tutor' AND NOT is_admin),
+       act AS (
+         SELECT t.id,
+                EXISTS (SELECT 1 FROM students s WHERE s.tutor_id = t.id) AS has_student,
+                EXISTS (SELECT 1 FROM homework h JOIN students s ON s.id = h.student_id WHERE s.tutor_id = t.id) AS has_hw,
+                EXISTS (SELECT 1 FROM students s JOIN users u ON u.id = s.user_id WHERE s.tutor_id = t.id AND u.last_login_at IS NOT NULL)
+                  OR EXISTS (SELECT 1 FROM parent_students ps JOIN students s ON s.id = ps.student_id JOIN users u ON u.id = ps.parent_user_id WHERE s.tutor_id = t.id AND u.last_login_at IS NOT NULL) AS client_in,
+                EXISTS (SELECT 1 FROM lessons l JOIN students s ON s.id = l.student_id WHERE s.tutor_id = t.id AND l.starts_at > NOW() - INTERVAL '7 days' AND l.status <> 'cancelled') AS lesson_week
+           FROM t)
+       SELECT
+         (SELECT COUNT(*) FROM t)::int AS tutors,
+         (SELECT COUNT(*) FROM t WHERE created_at > NOW() - INTERVAL '7 days')::int AS new_7,
+         (SELECT COUNT(*) FROM t WHERE created_at > NOW() - INTERVAL '30 days')::int AS new_30,
+         (SELECT COUNT(*) FROM t JOIN act USING (id) WHERE t.created_at < NOW() - INTERVAL '7 days')::int AS act_base,
+         (SELECT COUNT(*) FROM t JOIN act USING (id) WHERE t.created_at < NOW() - INTERVAL '7 days' AND has_student AND has_hw AND client_in)::int AS activated,
+         (SELECT COUNT(*) FROM act WHERE lesson_week)::int AS active_week,
+         (SELECT COUNT(*) FROM t WHERE created_at BETWEEN NOW() - INTERVAL '56 days' AND NOW() - INTERVAL '28 days')::int AS w4_base,
+         (SELECT COUNT(*) FROM t JOIN act USING (id) WHERE t.created_at BETWEEN NOW() - INTERVAL '56 days' AND NOW() - INTERVAL '28 days' AND lesson_week)::int AS w4_active,
+         (SELECT COUNT(*) FROM t WHERE created_at < NOW() - make_interval(days => $1))::int AS trial_done,
+         (SELECT COUNT(*) FROM t WHERE created_at < NOW() - make_interval(days => $1) AND plan IN ('tutor', 'pro'))::int AS converted,
+         (SELECT COUNT(*) FROM t WHERE plan IN ('tutor', 'pro') AND (plan_until IS NULL OR plan_until > NOW()))::int AS paying,
+         (SELECT COUNT(*) FROM t WHERE plan = 'trial' AND plan_until > NOW())::int AS in_trial,
+         (SELECT COUNT(*) FROM t WHERE plan IN ('tutor', 'pro') AND plan_until BETWEEN NOW() - INTERVAL '30 days' AND NOW())::int AS churned_30,
+         (SELECT COUNT(*) FROM students s JOIN t ON t.id = s.tutor_id WHERE s.status = 'active')::int AS students`,
+      [days]
+    );
+    const m = rows[0];
+    const pct = (a, b) => (b ? Math.round((a / b) * 100) : null);
+    res.json({
+      ...m,
+      activation_pct: pct(m.activated, m.act_base),
+      retention_w4_pct: pct(m.w4_active, m.w4_base),
+      conversion_pct: pct(m.converted, m.trial_done),
+      churn_pct: pct(m.churned_30, m.paying + m.churned_30),
+      mrr: m.paying * plans.PLANS.tutor.price,
+    });
+  })
+);
+
+// Состояние сервиса для сисадмина: резервные копии, хранилище, реквизиты, бот
+router.get(
+  '/system',
+  asyncHandler(async (req, res) => {
+    const backup = require('../services/backup');
+    res.json({
+      backup: await backup.state(),
+      backup_key: Boolean(process.env['BACKUP_KEY']),
+      s3: require('../services/s3').enabled(),
+      legal: require('../legal/platform').configured(),
+      telegram: require('../services/telegram').enabled(),
+      errors: require('../services/monitor').recent(),
+    });
+  })
+);
+
+// Сделать резервную копию сейчас
+router.post(
+  '/backup',
+  asyncHandler(async (req, res) => {
+    const r = await require('../services/jobs').withLock('backup', () => require('../services/backup').run({ reason: `вручную, ${req.user.login}` }));
+    if (r?.skipped) return res.status(409).json({ error: 'Копия уже делается, подождите пару минут' });
+    if (!r.ok) return res.status(500).json({ error: r.error });
+    res.json(r);
+  })
+);
+
 module.exports = router;

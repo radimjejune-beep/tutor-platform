@@ -236,9 +236,11 @@ async function tick() {
   }
 }
 
+// Несколько копий сервера: тик выполнит только одна (services/jobs.js)
+const lockedTick = () => require('./jobs').withLock('reminders', tick).catch((err) => console.error('🔔 Напоминания:', err.message));
 function start() {
-  setTimeout(tick, 60 * 1000);
-  setInterval(tick, 5 * 60 * 1000);
+  setTimeout(lockedTick, 60 * 1000);
+  setInterval(lockedTick, 5 * 60 * 1000);
 }
 
 module.exports = { start, tick, lessonReminders, homeworkReminders, wordReminders, tutorDigest, tutorAfterLesson, ensure };

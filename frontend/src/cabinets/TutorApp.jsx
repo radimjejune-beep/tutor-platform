@@ -6,6 +6,7 @@ import { api } from '../api';
 import { Shell, TUTOR_NAV, CLIENT_NAV, MoreMenu } from '../Shell';
 import { Spinner, Empty, Link, useLoad } from '../ui';
 import { ChangePassword } from '../pages/Login';
+import { AcceptPlatformTerms } from '../pages/Legal';
 import { NotFound } from './NotFound';
 import AdminPage from '../pages/tutor/Admin';
 import Settings from '../pages/tutor/Settings';
@@ -40,9 +41,12 @@ export default function TutorApp({ path, params }) {
       .catch(() => {});
   }, [path]);
 
+  // Новая редакция условий платформы: сначала принять (данные учеников обрабатываются по поручению преподавателя)
+  const terms = useLoad(() => api.platformTerms().catch(() => ({ pending: false })), []);
   // Банк заданий пока по учебникам английского: показываем его тем, кто преподаёт язык
   const baseNav = hasBank(user.subject) ? TUTOR_NAV : TUTOR_NAV.filter((n) => n.to !== '/bank');
-  const tutorNav = user.is_admin ? [...baseNav, { to: '/admin', label: 'Учителя', icon: 'shield', hideMobile: true }] : baseNav;
+  const tutorNav = user.is_admin ? [...baseNav, { to: '/admin', label: 'Учителя', icon: 'shield', hideMobile: true, group: 'Учёт' }] : baseNav;
+  if (terms.data?.pending && !user.is_admin) return <AcceptPlatformTerms docs={terms.data.docs} onDone={terms.reload} />;
   let page;
   if (parts.length === 0) page = <TutorDashboard />;
   else if (parts[0] === 'schedule') page = <TutorSchedule />;

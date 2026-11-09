@@ -79,7 +79,7 @@ async function run() {
 let timer = null;
 function start() {
   if (timer || process.env['AUTOCLOSE_OFF'] === '1') return;
-  const tick = () => run().catch((err) => console.error('⏱️ Автосписание не сработало:', err.message));
+  const tick = () => require('./jobs').withLock('autoclose', run).catch((err) => console.error('⏱️ Автосписание не сработало:', err.message));
   setTimeout(tick, 20000).unref?.();
   timer = setInterval(tick, EVERY_MS);
   timer.unref?.();

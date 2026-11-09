@@ -34,17 +34,18 @@ const smallJson = express.json({ limit: '200kb' });
 const BIG_BODY = ['/api/files', '/api/library'];
 app.use((req, res, next) => (BIG_BODY.some((p) => req.path.startsWith(p)) ? next() : smallJson(req, res, next)));
 
-// CORS: только адреса из FRONTEND_ORIGINS (через запятую)
-// Плюс любые адреса вида https://что-то.relaxdev.ru: фронтенд на RelaxDev работает без настройки.
-// Вход по токену в заголовке (не cookie), поэтому это безопасно.
+// CORS: только адреса из FRONTEND_ORIGINS (через запятую).
+// Пока FRONTEND_ORIGINS не задан, для первого запуска пускаем любые https://….relaxdev.ru.
+// Это адреса и других клиентов хостинга, поэтому в работе задайте FRONTEND_ORIGINS (адрес фронтенда и свой домен).
 const origins = String(process.env['FRONTEND_ORIGINS'] || 'http://localhost:5173')
   .split(',')
   .map((s) => s.trim().replace(/\/$/, ''))
   .filter((s) => /^https?:\/\//.test(s));
-const RELAXDEV = /^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.relaxdev\.ru$/i;
+const RELAXDEV = process.env['FRONTEND_ORIGINS'] ? null : /^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.relaxdev\.ru$/i;
+if (RELAXDEV) console.log('⚠️ FRONTEND_ORIGINS не задан: API открыт для любых *.relaxdev.ru. Задайте адрес своего фронтенда.');
 app.use(
   cors({
-    origin: (origin, cb) => cb(null, !origin || origins.includes(origin) || RELAXDEV.test(origin)),
+    origin: (origin, cb) => cb(null, !origin || origins.includes(origin) || Boolean(RELAXDEV && RELAXDEV.test(origin))),
   })
 );
 
@@ -52,7 +53,9 @@ app.use(
 app.get('/api/health', async (req, res) => {
   try {
     await pool.query('SELECT 1');
-    res.json({ ok: true });
+    const b = await require('./services/backup').state().catch(() => null);
+    // backup_age_h: сколько часов назад была последняя удачная копия (для внешней проверки доступности)
+    res.json({ ok: true, uptime_s: Math.round(process.uptime()), backup_age_h: b?.ok ? Math.round((Date.now() - new Date(b.at)) / 36e5) : null });
   } catch {
     res.status(503).json({ ok: false });
   }
@@ -63,6 +66,7 @@ app.use('/api/auth', require('./routes/auth'));
 
 // Юридические документы открыты всем (ссылки со страницы входа)
 app.use('/api/legal/public', require('./routes/legal').publicRouter);
+app.use('/api/platform-docs', require('./routes/platformDocs').publicRouter);
 // Страница записи для новых учеников — тоже без входа
 app.use('/api/public', require('./routes/leads').publicRouter);
 // Тарифы для главной страницы
@@ -91,6 +95,18 @@ app.get('/api/shop', async (req, res) => {
 // Всё остальное — только после входа и смены временного пароля
 const protectedApi = express.Router();
 protectedApi.use(authenticate, requirePasswordChanged);
+
+// Ограничения частоты: общий потолок на пользователя и отдельные для тяжёлых действий
+const rateLimit = require('express-rate-limit');
+const limiter = (windowMin, limit, error) => rateLimit({
+  windowMs: windowMin * 60 * 1000, limit, standardHeaders: true, legacyHeaders: false,
+  keyGenerator: (req) => (req.user ? `u${req.user.id}` : req.ip), message: { error },
+});
+protectedApi.use(limiter(5, 1500, 'Слишком много запросов, подождите пару минут'));
+protectedApi.use('/pronounce', limiter(1, 120, 'Слишком часто, подождите минуту'));
+protectedApi.use('/files', limiter(10, 120, 'Слишком много загрузок, подождите 10 минут'));
+protectedApi.use('/library-books', limiter(10, 400, 'Слишком много загрузок, подождите 10 минут'));
+protectedApi.use('/plan/request', limiter(60, 10, 'Слишком много заявок, попробуйте через час'));
 protectedApi.use('/dashboard', require('./routes/dashboard'));
 protectedApi.use('/students', require('./routes/students'));
 protectedApi.use('/accounts', require('./routes/accounts'));
@@ -120,6 +136,7 @@ protectedApi.use('/library-folders', require('./routes/folders'));
 protectedApi.use('/library-books', require('./routes/books'));
 protectedApi.use('/plan', require('./routes/plans').router);
 protectedApi.use('/pronounce', require('./routes/pronounce'));
+protectedApi.use('/platform-terms', require('./routes/platformDocs').protectedRouter);
 app.use('/api', protectedApi);
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Не найдено' }));
@@ -131,18 +148,25 @@ app.use((err, req, res, next) => {
   if (err.type === 'entity.too.large') return res.status(413).json({ error: 'Слишком большой файл (до 10 МБ)' });
   if (err.status) return res.status(err.status).json({ error: err.message });
   console.error(`❌ ${req.method} ${req.originalUrl}:`, err);
+  require('./services/monitor').capture(err, { where: `${req.method} ${req.originalUrl.split('?')[0]}` });
   res.status(500).json({ error: 'Внутренняя ошибка сервера' });
 });
 
 const PORT = Number(process.env['PORT']) || 3001;
 if (require.main === module) {
+  require('./services/monitor').install();
   app.listen(PORT, () => console.log(`✅ API запущен на порту ${PORT}`));
   require('./services/telegram').start();
   require('./services/reminders').start();
   require('./services/autoclose').start();
   require('./services/bank').start();
   require('./services/folders').start();
-  require('./services/plans').ensure().catch((err) => console.error('Тарифы не запустились:', err.message));
+  require('./services/migrate').migrate()
+    .then(() => require('./services/schema').ensureAll())
+    .catch((err) => { console.error('❌ Схема базы не обновилась:', err.message); require('./services/monitor').capture(err, { where: 'миграции' }); });
+  require('./services/backup').start();
+  require('./services/trial').start();
+  require('./services/storage').start();
   lessonfold.start();
 }
 
