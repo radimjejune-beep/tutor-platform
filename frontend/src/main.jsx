@@ -38,3 +38,22 @@ document.addEventListener('keydown', (e) => {
     e.target.click();
   }
 });
+
+// Хостинг не запрещает браузеру кэшировать index.html, поэтому после выхода новой версии
+// у человека может открываться старая. Раз в 5 минут и при возврате на вкладку сверяем файл сборки
+// с сервером; если вышла новая версия, перезагружаем страницу при следующем переходе по разделам.
+(() => {
+  const current = () => (document.querySelector('script[type="module"][src*="/assets/index-"]')?.getAttribute('src') || '').split('/').pop();
+  let outdated = false;
+  const check = async () => {
+    try {
+      const html = await fetch(`/?v=${Date.now()}`, { cache: 'no-store' }).then((r) => r.text());
+      const latest = (html.match(/assets\/(index-[\w-]+\.js)/) || [])[1];
+      if (latest && current() && latest !== current()) outdated = true;
+    } catch { /* нет сети: проверим позже */ }
+  };
+  setInterval(check, 5 * 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+  setTimeout(check, 30 * 1000);
+  window.addEventListener('hashchange', () => { if (outdated) window.location.reload(); });
+})();
