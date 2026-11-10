@@ -8,6 +8,12 @@ async function toAdmins(title, body = null, { key = title, everyMin = 30 } = {})
   if (last && Date.now() - last < everyMin * 60 * 1000) return;
   recent.set(key, Date.now());
   try {
+    // Повтор не чаще everyMin и после перезапуска сервера: смотрим, когда такое сообщение уже приходило
+    const { rows: dup } = await query(
+      "SELECT 1 FROM notifications WHERE kind = 'system' AND title = $1 AND created_at > NOW() - make_interval(mins => $2) LIMIT 1",
+      [String(title).slice(0, 255), Math.round(everyMin)]
+    );
+    if (dup[0]) return;
     const { rows } = await query("SELECT id FROM users WHERE is_admin AND is_active");
     for (const r of rows) {
       await query('INSERT INTO notifications (user_id, kind, title, body) VALUES ($1, $2, $3, $4)', [r.id, 'system', String(title).slice(0, 255), body ? String(body).slice(0, 2000) : null]);

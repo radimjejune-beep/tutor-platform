@@ -9,6 +9,7 @@ export default function NotificationBell({ path, compact }) {
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState(null);
+  const [pos, setPos] = useState(null); // в боковом меню окно ставим поверх страницы, чтобы меню его не обрезало
   const box = useRef(null);
 
   const refresh = useCallback(() => {
@@ -42,6 +43,11 @@ export default function NotificationBell({ path, compact }) {
       setItems(null);
       api.notifications().then((r) => { setItems(r.items); setUnread(r.unread); }).catch(() => setItems([]));
     }
+    if (!open && !compact && box.current) {
+      const r = box.current.getBoundingClientRect();
+      const width = Math.min(380, window.innerWidth - 32);
+      setPos({ position: 'fixed', top: Math.min(r.bottom + 6, window.innerHeight - 200), left: Math.max(16, Math.min(r.left, window.innerWidth - width - 16)), width });
+    }
     setOpen(!open);
   };
 
@@ -68,7 +74,7 @@ export default function NotificationBell({ path, compact }) {
         {unread > 0 && <span className="bell-count">{unread > 99 ? '99+' : unread}</span>}
       </button>
       {open && (
-        <div className="bell-panel" role="dialog" aria-label="Уведомления">
+        <div className="bell-panel" role="dialog" aria-label="Уведомления" style={!compact && pos ? pos : undefined}>
           <div className="bell-head">
             <span className="meta-label">Уведомления</span>
             {unread > 0 && <button className="btn btn-quiet btn-sm" onClick={readAll}>Прочитать все</button>}
@@ -79,7 +85,7 @@ export default function NotificationBell({ path, compact }) {
             {(items || []).map((n) => (
               <button key={n.id} className={`bell-item ${n.read_at ? '' : 'unread'}`} onClick={() => go(n)}>
                 <span className="bell-title">{n.title}</span>
-                {n.body && <span className="bell-body">{n.body}</span>}
+                {n.body && <span className="bell-body" title={n.body}>{n.body}</span>}
                 <span className="bell-when">{relativeDay(n.created_at)}, {time(n.created_at)}</span>
               </button>
             ))}
