@@ -14,6 +14,7 @@ async function ensureAll() {
     ['trial', () => require('./trial').ensure()],
     ['demo', () => require('../routes/demo').ensure()],
     ['hwnudge', () => require('./hwnudge').ensure()],
+    ['sandbox', () => require('../routes/sandbox').ensure()],
   ];
   for (const [name, fn] of steps) {
     try { await fn(); } catch (err) { console.error(`⚠️ Схема «${name}»: ${err.message}`); throw err; }

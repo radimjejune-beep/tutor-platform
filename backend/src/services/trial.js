@@ -45,9 +45,10 @@ async function run() {
   await ensure();
   const plans = require('./plans');
   await plans.ensure();
+  await require('../routes/sandbox').ensure();
   const { rows } = await query(
     `SELECT id, created_at, plan, plan_until FROM users
-      WHERE role = 'tutor' AND is_active AND NOT is_admin AND plan = 'trial' AND plan_until IS NOT NULL
+      WHERE role = 'tutor' AND is_active AND NOT is_admin AND NOT is_sandbox AND plan = 'trial' AND plan_until IS NOT NULL
         AND plan_until > NOW() - INTERVAL '3 days'`
   );
   const paid = plans.PLANS.tutor;

@@ -8,6 +8,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-test-secret-test-secret-123';
 const opts = { skip: hasDb ? false : 'нет DATABASE_URL' };
 
 test('база данных', opts, async (t) => {
@@ -217,6 +218,29 @@ test('база данных', opts, async (t) => {
     const a = await tutor();
     const r = await call(mod, 'POST', '/', { user: a, body: { title: 'Разговорные темы' } });
     assert.equal(r.status, 201, JSON.stringify(r.body));
+  });
+
+  await t.test('тестовый кабинет: создаётся с примером, открывает кабинет ученика, не виден в метриках, удаляется через срок', async () => {
+    const { mod } = loadRoutes('routes/sandbox.js');
+    const made = await call(mod.publicRouter, 'POST', '/', { ip: '10.1.1.1' });
+    assert.equal(made.status, 201, JSON.stringify(made.body));
+    const { rows: [u] } = await query("SELECT id, login, plan FROM users WHERE is_sandbox AND role = 'tutor' ORDER BY id DESC LIMIT 1");
+    assert.match(u.login, /^test-/);
+    const me = { id: u.id, tid: u.id, role: 'tutor', login: u.login };
+    const st = await query('SELECT COUNT(*)::int AS n FROM students WHERE tutor_id = $1 AND user_id IS NOT NULL', [u.id]);
+    assert.equal(st.rows[0].n, 2);
+    assert.equal((await call(mod.router, 'GET', '/', { user: me })).body.sandbox, true);
+    const as = await call(mod.router, 'POST', '/as-student', { user: me, body: {} });
+    assert.ok(as.body.token, JSON.stringify(as.body));
+    const plain = await tutor();
+    assert.equal((await call(mod.router, 'POST', '/as-student', { user: plain, body: {} })).status, 403);
+    const admin = await tutor({ is_admin: true });
+    const list = await call(loadRoutes('routes/admin.js').mod, 'GET', '/tutors', { user: admin });
+    assert.equal(JSON.stringify(list.body).includes(u.login), false);
+    await query("UPDATE users SET created_at = NOW() - INTERVAL '10 days' WHERE id = $1", [u.id]);
+    assert.ok((await mod.cleanup()) >= 1);
+    const left = await query('SELECT (SELECT COUNT(*) FROM users WHERE login LIKE $1)::int AS u, (SELECT COUNT(*) FROM students WHERE tutor_id = $2)::int AS s', [`${u.login}%`, u.id]);
+    assert.deepEqual(left.rows[0], { u: 0, s: 0 });
   });
 
   await t.test('фоновая задача не запускается дважды одновременно', async () => {

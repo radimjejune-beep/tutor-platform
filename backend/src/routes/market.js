@@ -102,6 +102,10 @@ router.post(
       .strict()
   ),
   asyncHandler(async (req, res) => {
+    // Из тестового кабинета в общий каталог ничего не публикуется
+    await require('./sandbox').ensure();
+    const { rows: sb } = await query('SELECT is_sandbox FROM users WHERE id = $1', [req.user.id]);
+    if (sb[0]?.is_sandbox) return res.status(403).json({ error: 'В тестовом кабинете публикация в каталог выключена' });
     const b = req.body;
     if (!(await owns(req.user, 'library_items', b.item_id))) return res.status(404).json({ error: 'Материал не найден' });
     // Купленное в каталоге перепродавать нельзя

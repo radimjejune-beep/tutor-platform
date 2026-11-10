@@ -1,6 +1,7 @@
 // App.jsx — выбор кабинета по роли и маршруты
 // Главная, вход и документы в основном файле; кабинеты грузятся отдельно после входа,
 // поэтому главная страница открывается быстрее.
+import { TrySandbox } from './components/Sandbox';
 import { lazy, Suspense } from 'react';
 import { AuthProvider, useAuth } from './auth';
 import { ToastProvider, Spinner, useRoute } from './ui';
@@ -46,6 +47,8 @@ function Root() {
   // Страница записи репетитора открывается без входа
   if (path.startsWith('/join/')) return <Join login={decodeURIComponent(path.split('/')[2] || '')} />;
   if (session === undefined) return <Spinner />;
+  // Тестовый кабинет без регистрации: ссылку /#/try можно отправить кому угодно
+  if (path === '/try') return <TrySandbox />;
   if (!session) {
     if (path === '/register') return <Register />;
     // Главная до входа: страница платформы. Витрина готовых уроков отдельно: /shop

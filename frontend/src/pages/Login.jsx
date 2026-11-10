@@ -79,6 +79,9 @@ export function Login() {
           <span>Вы репетитор?</span> <Link to="/register">Создать свой кабинет бесплатно</Link>
         </div>
       )}
+      <div className="register-cta" style={{ marginTop: 10 }}>
+        <span>Хотите сначала посмотреть?</span> <Link to="/try">Открыть тестовый кабинет</Link>
+      </div>
       <p className="small" style={{ marginTop: 28, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         {LEGAL_LINKS.map((l) => <Link key={l.kind} to={`/legal/${l.kind}`} className="muted">{l.label}</Link>)}
       </p>

@@ -40,7 +40,16 @@ router.post(
   asyncHandler(async (req, res) => {
     const tid = req.user.id;
     if (await hasDemo(tid)) return res.status(409).json({ error: 'Пример уже добавлен' });
-    await transaction(async (c) => {
+    await transaction((c) => createDemo(c, tid));
+    console.log(`🧪 Пример добавлен: ${req.user.login}`);
+    res.status(201).json({ ok: true });
+  })
+);
+
+// Создать пример в транзакции c. Возвращает учеников { anna, misha }
+async function createDemo(c, tid) {
+  {
+    {
       const student = async (s) => (await c.query(
         `INSERT INTO students (tutor_id, full_name, category, level, goal, textbook, default_price, default_duration, status, is_demo)
          VALUES ($1, $2, $3, $4, $5, $6, $7, 60, 'active', TRUE) RETURNING *`,
@@ -90,11 +99,10 @@ router.post(
         [a[0].id, anna.id, 'I get up at 7. I have breakfast at 8. I goes to work by metro. I finish work at 6. In the evening I read books.', JSON.stringify({ q1: ['goes'], q2: ['Do'], q3: ["don't"] })]
       );
       await c.query(`INSERT INTO homework (assignment_id, student_id, status) VALUES ($1, $2, 'assigned')`, [a[0].id, misha.id]);
-    });
-    console.log(`🧪 Пример добавлен: ${req.user.login}`);
-    res.status(201).json({ ok: true });
-  })
-);
+      return { anna, misha };
+    }
+  }
+}
 
 router.delete(
   '/',
@@ -111,3 +119,4 @@ router.delete(
 
 module.exports = router;
 module.exports.ensure = ensure;
+module.exports.createDemo = createDemo;

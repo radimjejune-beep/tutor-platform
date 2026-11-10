@@ -68,6 +68,8 @@ app.use('/api/auth', require('./routes/auth'));
 // Юридические документы открыты всем (ссылки со страницы входа)
 app.use('/api/legal/public', require('./routes/legal').publicRouter);
 app.use('/api/platform-docs', require('./routes/platformDocs').publicRouter);
+// Тестовый кабинет без регистрации (ссылка /#/try)
+app.use('/api/sandbox', require('./routes/sandbox').publicRouter);
 // Страница записи для новых учеников — тоже без входа
 app.use('/api/public', require('./routes/leads').publicRouter);
 // Тарифы для главной страницы
@@ -138,6 +140,7 @@ protectedApi.use('/library-books', require('./routes/books'));
 protectedApi.use('/plan', require('./routes/plans').router);
 protectedApi.use('/pronounce', require('./routes/pronounce'));
 protectedApi.use('/demo', require('./routes/demo'));
+protectedApi.use('/sandbox', require('./routes/sandbox').router);
 protectedApi.use('/platform-terms', require('./routes/platformDocs').protectedRouter);
 app.use('/api', protectedApi);
 
@@ -170,6 +173,7 @@ if (require.main === module) {
   require('./services/trial').start();
   require('./services/storage').start();
   require('./services/hwnudge').start();
+  require('./routes/sandbox').start();
   lessonfold.start();
 }
 

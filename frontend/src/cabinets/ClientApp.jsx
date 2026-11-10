@@ -1,4 +1,5 @@
 // cabinets/ClientApp.jsx — кабинет ученика и родителя (грузится отдельно, после входа)
+import { SandboxBackBar } from '../components/Sandbox';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../auth';
 import { api } from '../api';
@@ -83,6 +84,7 @@ function ClientCabinet({ path }) {
 
   return (
     <Shell nav={clientNav} path={path} counts={counts}>
+      <SandboxBackBar />
       {students.length > 1 && (
         <div className="row wrap" style={{ marginBottom: 22 }} role="tablist" aria-label="Ребёнок">
           {students.map((s) => (

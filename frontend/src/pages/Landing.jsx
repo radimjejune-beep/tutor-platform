@@ -166,7 +166,8 @@ export default function Landing() {
             <p className="lp-lead">Расписание с напоминаниями, домашка с автопроверкой, словарь с британским диктором и учёт оплат в одном кабинете. Ученики и родители видят всё у себя. Вы возвращаете себе вечера.</p>
             <div className="lp-cta">
               <Cta />
-              <a href="#features" className="btn btn-ghost-light" onClick={scrollTo('features')}>Посмотреть возможности</a>
+              {!session && <Link to="/try" className="btn btn-ghost-light">Посмотреть без регистрации</Link>}
+              {session && <a href="#features" className="btn btn-ghost-light" onClick={scrollTo('features')}>Посмотреть возможности</a>}
             </div>
             <div className="lx-trust">
               <span><Icon name="check" size={14} /> {trial} дней всё открыто, без карты</span>

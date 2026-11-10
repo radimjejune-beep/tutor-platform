@@ -10,6 +10,7 @@ const { generateTempPassword, uniqueLogin } = require('../utils');
 const plans = require('../services/plans');
 
 const router = express.Router();
+router.use(asyncHandler(async (req, res, next) => { await require('./sandbox').ensure(); next(); }));
 router.use(requireRole('tutor'), requireAdmin);
 
 router.get(
@@ -21,7 +22,7 @@ router.get(
               (SELECT COUNT(*)::int FROM students s WHERE s.tutor_id = u.id AND s.status = 'active') AS students,
               (SELECT COUNT(*)::int FROM lessons l JOIN students s ON s.id = l.student_id
                 WHERE s.tutor_id = u.id AND l.status = 'done' AND l.starts_at > NOW() - INTERVAL '30 days') AS lessons_30d
-         FROM users u WHERE u.role = 'tutor'
+         FROM users u WHERE u.role = 'tutor' AND NOT u.is_sandbox
         ORDER BY u.is_admin DESC, u.created_at`
     );
     const { rows: reg } = await query("SELECT value FROM settings WHERE key = 'registration'");
@@ -137,7 +138,7 @@ router.get(
     await require('./demo').ensure();
     const days = plans.TRIAL_DAYS;
     const { rows } = await query(
-      `WITH t AS (SELECT * FROM users WHERE role = 'tutor' AND NOT is_admin),
+      `WITH t AS (SELECT * FROM users WHERE role = 'tutor' AND NOT is_admin AND NOT is_sandbox),
        act AS (
          SELECT t.id,
                 EXISTS (SELECT 1 FROM students s WHERE s.tutor_id = t.id AND NOT s.is_demo) AS has_student,

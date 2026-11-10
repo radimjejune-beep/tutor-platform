@@ -1,4 +1,5 @@
 // cabinets/TutorApp.jsx — кабинет преподавателя (грузится отдельно, после входа)
+import { SandboxBar } from '../components/Sandbox';
 import { subjectInfo, hasBank } from '../subjects';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../auth';
@@ -86,6 +87,7 @@ export default function TutorApp({ path, params }) {
 
   return (
     <Shell nav={tutorNav} path={path} counts={counts}>
+      <SandboxBar />
       {page}
     </Shell>
   );
