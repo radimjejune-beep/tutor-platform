@@ -14,7 +14,7 @@ const tutorOnly = requireRole('tutor');
 
 // Работа + поля задания
 const SELECT_HW = `
-  SELECT h.*, a.title, a.description, a.links, a.due_on, a.library_item_ids, a.vocab_practice,
+  SELECT h.*, a.title, a.description, a.links, a.due_on, a.library_item_ids, a.vocab_practice, a.answer_mode,
          jsonb_array_length(a.questions) AS question_count,
          s.full_name AS student_name,
          a.word_set_id, ws.title AS word_set_title, jsonb_array_length(ws.words) AS word_set_count,

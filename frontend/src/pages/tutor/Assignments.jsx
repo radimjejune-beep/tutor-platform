@@ -93,6 +93,7 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
     vocabCount: assignment?.vocab_practice?.count || 12,
     items: assignment?.library_item_ids || presetItems || [],
     setId: assignment?.word_set_id || null,
+    answer_mode: assignment?.answer_mode || 'both',
   });
   const [newWords, setNewWords] = useState([]); // слова к уроку: новый набор из вставленного списка
   const [pendingFiles, setPendingFiles] = useState([]); // для нового задания — загрузим после создания
@@ -114,6 +115,7 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
       questions: showQuiz ? cleanQuestions(f.questions) : [],
       library_item_ids: f.items,
       vocab_practice: f.vocab ? { count: Number(f.vocabCount) } : null,
+      answer_mode: f.answer_mode,
     };
     // Слова к уроку: вставленный список становится набором карточек этого задания
     if (newWords.length) {
@@ -190,6 +192,8 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
                 </>
               )}
             </Field>
+            <AnswerModeField value={f.answer_mode} onChange={(v) => setF({ ...f, answer_mode: v })}
+              hasFiles={isNew ? pendingFiles.length > 0 : assignment.files.length > 0} />
           </section>
 
           <section className="panel">
@@ -584,5 +588,28 @@ function HomeworkWords({ setId, onSetId, words, onWords }) {
         )
       )}
     </section>
+  );
+}
+
+// Как ученик отвечает на задание: текстом прямо на сайте, фото и файлами, и так и так, или ответ не нужен
+const ANSWER_MODES = [
+  ['text', 'Текстом на сайте', 'Под заданием будет поле «Ваш ответ», ученик пишет ответы туда'],
+  ['files', 'Фото или файлом', 'Ученик прикладывает фото тетради, аудио или документ'],
+  ['both', 'Текстом или файлом', 'Можно и написать, и приложить файл'],
+  ['none', 'Ответ не нужен', 'Посмотреть, послушать или прочитать. Ученик просто отмечает «Сделано»'],
+];
+function AnswerModeField({ value, onChange, hasFiles }) {
+  const cur = ANSWER_MODES.find((m) => m[0] === value) || ANSWER_MODES[2];
+  return (
+    <Field label="Как ученик отвечает" hint={cur[2]}>
+      {hasFiles && value === 'both' && (
+        <div className="note small" style={{ marginBottom: 8 }}>К заданию приложены файлы. Уточните, где ученику писать ответ: в поле на сайте или в тетради с фото.</div>
+      )}
+      <div className="seg seg-wrap">
+        {ANSWER_MODES.map(([k, label]) => (
+          <button key={k} type="button" className={value === k ? 'on' : ''} onClick={() => onChange(k)}>{label}</button>
+        ))}
+      </div>
+    </Field>
   );
 }

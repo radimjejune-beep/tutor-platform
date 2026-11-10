@@ -32,7 +32,8 @@ app.use(helmet());
 const smallJson = express.json({ limit: '200kb' });
 // Большие запросы разбираются в своих маршрутах: файлы (до 15 МБ) и импорт библиотеки (до 2 МБ)
 const BIG_BODY = ['/api/files', '/api/library'];
-app.use((req, res, next) => (BIG_BODY.some((p) => req.path.startsWith(p)) ? next() : smallJson(req, res, next)));
+// Сравнение по целому сегменту пути: /api/library-folders и /api/library-books сюда не попадают
+app.use((req, res, next) => (BIG_BODY.some((p) => req.path === p || req.path.startsWith(`${p}/`)) ? next() : smallJson(req, res, next)));
 
 // CORS: только адреса из FRONTEND_ORIGINS (через запятую).
 // Пока FRONTEND_ORIGINS не задан, для первого запуска пускаем любые https://….relaxdev.ru.
@@ -168,6 +169,7 @@ if (require.main === module) {
   require('./services/backup').start();
   require('./services/trial').start();
   require('./services/storage').start();
+  require('./services/hwnudge').start();
   lessonfold.start();
 }
 

@@ -74,3 +74,8 @@ test('документы платформы: три документа, без �
   assert.deepEqual(docs.map((d) => d.kind).sort(), ['dpa', 'privacy', 'terms']);
   for (const d of docs) assert.equal(JSON.stringify(d).includes('—'), false, d.kind);
 });
+
+test('JSON разбирается для /api/library-folders и /api/library-books (не путать с /api/library)', () => {
+  const srv = require('fs').readFileSync(src('server.js'), 'utf8');
+  assert.match(srv, /req\.path === p \|\| req\.path\.startsWith\(`\$\{p\}\/`\)/);
+});

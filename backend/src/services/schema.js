@@ -13,6 +13,7 @@ async function ensureAll() {
     ['pronounce', () => require('../routes/pronounce').ensure()],
     ['trial', () => require('./trial').ensure()],
     ['demo', () => require('../routes/demo').ensure()],
+    ['hwnudge', () => require('./hwnudge').ensure()],
   ];
   for (const [name, fn] of steps) {
     try { await fn(); } catch (err) { console.error(`⚠️ Схема «${name}»: ${err.message}`); throw err; }

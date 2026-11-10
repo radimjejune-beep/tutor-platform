@@ -2,7 +2,7 @@
 import { useAuth } from './auth';
 import { BRAND } from './config';
 import { createContext, Fragment, useContext, useLayoutEffect, useState } from 'react';
-import { Icon, Link, goBack } from './ui';
+import { Icon, Link, goBack, navigate } from './ui';
 import NotificationBell from './components/Notifications';
 import CommandPalette, { usePaletteHotkey } from './components/CommandPalette';
 
@@ -65,11 +65,12 @@ export function BackLink({ to, children }) {
     mark(true);
     return () => mark(false);
   }, [mark]);
-  return <BackButton to={to}>{children}</BackButton>;
+  // С подписью раздела («Ученики», «Задания») ведёт именно туда, а не на предыдущую страницу
+  return <BackButton to={to} direct={Boolean(children)}>{children}</BackButton>;
 }
-function BackButton({ to, children }) {
+function BackButton({ to, children, direct }) {
   return (
-    <button type="button" className="back-btn" onClick={() => goBack(to)}>
+    <button type="button" className="back-btn" onClick={() => (direct ? navigate(to) : goBack(to))}>
       <Icon name="back" size={16} /> <span className="back-label">{children || 'Назад'}</span>
     </button>
   );

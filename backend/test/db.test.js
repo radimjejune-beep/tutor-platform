@@ -194,6 +194,31 @@ test('база данных', opts, async (t) => {
     assert.deepEqual(left.rows[0], { s: 0, a: 0 });
   });
 
+  await t.test('после проведённого урока без ДЗ преподавателю приходит напоминание, один раз', async () => {
+    const nudge = require(src('services/hwnudge.js'));
+    await nudge.ensure();
+    const a = await tutor();
+    const s1 = await student(a.id, 'Без ДЗ');
+    const s2 = await student(a.id, 'С ДЗ');
+    const lesson = (sid) => query(`INSERT INTO lessons (student_id, starts_at, duration_min, status, price) VALUES ($1, NOW() - INTERVAL '2 hours', 60, 'done', 1000)`, [sid]);
+    await lesson(s1); await lesson(s2);
+    const { rows: asg } = await query(`INSERT INTO assignments (title, tutor_id) VALUES ('ДЗ', $1) RETURNING id`, [a.id]);
+    await query('INSERT INTO homework (assignment_id, student_id) VALUES ($1, $2)', [asg[0].id, s2]);
+    await nudge.run();
+    await nudge.run();
+    const { rows } = await query("SELECT title, link FROM notifications WHERE user_id = $1 AND kind = 'homework_nudge'", [a.id]);
+    assert.equal(rows.length, 1, JSON.stringify(rows));
+    assert.match(rows[0].title, /Без ДЗ/);
+    assert.equal(rows[0].link, `/homework/new?student=${s1}`);
+  });
+
+  await t.test('библиотека: папки создаются (тело запроса доходит до маршрута)', async () => {
+    const { mod } = loadRoutes('routes/folders.js');
+    const a = await tutor();
+    const r = await call(mod, 'POST', '/', { user: a, body: { title: 'Разговорные темы' } });
+    assert.equal(r.status, 201, JSON.stringify(r.body));
+  });
+
   await t.test('фоновая задача не запускается дважды одновременно', async () => {
     const { withLock } = require(src('services/jobs.js'));
     const { pool } = require(src('db.js'));

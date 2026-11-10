@@ -63,7 +63,7 @@ export default function Recommendations({ studentId, tutor, compact }) {
           return to ? <Link key={i} to={to} className="rec-item clickable">{body}</Link> : <div key={i} className="rec-item">{body}</div>;
         })}
       </div>
-      {compact && items.length > 3 && <Link to="/progress" className="small" style={{ display: 'inline-block', marginTop: 10 }}>Все подсказки ({items.length + more})</Link>}
+      {compact && items.length > 3 && <Link to={tutor ? `/students/${studentId}/progress` : "/progress"} className="small" style={{ display: 'inline-block', marginTop: 10 }}>Все подсказки ({items.length + more})</Link>}
       {tutor && strong.length > 0 && (
         <div className="rec-strong small">
           <b>Хорошо получается:</b> {strong.map((s) => `${s.title} (${s.reason.replace('в среднем ', '')})`).join(', ')}

@@ -37,6 +37,7 @@ const fields = {
   library_item_ids: z.array(z.number().int().positive()).max(50),
   vocab_practice: z.object({ count: z.number().int().min(4).max(30) }).strict().nullable(),
   word_set_id: z.number().int().positive().nullable(), // слова к уроку: набор карточек
+  answer_mode: z.enum(['both', 'text', 'files', 'none']), // как ученик отвечает
 };
 
 // Набор карточек должен быть своим. Ученикам задания открываем доступ к нему
@@ -89,7 +90,7 @@ const createSchema = z
     ...fields,
     student_ids: z.array(z.number().int().positive()).min(1, 'Выберите хотя бы одного ученика').max(100),
   })
-  .partial({ description: true, links: true, due_on: true, questions: true, library_item_ids: true, vocab_practice: true, word_set_id: true })
+  .partial({ description: true, links: true, due_on: true, questions: true, library_item_ids: true, vocab_practice: true, word_set_id: true, answer_mode: true })
   .strict();
 
 router.post(
@@ -104,10 +105,10 @@ router.post(
       if (setId === undefined) return { error: 'Набор карточек не найден' };
 
       const { rows } = await client.query(
-        `INSERT INTO assignments (title, description, links, due_on, questions, library_item_ids, vocab_practice, tutor_id, word_set_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+        `INSERT INTO assignments (title, description, links, due_on, questions, library_item_ids, vocab_practice, tutor_id, word_set_id, answer_mode)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
         [b.title, b.description || null, b.links || [], b.due_on || null, JSON.stringify(b.questions || []),
-          await ownItems(client, b.library_item_ids, req.user.id), b.vocab_practice ? JSON.stringify(b.vocab_practice) : null, req.user.id, setId]
+          await ownItems(client, b.library_item_ids, req.user.id), b.vocab_practice ? JSON.stringify(b.vocab_practice) : null, req.user.id, setId, b.answer_mode || 'both']
       );
       await shareSet(client, setId, [...new Set(b.student_ids)]);
       const given = [];

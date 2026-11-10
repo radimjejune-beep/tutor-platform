@@ -23,6 +23,7 @@ export default function HomeworkPage({ id, isParent }) {
 function HomeworkView({ h, isParent, reload }) {
   const toast = useToast();
   const [answer, setAnswer] = useState(h.student_answer || '');
+  const mode = h.answer_mode || 'both';
   const [quiz, setQuiz] = useState(h.quiz_answers || {});
   const canEdit = !isParent && h.status === 'assigned';
   const overdue = h.status === 'assigned' && h.due_on && h.due_on < todayISO();
@@ -59,6 +60,7 @@ function HomeworkView({ h, isParent, reload }) {
           </div>
 
           {h.description && <MathText as="p" className="instructions" style={{ marginTop: 0 }}>{h.description}</MathText>}
+          {canEdit && mode === 'text' && <p className="small muted" style={{ marginTop: 0 }}>Ответы пишите в поле «Ваш ответ» в блоке «Ваша работа».</p>}
           {(h.materials.length > 0 || h.links.length > 0) && (
             <div style={{ margin: '18px 0' }}>
               <Materials files={h.materials} links={h.links} />
@@ -124,13 +126,23 @@ function HomeworkView({ h, isParent, reload }) {
 
           {canEdit ? (
             <div className="form" style={{ marginTop: 12 }}>
-              <UploadArea upload={(file) => api.uploadFile({ homework_id: h.id }, file)} onUploaded={reload} hint="Фото тетради, запись голоса, файлы" />
-              <Field label="Ответ или комментарий">
-                <textarea className="textarea" value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="Можно написать ответы здесь или прикрепить фото тетради" />
-              </Field>
+              {/* Преподаватель выбирает, как отвечать: текстом на сайте, файлом, и так и так или ответ не нужен */}
+              {mode === 'text' && <div className="note small">Пишите ответы в поле ниже, по номерам заданий.</div>}
+              {mode === 'files' && <div className="note small">Сделайте задание в тетради и приложите фото или файл.</div>}
+              {mode === 'none' && <div className="note small">Ответ присылать не нужно. Когда сделаете, нажмите «Сделано».</div>}
+              {(mode === 'files' || mode === 'both') && (
+                <UploadArea upload={(file) => api.uploadFile({ homework_id: h.id }, file)} onUploaded={reload} hint="Фото тетради, запись голоса, файлы" />
+              )}
+              {mode !== 'none' && (
+                <Field label={mode === 'text' ? 'Ваш ответ' : mode === 'files' ? 'Комментарий (по желанию)' : 'Ответ или комментарий'}>
+                  <textarea className="textarea" value={answer} onChange={(e) => setAnswer(e.target.value)}
+                    style={mode === 'text' ? { minHeight: 220 } : undefined}
+                    placeholder={mode === 'text' ? '1. …\n2. …' : mode === 'files' ? 'Например, что не получилось' : 'Можно написать ответы здесь или прикрепить фото тетради'} />
+                </Field>
+              )}
               {submit.error && <div className="alert">{submit.error}</div>}
-              <button className="btn" style={{ height: 48 }} disabled={submit.busy} onClick={submit.submit}>
-                {submit.busy ? 'Отправляем…' : 'Сдать'}
+              <button className="btn" style={{ height: 48 }} disabled={submit.busy || (mode === 'text' && !answer.trim() && !h.questions.length)} onClick={submit.submit}>
+                {submit.busy ? 'Отправляем…' : mode === 'none' ? 'Сделано' : 'Сдать'}
               </button>
             </div>
           ) : (
