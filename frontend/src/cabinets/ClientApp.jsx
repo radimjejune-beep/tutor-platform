@@ -1,4 +1,5 @@
 // cabinets/ClientApp.jsx — кабинет ученика и родителя (грузится отдельно, после входа)
+import { ClientMethod } from '../pages/Method';
 import { SandboxBackBar } from '../components/Sandbox';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../auth';
@@ -78,6 +79,7 @@ function ClientCabinet({ path }) {
   else if (parts[0] === 'reports' && parts[1]) page = <ReportView id={Number(parts[1])} />;
   else if (parts[0] === 'password') page = <ChangePassword />;
   else if (parts[0] === 'profile') page = <Profile />;
+  else if (parts[0] === 'learn') page = <ClientMethod slug={parts[1]} />;
   else if (parts[0] === 'help') page = <Help />;
   else if (parts[0] === 'more') page = <MoreMenu nav={clientNav} counts={counts} />;
   else page = <NotFound />;

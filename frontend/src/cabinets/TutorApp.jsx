@@ -1,4 +1,5 @@
 // cabinets/TutorApp.jsx — кабинет преподавателя (грузится отдельно, после входа)
+import { TutorMethod } from '../pages/Method';
 import { SandboxBar } from '../components/Sandbox';
 import { subjectInfo, hasBank } from '../subjects';
 import { useEffect, useState } from 'react';
@@ -82,6 +83,7 @@ export default function TutorApp({ path, params }) {
   else if (parts[0] === 'admin' && user.is_admin) page = <AdminPage />;
   else if (parts[0] === 'password') page = <ChangePassword />;
   else if (parts[0] === 'profile') page = <Profile />;
+  else if (parts[0] === 'method') page = <TutorMethod slug={parts[1]} />;
   else if (parts[0] === 'help') page = <Help />;
   else page = <NotFound />;
 

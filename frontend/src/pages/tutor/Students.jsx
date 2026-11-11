@@ -1,4 +1,5 @@
 // pages/tutor/Students.jsx — список учеников
+import { MethodTip } from '../Method';
 import { useState } from 'react';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, navigate } from '../../ui';
@@ -36,6 +37,7 @@ export default function Students() {
       </div>
 
       <PeopleTabs active="students" />
+      {status === 'active' && list.data && list.data.length < 3 && <MethodTip slug="first-lesson" text="Новый ученик? План первой встречи и вопросы для уровня:" />}
 
       <div className="row wrap" style={{ marginBottom: 16, justifyContent: 'space-between' }}>
         <div className="row" style={{ gap: 6 }}>

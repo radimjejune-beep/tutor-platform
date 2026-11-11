@@ -1,4 +1,5 @@
 // pages/tutor/Dashboard.jsx — главная преподавателя: сегодня и «требует внимания»
+import { DailyMethodTip } from '../Method';
 import { useState } from 'react';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Link, navigate } from '../../ui';
@@ -123,13 +124,14 @@ export default function TutorDashboard() {
 
       <BookingRequests requests={d.booking_requests || []} cancellations={d.client_cancellations || []} onChanged={dash.reload} />
       <TutorAnnouncements />
+      <DailyMethodTip />
 
       <div className="grid grid-main" style={{ marginTop: 24 }}>
         {/* Требует внимания */}
         <section className="panel">
         <div className="panel-head">
           <h2 className="section-title">Требует внимания</h2>
-          {attentionCount > 0 && <Badge tone="brass">{attentionCount}</Badge>}
+          {attentionCount > 0 && <span className="pen-num" style={{ fontSize: 28, lineHeight: 1 }} aria-label={`Дел: ${attentionCount}`}>{attentionCount}</span>}
         </div>
 
         {attentionCount === 0 ? (

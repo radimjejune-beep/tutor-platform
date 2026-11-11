@@ -1,6 +1,7 @@
 import { BackLink } from '../../Shell';
 // pages/tutor/Assignments.jsx — задания:
 // список → редактор → страница задания → проверка работы ученика
+import { MethodTip } from '../Method';
 import FormulaBar from '../../components/FormulaBar';
 import { MathText } from '../../components/MathText';
 import { useSubject } from '../../subjects';
@@ -149,6 +150,7 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
     <>
       <BackLink to={isNew ? '/homework' : `/homework/${assignment.id}`}>{isNew ? 'Задания' : 'К заданию'}</BackLink>
       <div className="page-head"><h1 className="page-title">{isNew ? 'Новое задание' : 'Изменить задание'}</h1></div>
+      {isNew && <MethodTip slug="homework" text="Сколько задавать и как проверять быстро:" />}
 
       <form onSubmit={submit} className="assign-layout">
         <div className="stack">

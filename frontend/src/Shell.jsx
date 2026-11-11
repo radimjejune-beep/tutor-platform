@@ -18,6 +18,7 @@ export const TUTOR_NAV = [
   { to: '/courses', label: 'Курсы', icon: 'layers', hideMobile: true, group: 'Материалы' },
   { to: '/bank', label: 'Банк заданий', icon: 'library', hideMobile: true, group: 'Материалы' },
   { to: '/market', label: 'Каталог', icon: 'grid', hideMobile: true, group: 'Материалы' },
+  { to: '/method', label: 'Методика', icon: 'bulb', hideMobile: true, group: 'Материалы' },
   { to: '/finance', label: 'Доход', icon: 'wallet', hideMobile: true, group: 'Учёт' },
   { to: '/settings', label: 'Настройки', icon: 'settings', hideMobile: true, group: 'Учёт' },
 ];
@@ -30,6 +31,7 @@ export const CLIENT_NAV = [
   { to: '/theory', label: 'Теория', icon: 'library', hideMobile: true },
   { to: '/progress', label: 'Прогресс', short: 'Успехи', icon: 'chart' },
   { to: '/payments', label: 'Оплата', icon: 'wallet', hideMobile: true },
+  { to: '/learn', label: 'Как учиться', icon: 'bulb', hideMobile: true },
 ];
 
 // Активный пункт: точное совпадение для главной, по началу пути для остальных

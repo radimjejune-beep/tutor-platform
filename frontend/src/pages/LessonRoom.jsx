@@ -1,6 +1,7 @@
 import { BackLink } from '../Shell';
 // pages/LessonRoom.jsx — комната урока: звонок, доска и задачи урока
 // Ученик видит задачи сразу, как только преподаватель их добавил (обновляется сама)
+import { MethodTip } from './Method';
 import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { useAuth } from '../auth';
@@ -72,6 +73,7 @@ export default function LessonRoom({ id }) {
           <h1 className="page-title" style={{ marginTop: 4 }}>{isTutor ? l.student_name : l.topic || 'Урок'}</h1>
           {isTutor && l.topic && <div className="lead muted">{l.topic}</div>}
           {!isTutor && l.unit && <div className="lead muted">{unitLabel(l.unit)}</div>}
+          {isTutor && <div className="row wrap" style={{ gap: 8, marginTop: 10 }}><MethodTip slug="lesson-structure" text="План урока:" /><Link to="/method/activities" className="m-inline-tip"><Icon name="grid" size={16} /><span>Разминки и игры: <b>банк активностей</b></span></Link></div>}
         </div>
         <div className="row wrap" style={{ gap: 8 }}>
           {l.join_link ? (
