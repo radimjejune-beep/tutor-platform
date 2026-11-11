@@ -1,9 +1,9 @@
 import { BackLink } from '../../Shell';
 // pages/client/HomeworkPage.jsx — задание глазами ученика
 import { MathText } from '../../components/MathText';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../../api';
-import { useLoad, Spinner, ErrorBox, Badge, Icon, Link, Field, useToast, useSubmit } from '../../ui';
+import { useLoad, Spinner, ErrorBox, Badge, Icon, Link, Field, useToast, useSubmit, readDraft, clearDraft, useDraftSave } from '../../ui';
 import Materials, { UploadArea, Comments } from '../../components/Materials';
 import { QuizForm } from '../../components/Quiz';
 import VocabPractice from '../../components/VocabPractice';
@@ -22,10 +22,29 @@ export default function HomeworkPage({ id, isParent }) {
 
 function HomeworkView({ h, isParent, reload }) {
   const toast = useToast();
-  const [answer, setAnswer] = useState(h.student_answer || '');
-  const mode = h.answer_mode || 'both';
-  const [quiz, setQuiz] = useState(h.quiz_answers || {});
   const canEdit = !isParent && h.status === 'assigned';
+  // Черновик ответа: в браузере сразу, на сервере раз в несколько секунд (чтобы продолжить с другого устройства)
+  const dkey = `hw:${h.id}`;
+  const [start] = useState(() => {
+    const local = canEdit ? readDraft(dkey) : null;
+    const serverAt = h.draft_at ? new Date(h.draft_at).getTime() : 0;
+    if (local && local.at >= serverAt) return { ...local.value, at: local.at };
+    if (canEdit && h.draft) return { student_answer: h.draft.student_answer, quiz_answers: h.draft.quiz_answers, at: serverAt };
+    return null;
+  });
+  const [answer, setAnswer] = useState(start?.student_answer ?? h.student_answer ?? '');
+  const mode = h.answer_mode || 'both';
+  const [quiz, setQuiz] = useState(start?.quiz_answers || h.quiz_answers || {});
+  const [savedAt, setSavedAt] = useState(start?.at || null);
+  const dirty = canEdit && (answer !== (h.student_answer || '') || JSON.stringify(quiz) !== JSON.stringify(h.quiz_answers || {}));
+  useDraftSave(dkey, { student_answer: answer, quiz_answers: quiz }, dirty, 400);
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const t = setTimeout(() => {
+      api.saveHomeworkDraft(h.id, { student_answer: answer, quiz_answers: quiz }).then(() => setSavedAt(Date.now())).catch(() => setSavedAt(Date.now()));
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [answer, JSON.stringify(quiz)]); // eslint-disable-line react-hooks/exhaustive-deps
   const overdue = h.status === 'assigned' && h.due_on && h.due_on < todayISO();
   const unanswered = h.questions.filter((q) => quiz[q.id] === undefined || quiz[q.id] === '').length;
 
@@ -35,6 +54,7 @@ function HomeworkView({ h, isParent, reload }) {
       student_answer: answer.trim() || undefined,
       quiz_answers: h.questions.length ? quiz : undefined,
     });
+    clearDraft(dkey);
     toast('Работа сдана');
     reload();
   });
@@ -144,6 +164,7 @@ function HomeworkView({ h, isParent, reload }) {
               <button className="btn" style={{ height: 48 }} disabled={submit.busy || (mode === 'text' && !answer.trim() && !h.questions.length)} onClick={submit.submit}>
                 {submit.busy ? 'Отправляем…' : mode === 'none' ? 'Сделано' : 'Сдать'}
               </button>
+              {savedAt && <div className="small muted" role="status">Черновик сохранён в {new Date(savedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}. Можно уйти со страницы и вернуться.</div>}
             </div>
           ) : (
             <>

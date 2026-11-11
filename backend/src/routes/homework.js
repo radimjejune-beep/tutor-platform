@@ -95,6 +95,34 @@ router.get(
 // ------------------------------------------------------------
 // Ученик сдаёт работу (текст, ответы теста; файлы — отдельно через /api/files)
 // ------------------------------------------------------------
+// Черновик ответа: сохраняется сам, пока ученик пишет. Работа при этом не считается сданной
+let draftReady = null;
+const ensureDraft = () => {
+  if (!draftReady) {
+    draftReady = query(require('fs').readFileSync(require('path').join(__dirname, '..', '..', 'migrations', '015_homework_draft.sql'), 'utf8'))
+      .catch((err) => { draftReady = null; throw err; });
+  }
+  return draftReady;
+};
+router.put(
+  '/:id/draft',
+  requireRole('student'),
+  validateBody(
+    z.object({
+      student_answer: z.string().max(20000).optional(),
+      quiz_answers: z.record(z.union([z.string().max(1000), z.number().int()])).optional(),
+    }).strict()
+  ),
+  asyncHandler(async (req, res) => {
+    await ensureDraft();
+    const hw = await loadHomework(req.user, Number(req.params.id));
+    if (!hw) return res.status(404).json({ error: 'Задание не найдено' });
+    if (hw.status === 'submitted' || hw.status === 'checked') return res.status(409).json({ error: 'Работа уже сдана' });
+    const { rows } = await query('UPDATE homework SET draft = $1, draft_at = NOW() WHERE id = $2 RETURNING draft_at', [JSON.stringify(req.body), hw.id]);
+    res.json({ ok: true, draft_at: rows[0].draft_at });
+  })
+);
+
 router.post(
   '/:id/submit',
   requireRole('student'),
@@ -107,6 +135,7 @@ router.post(
       .strict()
   ),
   asyncHandler(async (req, res) => {
+    await ensureDraft();
     const hw = await loadHomework(req.user, Number(req.params.id));
     if (!hw) return res.status(404).json({ error: 'Задание не найдено' });
     if (hw.status === 'checked') return res.status(409).json({ error: 'Задание уже проверено' });
@@ -118,7 +147,7 @@ router.post(
 
     const { rows } = await query(
       `UPDATE homework
-          SET student_answer = $1, quiz_answers = $2, quiz_score = $3, status = 'submitted', submitted_at = NOW()
+          SET student_answer = $1, quiz_answers = $2, quiz_score = $3, status = 'submitted', submitted_at = NOW(), draft = NULL, draft_at = NULL
         WHERE id = $4 RETURNING id, status, submitted_at`,
       [req.body.student_answer || null, answers ? JSON.stringify(answers) : null, g ? g.score : null, hw.id]
     );
@@ -253,3 +282,4 @@ router.post(
 );
 
 module.exports = router;
+module.exports.ensureDraft = ensureDraft;

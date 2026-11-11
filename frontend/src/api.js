@@ -120,6 +120,7 @@ export const api = {
   updateHomework: (id, data) => request('PATCH', `/homework/${id}`, data),
   deleteHomework: (id) => request('DELETE', `/homework/${id}`),
   submitHomework: (id, data) => request('POST', `/homework/${id}/submit`, data),
+  saveHomeworkDraft: (id, data) => request('PUT', `/homework/${id}/draft`, data),
   unsubmitHomework: (id) => request('POST', `/homework/${id}/unsubmit`),
 
   // Запись и перенос

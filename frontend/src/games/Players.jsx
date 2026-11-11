@@ -3,25 +3,34 @@
 // выбрать карточку → нажать, куда её поставить.
 import { useMemo, useRef, useState } from 'react';
 import { GAME_TYPES, grade, parseGaps, shuffle, shuffleChanged, tokenize } from './logic';
-import { Icon } from '../ui';
+import { Icon, readDraft, writeDraft, clearDraft } from '../ui';
 import { SheetBoard, sheetProgress } from './Sheet';
 
 /* ============================================================
    Обёртка: заголовок, кнопка «Проверить», итог, «Ещё раз»
    onFinish(answers, result, durationSec) — сохранить результат (если не передан — режим тренировки)
    ============================================================ */
-export default function GamePlayer({ game, onFinish, footer }) {
+export default function GamePlayer({ game, onFinish, footer, draftKey }) {
   const [round, setRound] = useState(0);
   // Страница периодически обновляет данные — без этого слова перемешивались бы заново посреди игры
   const key = JSON.stringify(game);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const stable = useMemo(() => game, [key]);
-  return <Round key={`${round}-${key.length}`} game={stable} onFinish={onFinish} footer={footer} onRetry={() => setRound((r) => r + 1)} />;
+  return <Round key={`${round}-${key.length}`} game={stable} onFinish={onFinish} footer={footer} draftKey={draftKey} onRetry={() => { if (draftKey) clearDraft(draftKey); setRound((r) => r + 1); }} />;
 }
 
-function Round({ game, onFinish, footer, onRetry }) {
+// Ответы листа с заданиями сохраняются как черновик: ушли со страницы, вернулись и продолжили
+const DRAFTABLE = new Set(['sheet']);
+function Round({ game, onFinish, footer, onRetry, draftKey }) {
   const started = useRef(Date.now());
-  const [answers, setAnswers] = useState({});
+  const useDraft = Boolean(draftKey && onFinish && DRAFTABLE.has(game.type));
+  const [restored] = useState(() => (useDraft ? readDraft(draftKey) : null));
+  const [answers, setAnswersRaw] = useState(() => restored?.value || {});
+  const setAnswers = (next) => setAnswersRaw((prev) => {
+    const value = typeof next === 'function' ? next(prev) : next;
+    if (useDraft) writeDraft(draftKey, value);
+    return value;
+  });
   const [result, setResult] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -37,6 +46,7 @@ function Round({ game, onFinish, footer, onRetry }) {
       setSaving(true);
       try {
         await onFinish(answers, r, Math.round((Date.now() - started.current) / 1000));
+        if (useDraft) clearDraft(draftKey);
       } catch (err) {
         setSaveError(err.message);
       } finally {
@@ -52,6 +62,7 @@ function Round({ game, onFinish, footer, onRetry }) {
         {!checked && <span className="small muted">{progressText(game, answers)}</span>}
       </div>
 
+      {restored && !checked && <div className="small muted" style={{ marginBottom: 8 }}>Продолжаем с того места, где вы остановились.</div>}
       <Board game={game} answers={answers} setAnswers={setAnswers} result={result} />
 
       {checked ? (

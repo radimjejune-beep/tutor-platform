@@ -9,7 +9,7 @@ import { useState } from 'react';
 import Materials, { UploadArea, Comments } from '../../components/Materials';
 import { SheetContext } from '../../games/Sheet';
 import { api } from '../../api';
-import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Link, Field, navigate, useToast, useSubmit } from '../../ui';
+import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Link, Field, navigate, useToast, useSubmit, readDraft, clearDraft, useDraftSave, DraftNotice } from '../../ui';
 import { FileList, FileUploadButton } from '../../components/Files';
 import { QuizEditor, QuizForm, cleanQuestions } from '../../components/Quiz';
 import LibraryItem from '../../components/LibraryItem';
@@ -83,7 +83,9 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
   const subj = useSubject();
   const toast = useToast();
   const assignedIds = new Set((assignment?.submissions || []).map((s) => s.student_id));
-  const [f, setF] = useState({
+  // Черновик: незаконченное задание сохраняется в браузере и возвращается при следующем открытии
+  const dkey = isNew ? 'assign:new' : `assign:${assignment.id}`;
+  const [base] = useState(() => ({
     title: assignment?.title || '',
     description: assignment?.description || '',
     links: (assignment?.links || []).join('\n'),
@@ -95,10 +97,19 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
     items: assignment?.library_item_ids || presetItems || [],
     setId: assignment?.word_set_id || null,
     answer_mode: assignment?.answer_mode || 'both',
-  });
-  const [newWords, setNewWords] = useState([]); // слова к уроку: новый набор из вставленного списка
+  }));
+  const [draft] = useState(() => readDraft(dkey));
+  const restored = draft?.value?.f;
+  const [f, setF] = useState(() => (restored ? { ...base, ...restored, students: new Set(restored.students || []) } : base));
+  const [newWords, setNewWords] = useState(() => draft?.value?.newWords || []); // слова к уроку: новый набор из вставленного списка
   const [pendingFiles, setPendingFiles] = useState([]); // для нового задания — загрузим после создания
-  const [showQuiz, setShowQuiz] = useState(Boolean(assignment?.questions?.length));
+  const [showQuiz, setShowQuiz] = useState(() => (draft?.value ? Boolean(draft.value.showQuiz) : Boolean(assignment?.questions?.length)));
+  const [restoredAt, setRestoredAt] = useState(restored ? draft.at : null);
+  const snapshot = { f: { ...f, students: [...f.students] }, newWords, showQuiz, hadFiles: pendingFiles.length > 0 };
+  const baseJson = useState(() => JSON.stringify({ ...base, students: [...base.students] }))[0];
+  const changed = JSON.stringify(snapshot.f) !== baseJson || newWords.length > 0;
+  useDraftSave(dkey, snapshot, changed);
+  const resetDraft = () => { clearDraft(dkey); setF(base); setNewWords([]); setShowQuiz(Boolean(assignment?.questions?.length)); setRestoredAt(null); };
   const [picking, setPicking] = useState(false);
 
   const toggle = (sid) => {
@@ -134,11 +145,13 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
     if (isNew) {
       if (!f.students.size) throw new Error('Выберите хотя бы одного ученика');
       const created = await api.createAssignment({ ...body, student_ids: [...f.students] });
+      clearDraft(dkey);
       for (const file of pendingFiles) await api.uploadFile({ assignment_id: created.id }, file);
       toast(`Задание выдано: ${f.students.size} ${plural(f.students.size, 'ученик', 'ученика', 'учеников')}`);
       navigate(`/homework/${created.id}`);
     } else {
       await api.updateAssignment(assignment.id, { ...body, add_student_ids: [...f.students] });
+      clearDraft(dkey);
       toast('Задание сохранено');
       navigate(`/homework/${assignment.id}`);
     }
@@ -150,7 +163,8 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
     <>
       <BackLink to={isNew ? '/homework' : `/homework/${assignment.id}`}>{isNew ? 'Задания' : 'К заданию'}</BackLink>
       <div className="page-head"><h1 className="page-title">{isNew ? 'Новое задание' : 'Изменить задание'}</h1></div>
-      {isNew && <MethodTip slug="homework" text="Сколько задавать и как проверять быстро:" />}
+      {isNew && !restoredAt && <MethodTip slug="homework" text="Сколько задавать и как проверять быстро:" />}
+      <DraftNotice at={restoredAt} onReset={resetDraft} text={draft?.value?.hadFiles ? 'Восстановлен черновик задания. Файлы прикрепите заново' : 'Восстановлен несохранённый черновик задания'} />
 
       <form onSubmit={submit} className="assign-layout">
         <div className="stack">
@@ -404,7 +418,10 @@ export function ReviewPage({ assignmentId, homeworkId }) {
 function ReviewForm({ hw, assignment, items, results, reload }) {
   const subj = useSubject();
   const toast = useToast();
-  const [feedback, setFeedback] = useState(hw.tutor_feedback || '');
+  // Черновик комментария к работе: не пропадёт, если отвлечься и уйти со страницы
+  const fkey = `review:${hw.id}`;
+  const [feedback, setFeedback] = useState(() => readDraft(fkey)?.value ?? hw.tutor_feedback ?? '');
+  useDraftSave(fkey, feedback, feedback !== (hw.tutor_feedback || ''));
   const gamesAvg = averageBest(items, results);
   // Подсказка оценки: тест и упражнения вместе
   const vocabPct = hw.vocab_result?.total ? Math.round((hw.vocab_result.correct / hw.vocab_result.total) * 100) : null;
@@ -418,11 +435,13 @@ function ReviewForm({ hw, assignment, items, results, reload }) {
 
   const check = useSubmit(async () => {
     await api.updateHomework(hw.id, { status: 'checked', tutor_feedback: orNull(feedback), score: score === '' ? null : Number(score) });
+    clearDraft(fkey);
     toast(`Проверено: ${hw.student_name}`);
     goNext();
   });
   const sendBack = useSubmit(async () => {
     await api.updateHomework(hw.id, { status: 'assigned', tutor_feedback: orNull(feedback) });
+    clearDraft(fkey);
     toast('Отправлено на доработку');
     goNext();
   });
@@ -531,6 +550,7 @@ export function AssignmentTasks({ ids, showPrivate, homework, canPlay }) {
           {items.map((it, i) => (
             <LibraryItem key={it.id} item={it} index={i} showPrivate={showPrivate}
               onGameFinish={canPlay && homework ? save(it.id) : undefined}
+              draftKey={canPlay && homework ? `hw:${homework.id}:item:${it.id}` : undefined}
               gameExtra={homework ? <ResultLine results={map[it.id]} who={canPlay ? 'Ваш' : 'Лучший'} /> : null} />
           ))}
         </div>

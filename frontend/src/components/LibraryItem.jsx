@@ -23,7 +23,7 @@ export function ItemMeta({ item, showTags }) {
 }
 
 // onGameFinish — сохранить результат упражнения; gameExtra — что показать под упражнением (результаты)
-export default function LibraryItem({ item, index, showPrivate, actions, onGameFinish, gameExtra }) {
+export default function LibraryItem({ item, index, showPrivate, actions, onGameFinish, gameExtra, draftKey }) {
   // Фото и аудио, которые уже стоят внутри листа с заданиями, отдельным списком не дублируем
   const used = new Set((item.game?.type === 'sheet' ? item.game.blocks : []).flatMap((b) => [b.image, b.audio]).filter(Boolean));
   const files = (item.files || []).filter((f) => !used.has(f.id));
@@ -39,7 +39,7 @@ export default function LibraryItem({ item, index, showPrivate, actions, onGameF
       {item.body && <MathText as="div" className="instructions" style={{ marginTop: 14 }}>{item.body}</MathText>}
       {item.kind === 'game' && item.game && (
         <div style={{ marginTop: 14 }}>
-          <GamePlayer game={item.game} onFinish={onGameFinish} footer={gameExtra} />
+          <GamePlayer game={item.game} onFinish={onGameFinish} footer={gameExtra} draftKey={draftKey} />
         </div>
       )}
       {item.kind === 'html' && item.html && (

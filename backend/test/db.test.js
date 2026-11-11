@@ -243,6 +243,29 @@ test('база данных', opts, async (t) => {
     assert.deepEqual(left.rows[0], { u: 0, s: 0 });
   });
 
+  await t.test('черновик ответа ученика сохраняется и очищается при сдаче', async () => {
+    const { mod } = loadRoutes('routes/homework.js');
+    await mod.ensureDraft();
+    const a = await tutor();
+    const sid = await student(a.id, 'Черновик');
+    const { rows: [u] } = await query(`INSERT INTO users (role, login, password_hash, full_name, tutor_id) VALUES ('student', $1, 'x', 'Черновик', $2) RETURNING id`, [uniq('s'), a.id]);
+    await query('UPDATE students SET user_id = $1 WHERE id = $2', [u.id, sid]);
+    const { rows: [asg] } = await query(`INSERT INTO assignments (title, tutor_id) VALUES ('ДЗ', $1) RETURNING id`, [a.id]);
+    const { rows: [hw] } = await query('INSERT INTO homework (assignment_id, student_id) VALUES ($1, $2) RETURNING id', [asg.id, sid]);
+    const me = { id: u.id, role: 'student', tid: a.id, student_ids: [sid] };
+    const sUser = me;
+    const r = await call(mod, 'PUT', '/:id/draft', { user: sUser, params: { id: hw.id }, body: { student_answer: 'Half done', quiz_answers: { q1: 'a' } } });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const d = await query('SELECT draft, status FROM homework WHERE id = $1', [hw.id]);
+    assert.equal(d.rows[0].draft.student_answer, 'Half done');
+    assert.equal(d.rows[0].status, 'assigned');
+    const sub = await call(mod, 'POST', '/:id/submit', { user: sUser, params: { id: hw.id }, body: { student_answer: 'Done' } });
+    assert.equal(sub.status, 200, JSON.stringify(sub.body));
+    const after = await query('SELECT draft, status FROM homework WHERE id = $1', [hw.id]);
+    assert.equal(after.rows[0].draft, null);
+    assert.equal((await call(mod, 'PUT', '/:id/draft', { user: sUser, params: { id: hw.id }, body: { student_answer: 'x' } })).status, 409);
+  });
+
   await t.test('фоновая задача не запускается дважды одновременно', async () => {
     const { withLock } = require(src('services/jobs.js'));
     const { pool } = require(src('db.js'));

@@ -7,7 +7,7 @@ import FormulaBar from '../../components/FormulaBar';
 import { useState } from 'react';
 import { api } from '../../api';
 import { useAuth } from '../../auth';
-import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Field, Link, Modal, navigate, useToast, useSubmit } from '../../ui';
+import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Field, Link, Modal, navigate, useToast, useSubmit, readDraft, clearDraft, useDraftSave, DraftNotice } from '../../ui';
 import { FileList, FileUploadButton } from '../../components/Files';
 import HtmlLesson from '../../components/HtmlLesson';
 import LibraryItem, { ItemMeta, examLabel } from '../../components/LibraryItem';
@@ -274,7 +274,9 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
   const tagHint = useSubjectTags();
   const toast = useToast();
   const isNew = !item;
-  const [f, setF] = useState({
+  // Черновик: незаконченный материал сохраняется в браузере и возвращается при следующем открытии
+  const dkey = isNew ? `lib:new:${presetKind || 'task'}` : `lib:${item.id}`;
+  const [base] = useState(() => ({
     kind: item?.kind || presetKind || 'task',
     subject: item?.subject || user.subject || facets.subjects[0] || '',
     title: item?.title || '',
@@ -288,7 +290,15 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
     game: item?.game || null,
     html: item?.html || null,
     folder_id: item ? item.folder_id ?? null : (Number(presetFolder) || null),
-  });
+  }));
+  const [draft] = useState(() => readDraft(dkey));
+  const [f, setF] = useState(() => (draft?.value ? { ...base, ...draft.value } : base));
+  const [restoredAt, setRestoredAt] = useState(draft?.value ? draft.at : null);
+  const [baseJson] = useState(() => JSON.stringify(base));
+  // Большой загруженный урок (html) в черновик не кладём: он и так приходит с сервера
+  const snapshot = f.html && f.html.length > 200000 ? { ...f, html: base.html } : f;
+  useDraftSave(dkey, snapshot, JSON.stringify(f) !== baseJson);
+  const resetDraft = () => { clearDraft(dkey); setF(base); setRestoredAt(null); };
   const [pending, setPending] = useState([]);
   const [preview, setPreview] = useState(false);
 
@@ -313,11 +323,14 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
     if (f.kind === 'html' && !f.html) throw new Error('Загрузите файл урока (.html)');
     if (isNew) {
       const created = await api.createLibraryItem(body());
+      clearDraft(dkey);
       for (const file of pending) await api.uploadFile({ library_item_id: created.id }, file);
       toast('Добавлено в библиотеку');
       navigate(`/library/${created.id}`);
     } else {
       await api.updateLibraryItem(item.id, body());
+      clearDraft(dkey);
+      setRestoredAt(null);
       toast('Сохранено');
       reload();
     }
@@ -335,6 +348,7 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
   return (
     <>
       <BackLink to={back}>Библиотека</BackLink>
+      <DraftNotice at={restoredAt} onReset={resetDraft} />
       <div className="page-head">
         <h1 className="page-title">{isNew ? { task: 'Новая задача', game: 'Новое упражнение', html: 'Новый урок', theory: 'Новая теория' }[f.kind] : f.title || 'Материал'}</h1>
         {!isNew && (

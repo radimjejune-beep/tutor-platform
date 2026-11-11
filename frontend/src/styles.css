@@ -1856,3 +1856,5 @@ a:hover { color: var(--pen-deep); }
 /* Ответ в упражнении: верно отмечается мягкой вспышкой */
 @keyframes lf-right { 0% { box-shadow: 0 0 0 0 rgba(47, 95, 70, 0.35); } 100% { box-shadow: 0 0 0 10px rgba(47, 95, 70, 0); } }
 .match-tile.ok, .match-tile.done, .opt.correct, .ok-flash { animation: lf-right 0.6s ease-out; }
+.draft-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 10px 14px; margin: 0 0 16px; border-radius: 10px; background: #f3ecdb; border: 1px dashed var(--line-strong); font-size: 14px; animation: lf-ink 0.3s ease-out both; }
+.draft-notice .btn { margin-left: auto; }

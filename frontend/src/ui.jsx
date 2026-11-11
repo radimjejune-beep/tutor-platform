@@ -270,3 +270,52 @@ export function Icon({ name, size }) {
     </svg>
   );
 }
+
+/* ============================================================
+   Черновики: незаконченная форма или ответ сохраняются в браузере и возвращаются при следующем открытии.
+   Ключ включает пользователя, чтобы на общем компьютере черновики разных людей не смешивались.
+   ============================================================ */
+let draftUser = 'anon';
+export const setDraftUser = (id) => { draftUser = id ? String(id) : 'anon'; };
+const draftKey = (key) => `lf-draft:${draftUser}:${key}`;
+const DRAFT_DAYS = 30;
+
+export function readDraft(key) {
+  try {
+    const raw = localStorage.getItem(draftKey(key));
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    if (!d || Date.now() - d.at > DRAFT_DAYS * 864e5) { localStorage.removeItem(draftKey(key)); return null; }
+    return d;
+  } catch { return null; }
+}
+export function writeDraft(key, value) {
+  try { localStorage.setItem(draftKey(key), JSON.stringify({ at: Date.now(), value })); } catch { /* хранилище недоступно или переполнено */ }
+}
+export function clearDraft(key) {
+  try { localStorage.removeItem(draftKey(key)); } catch { /* нет хранилища */ }
+}
+// Сохраняет value через паузу после последнего изменения. enabled=false — не сохранять (например, пока форма не тронута)
+export function useDraftSave(key, value, enabled = true, delay = 500) {
+  const json = JSON.stringify(value);
+  useEffect(() => {
+    if (!key || !enabled) return undefined;
+    const t = setTimeout(() => writeDraft(key, value), delay);
+    return () => clearTimeout(t);
+  }, [key, json, enabled]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+// Плашка «Черновик восстановлен»
+export function DraftNotice({ at, onReset, text = 'Восстановлен несохранённый черновик' }) {
+  if (!at) return null;
+  const d = new Date(at);
+  const when = d.toDateString() === new Date().toDateString()
+    ? `сегодня в ${d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`
+    : d.toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  return (
+    <div className="draft-notice" role="status">
+      <Icon name="note" size={16} />
+      <span>{text} ({when}).</span>
+      {onReset && <button type="button" className="btn btn-quiet btn-sm" onClick={onReset}>Начать заново</button>}
+    </div>
+  );
+}

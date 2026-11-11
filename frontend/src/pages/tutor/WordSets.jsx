@@ -3,7 +3,7 @@ import { BackLink } from '../../Shell';
 import FormulaBar from '../../components/FormulaBar';
 import { useMemo, useState } from 'react';
 import { api } from '../../api';
-import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Link, navigate, useToast, Field, Modal } from '../../ui';
+import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Link, navigate, useToast, Field, Modal, readDraft, clearDraft, useDraftSave, DraftNotice } from '../../ui';
 import WordPaste from '../../components/WordPaste';
 import Study, { wordsCount } from '../../components/Study';
 import { shortDate } from '../../format';
@@ -64,11 +64,25 @@ export function WordSetEditor({ id }) {
 function Editor({ set, students, onSaved }) {
   const toast = useToast();
   const subj = useSubject();
-  const [title, setTitle] = useState(set?.title || '');
-  const [description, setDescription] = useState(set?.description || '');
-  const [rows, setRows] = useState(set?.words?.length ? set.words.map((w) => ({ term: w.term, translation: w.translation || '', example: w.example || '' })) : [emptyRow(), emptyRow(), emptyRow()]);
-  const [forAll, setForAll] = useState(set ? set.for_all : true);
-  const [picked, setPicked] = useState(new Set(set?.student_ids || []));
+  // Черновик набора: слова не потеряются, если уйти со страницы до сохранения
+  const dkey = set ? `wordset:${set.id}` : 'wordset:new';
+  const [draft] = useState(() => readDraft(dkey));
+  const dv = draft?.value;
+  const baseRows = set?.words?.length ? set.words.map((w) => ({ term: w.term, translation: w.translation || '', example: w.example || '' })) : [emptyRow(), emptyRow(), emptyRow()];
+  const [title, setTitle] = useState(dv ? dv.title : set?.title || '');
+  const [description, setDescription] = useState(dv ? dv.description : set?.description || '');
+  const [rows, setRows] = useState(dv ? dv.rows : baseRows);
+  const [forAll, setForAll] = useState(dv ? dv.forAll : set ? set.for_all : true);
+  const [picked, setPicked] = useState(new Set(dv ? dv.picked : set?.student_ids || []));
+  const [restoredAt, setRestoredAt] = useState(dv ? draft.at : null);
+  const [baseJson] = useState(() => JSON.stringify({ title: set?.title || '', description: set?.description || '', rows: baseRows, forAll: set ? set.for_all : true, picked: set?.student_ids || [] }));
+  const snap = { title, description, rows, forAll, picked: [...picked] };
+  useDraftSave(dkey, snap, JSON.stringify(snap) !== baseJson);
+  const resetDraft = () => {
+    clearDraft(dkey);
+    const b = JSON.parse(baseJson);
+    setTitle(b.title); setDescription(b.description); setRows(b.rows); setForAll(b.forAll); setPicked(new Set(b.picked)); setRestoredAt(null);
+  };
   const [pasted, setPasted] = useState({ words: [], clear: null });
   const [showPaste, setShowPaste] = useState(!set);
   const [busy, setBusy] = useState(false);
@@ -111,10 +125,13 @@ function Editor({ set, students, onSaved }) {
       };
       if (set) {
         await api.updateWordSet(set.id, body);
+        clearDraft(dkey);
+        setRestoredAt(null);
         toast('Сохранено');
         onSaved();
       } else {
         const r = await api.createWordSet(body);
+        clearDraft(dkey);
         toast('Набор создан. Ученики уже видят его в разделе «Словарь»');
         navigate(`/wordsets/${r.id}`);
       }
@@ -137,6 +154,7 @@ function Editor({ set, students, onSaved }) {
   return (
     <>
       <BackLink to="/wordsets">Наборы</BackLink>
+      <DraftNotice at={restoredAt} onReset={resetDraft} />
       <div className="page-head">
         <div>
           <h1 className="page-title">{set ? set.title : 'Новый набор'}</h1>

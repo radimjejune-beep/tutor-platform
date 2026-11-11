@@ -1,4 +1,5 @@
 // auth.jsx — кто вошёл, вход и выход
+import { setDraftUser } from './ui';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { api, getToken, setToken, setUnauthorizedHandler } from './api';
 
@@ -45,6 +46,7 @@ export function AuthProvider({ children }) {
     window.location.hash = '/';
   };
 
+  setDraftUser(session?.user?.id); // черновики форм хранятся отдельно для каждого пользователя
   return (
     <AuthContext.Provider value={{ session, user: session?.user, students: session?.students || [], login, register, logout, refresh }}>
       {children}
