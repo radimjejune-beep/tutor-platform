@@ -220,6 +220,28 @@ test('база данных', opts, async (t) => {
     assert.equal(r.status, 201, JSON.stringify(r.body));
   });
 
+  await t.test('конструктор уроков: урок из слайдов сохраняется, кривой отклоняется, ученик не видит заметок', async () => {
+    const mod = loadRoutes('routes/library.js').mod.router;
+    const a = await tutor();
+    const deck = { v: 1, theme: 'paper', slides: [
+      { id: 's1', type: 'title', title: 'Present Continuous', notes: 'Цель урока' },
+      { id: 's2', type: 'questions', title: 'Speak', items: ['What are you doing now?'], timer: 120, notes: 'Не исправлять' },
+    ] };
+    const bad = await call(mod, 'POST', '/', { user: a, body: { kind: 'deck', subject: 'Английский', title: 'Кривой', html: '{"v":1,"slides":[]}' } });
+    assert.equal(bad.status, 400, JSON.stringify(bad.body));
+    const r = await call(mod, 'POST', '/', { user: a, body: { kind: 'deck', subject: 'Английский', title: 'Урок', html: JSON.stringify(deck) } });
+    assert.equal(r.status, 201, JSON.stringify(r.body));
+    const list = await call(mod, 'GET', '/', { user: a, query: { kind: 'html' } });
+    assert.ok(list.body.some((x) => x.id === r.body.id && x.kind === 'deck'), 'урок виден во вкладке «Уроки»');
+    const own = await call(mod, 'GET', '/:id', { user: a, params: { id: r.body.id } });
+    assert.equal(JSON.parse(own.body.html).slides[0].notes, 'Цель урока');
+    const { forStudent } = require(src('services/deck.js'));
+    const shown = JSON.parse(forStudent({ kind: 'deck', html: own.body.html }).html);
+    assert.ok(shown.slides.every((x) => !x.notes));
+    const up = await call(mod, 'PATCH', '/:id', { user: a, params: { id: r.body.id }, body: { kind: 'deck', html: '{"v":2}' } });
+    assert.equal(up.status, 400);
+  });
+
   await t.test('тестовый кабинет: создаётся с примером, открывает кабинет ученика, не виден в метриках, удаляется через срок', async () => {
     const { mod } = loadRoutes('routes/sandbox.js');
     const made = await call(mod.publicRouter, 'POST', '/', { ip: '10.1.1.1' });

@@ -6,8 +6,12 @@ import { FileList } from './Files';
 import GamePlayer from '../games/Players';
 import HtmlLesson from './HtmlLesson';
 import { GAME_TYPES, gameSize } from '../games/logic';
+import { DeckPlayer, parseDeck } from './Deck';
+import { useAuth } from '../auth';
 
 export const examLabel = (i) => (i.exam ? `${i.exam}${i.exam_task ? `, задание ${i.exam_task}` : ''}` : null);
+
+const deckSize = (item) => { const n = parseDeck(item.html)?.slides.length; return n ? `, ${n} сл.` : ''; };
 
 export function ItemMeta({ item, showTags }) {
   const exam = examLabel(item);
@@ -15,6 +19,7 @@ export function ItemMeta({ item, showTags }) {
     <div className="row wrap" style={{ gap: 6 }}>
       {item.kind === 'game' && item.game && <Badge tone="brass">{GAME_TYPES[item.game.type]?.label}, {gameSize(item.game)}</Badge>}
       {item.kind === 'html' && <Badge tone="brass">Интерактивный урок</Badge>}
+      {item.kind === 'deck' && <Badge tone="brass">Урок из слайдов{deckSize(item)}</Badge>}
       {exam && <Badge tone="green">{exam}</Badge>}
       <Badge>{item.subject}</Badge>
       {showTags && (item.tags || []).map((t) => <Badge key={t} tone="brass">#{t}</Badge>)}
@@ -25,7 +30,9 @@ export function ItemMeta({ item, showTags }) {
 // onGameFinish — сохранить результат упражнения; gameExtra — что показать под упражнением (результаты)
 export default function LibraryItem({ item, index, showPrivate, actions, onGameFinish, gameExtra, draftKey }) {
   // Фото и аудио, которые уже стоят внутри листа с заданиями, отдельным списком не дублируем
-  const used = new Set((item.game?.type === 'sheet' ? item.game.blocks : []).flatMap((b) => [b.image, b.audio]).filter(Boolean));
+  const user = useAuth()?.user;
+  const deck = item.kind === 'deck' ? parseDeck(item.html) : null;
+  const used = new Set([...(item.game?.type === 'sheet' ? item.game.blocks : []).flatMap((b) => [b.image, b.audio]), ...(deck?.slides || []).map((x) => x.image)].filter(Boolean));
   const files = (item.files || []).filter((f) => !used.has(f.id));
   return (
     <article className="lib-card">
@@ -45,6 +52,12 @@ export default function LibraryItem({ item, index, showPrivate, actions, onGameF
       {item.kind === 'html' && item.html && (
         <div style={{ marginTop: 14 }}>
           <HtmlLesson html={item.html} onFinish={onGameFinish} />
+          {gameExtra}
+        </div>
+      )}
+      {deck && (
+        <div style={{ marginTop: 14 }}>
+          <DeckPlayer deck={deck} isTutor={user?.role === 'tutor'} />
           {gameExtra}
         </div>
       )}

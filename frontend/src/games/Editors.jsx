@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Field, Icon } from '../ui';
 import { GAME_TYPES, SHEET_PRESETS, parseGaps } from './logic';
 import { SheetEditor } from './Sheet';
+import { BoardEditor, EMPTY_BOARD, cleanBoard } from './Board';
 
 export const EMPTY_GAME = {
   match: { type: 'match', pairs: [{ a: '', b: '' }, { a: '', b: '' }, { a: '', b: '' }] },
@@ -11,6 +12,7 @@ export const EMPTY_GAME = {
   gaps: { type: 'gaps', text: '', mode: 'type', distractors: [] },
   groups: { type: 'groups', groups: [{ name: '', items: [] }, { name: '', items: [] }] },
   sheet: { type: 'sheet', blocks: [{ t: 'text', text: '' }] },
+  board: EMPTY_BOARD,
   // Готовые листы: с примером внутри, его нужно заменить своим
   write: { type: 'sheet', blocks: [{ t: 'write', q: 'Write about your typical Monday (60–80 words).', min_words: 60, max_words: 80, min_sentences: 6,
     checks: [{ label: 'Наречия частоты: always, usually, often…', words: 'always|usually|often|sometimes|rarely|never', min: 3 }, { label: 'Слова порядка: first, then, after that…', words: 'first|then|next|after that|finally|later', min: 2 }],
@@ -49,6 +51,7 @@ const ILLUSTRATION = {
   gaps: (<><i>She</i><u /><i>here</i></>),
   groups: (<><i>go</i><i>play</i><b>|</b><i>see</i></>),
   sheet: (<><i>1.</i><u /><i>фото</i></>),
+  board: (<><i>A</i><b>✥</b><u /></>),
   write: (<><i>Dear</i><u /><b>✓</b></>),
   fix: (<><i>He</i><s>go</s><i>goes</i></>),
   rewrite: (<><i>He</i><b>→</b><i>doesn't</i></>),
@@ -56,6 +59,7 @@ const ILLUSTRATION = {
 };
 
 export default function GameEditor({ game, onChange, itemId }) {
+  if (game.type === 'board') return <BoardEditor game={game} onChange={onChange} itemId={itemId} />;
   if (game.type === 'sheet') return <SheetEditor game={game} onChange={onChange} itemId={itemId} />;
   if (game.type === 'match') return <MatchEditor game={game} onChange={onChange} />;
   if (game.type === 'order') return <OrderEditor game={game} onChange={onChange} />;
@@ -204,6 +208,7 @@ function GroupsEditor({ game, onChange }) {
 export function cleanGame(game) {
   if (game.type === 'match') return { ...game, pairs: game.pairs.map((p) => ({ a: p.a.trim(), b: p.b.trim() })).filter((p) => p.a && p.b) };
   if (game.type === 'groups') return { ...game, groups: game.groups.map((g) => ({ name: g.name.trim(), items: g.items })).filter((g) => g.name) };
+  if (game.type === 'board') return cleanBoard(game);
   if (game.type === 'sheet') {
     const blocks = game.blocks
       .map((b) => {

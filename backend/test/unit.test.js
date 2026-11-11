@@ -79,3 +79,21 @@ test('JSON разбирается для /api/library-folders и /api/library-bo
   const srv = require('fs').readFileSync(src('server.js'), 'utf8');
   assert.match(srv, /req\.path === p \|\| req\.path\.startsWith\(`\$\{p\}\/`\)/);
 });
+
+test('конструктор заданий: схема и проверка', () => {
+  const { gameSchema, grade } = require(src('services/games.js'));
+  const g = gameSchema.parse({ type: 'board', ratio: 1.33, elements: [
+    { id: 'a', k: 'input', x: 1, y: 1, w: 10, h: 5, a: 'goes|is going' },
+    { id: 'z', k: 'zone', x: 1, y: 1, w: 10, h: 5, text: 'verbs' },
+    { id: 'c', k: 'chip', x: 1, y: 1, w: 10, h: 5, text: 'run', zone: 'z' },
+    { id: 'd', k: 'chip', x: 1, y: 1, w: 10, h: 5, text: 'cat' },
+    { id: 's', k: 'select', x: 1, y: 1, w: 10, h: 5, options: ['is', 'are'], correct: 1 },
+    { id: 'm', k: 'input', x: 1, y: 1, w: 10, h: 5 },
+  ] });
+  const r = grade(g, { e: { a: 'Is going', c: 'z', d: 'z', s: 1, m: 'free text' } });
+  assert.equal(r.total, 4);
+  assert.equal(r.correct, 3);
+  assert.equal(r.manual, 1);
+  assert.equal(gameSchema.safeParse({ type: 'board', elements: [{ id: 's', k: 'select', x: 1, y: 1, w: 5, h: 5, options: ['x'] }] }).success, false);
+  assert.equal(gameSchema.safeParse({ type: 'board', elements: [{ id: 'q', k: 'text', x: 1, y: 1, w: 5, h: 5 }, { id: 'q', k: 'text', x: 1, y: 1, w: 5, h: 5 }] }).success, false);
+});

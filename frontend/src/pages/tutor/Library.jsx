@@ -15,10 +15,11 @@ import { PublishButton } from './Market';
 import GameEditor, { GameTypePicker, EMPTY_GAME, cleanGame } from '../../games/Editors';
 import { GAME_TYPES, SHEET_PRESETS, gameSize } from '../../games/logic';
 import { relativeDay, dayMonth, time } from '../../format';
+import { DeckEditor, DeckTemplatePicker, deckFromTemplate, parseDeck } from '../../components/Deck';
 
 const KINDS = { task: 'Задачник', game: 'Упражнения', html: 'Уроки', theory: 'Теория', books: 'Учебники' };
-const KIND_PATH = { task: 'tasks', game: 'games', html: 'lessons', theory: 'theory', books: 'books' };
-const NEW_LABEL = { task: 'Задача', game: 'Упражнение', html: 'Урок', theory: 'Теория', books: 'Учебник' };
+const KIND_PATH = { task: 'tasks', game: 'games', html: 'lessons', deck: 'lessons', theory: 'theory', books: 'books' };
+const NEW_LABEL = { task: 'Задача', game: 'Упражнение', html: 'Урок', deck: 'Урок из слайдов', theory: 'Теория', books: 'Учебник' };
 const orNull = (v) => (v && String(v).trim() ? String(v).trim() : null);
 
 /* ============================================================
@@ -95,7 +96,7 @@ function FavStar({ item, onChanged }) {
 // Лист с заданиями создаётся сразу: к нему прикрепляются фото и аудио
 async function createSheet(title, type = 'sheet') {
   try {
-    const created = await api.createLibraryItem({ kind: 'game', title: (title || '').trim() || SHEET_PRESETS[type]?.label || 'Лист с заданиями', game: EMPTY_GAME[type] });
+    const created = await api.createLibraryItem({ kind: 'game', title: (title || '').trim() || SHEET_PRESETS[type]?.label || GAME_TYPES[type]?.label || 'Лист с заданиями', game: EMPTY_GAME[type] });
     navigate(`/library/${created.id}`);
   } catch (err) {
     window.alert(err.message);
@@ -139,9 +140,11 @@ export function LibraryPage({ kind = 'task' }) {
         </div>
         <div className="row" style={{ gap: 8 }}>
           {!isBooks && <ImportButton onDone={() => { list.reload(); facets.reload(); }} />}
+          {(kind === 'game' || kind === 'task') && <button className="btn btn-secondary" onClick={() => createSheet('', 'board')}><Icon name="grid" /> Конструктор</button>}
           {kind !== 'theory' && !isBooks && <button className="btn btn-secondary" onClick={() => createSheet()}><Icon name="layers" /> Лист из фото</button>}
           {kind !== 'theory' && !isBooks && <Link to="/library/generate" className="btn btn-secondary"><Icon name="star" /> По тексту или видео</Link>}
-          {isBooks ? <button className="btn" onClick={() => setUploading(true)}><Icon name="plus" /> Учебник</button> : <Link to={newHref} className="btn"><Icon name="plus" /> {NEW_LABEL[kind]}</Link>}
+          {kind === 'html' && <Link to={newHref.replace('kind=html', 'kind=deck')} className="btn"><Icon name="layers" /> Собрать урок</Link>}
+          {isBooks ? <button className="btn" onClick={() => setUploading(true)}><Icon name="plus" /> Учебник</button> : <Link to={newHref} className={`btn${kind === 'html' ? ' btn-secondary' : ''}`}><Icon name="plus" /> {kind === 'html' ? 'Загрузить HTML' : NEW_LABEL[kind]}</Link>}
         </div>
       </div>
 
@@ -181,7 +184,7 @@ export function LibraryPage({ kind = 'task' }) {
             {folderNow && !f.q && !f.fav && 'В этой папке пока нет материалов этого вида. Перетащите сюда материалы из «Все материалы» или добавьте новый. '}
             {f.fav && 'Нажмите звёздочку у задачи, чтобы она появилась здесь и в выборе задач на уроке.'}
             {kind === 'task' && !f.q && !f.fav && 'Добавляйте задачи с пометками: номер задания ОГЭ/ЕГЭ, теги, заметка для себя.'}
-            {kind === 'html' && !f.q && 'Загрузите готовый HTML-урок (например, тренажёр слов). Его можно открыть на уроке и выдать как ДЗ, результат ученика сохранится сам.'}
+            {kind === 'html' && !f.q && 'Соберите урок из слайдов в конструкторе: текст, картинки, слова с озвучкой, вопросы с таймером, упражнения и заметки для вас. Или загрузите готовый HTML-урок. Урок можно показать на занятии и выдать как ДЗ.'}
             {kind === 'game' && !f.q && 'Найди пару, собери предложение, вставь пропуск, распредели по группам. Ученик проходит прямо в кабинете, оценка ставится сама.'}
           </Empty>
         )}
@@ -195,7 +198,7 @@ export function LibraryPage({ kind = 'task' }) {
             <div className="list-main">
               <div className="list-title truncate">{i.title}</div>
               <div className="list-sub truncate">
-                {[!folderNow && i.folder_id && folderList.find((x) => x.id === i.folder_id)?.title, i.game && `${GAME_TYPES[i.game.type]?.label}, ${gameSize(i.game)}`, i.kind === 'html' && 'Интерактивный урок', examLabel(i), i.subject, ...(i.tags || []).map((t) => `#${t}`)].filter(Boolean).join(' · ')}
+                {[!folderNow && i.folder_id && folderList.find((x) => x.id === i.folder_id)?.title, i.game && `${GAME_TYPES[i.game.type]?.label}, ${gameSize(i.game)}`, i.kind === 'html' && 'Интерактивный урок', i.kind === 'deck' && 'Урок из слайдов', examLabel(i), i.subject, ...(i.tags || []).map((t) => `#${t}`)].filter(Boolean).join(' · ')}
               </div>
               {i.tutor_note && <div className="list-sub truncate" style={{ color: '#7a5717' }}><Icon name="note" size={13} /> {i.tutor_note}</div>}
             </div>
@@ -288,7 +291,8 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
     tutor_note: item?.tutor_note || '',
     links: (item?.links || []).join('\n'),
     game: item?.game || null,
-    html: item?.html || null,
+    html: item?.kind === 'deck' ? null : item?.html || null,
+    deck: item?.kind === 'deck' ? parseDeck(item.html) : null,
     folder_id: item ? item.folder_id ?? null : (Number(presetFolder) || null),
   }));
   const [draft] = useState(() => readDraft(dkey));
@@ -314,13 +318,14 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
     tutor_note: orNull(f.tutor_note),
     links: f.links.split(/\s+/).map((s) => s.trim()).filter(Boolean),
     game: f.kind === 'game' && f.game ? cleanGame(f.game) : null,
-    html: f.kind === 'html' ? f.html : null,
+    html: f.kind === 'html' ? f.html : f.kind === 'deck' && f.deck ? JSON.stringify(f.deck) : null,
     folder_id: f.folder_id ?? null,
   });
 
   const save = useSubmit(async () => {
     if (f.kind === 'game' && !f.game) throw new Error('Выберите тип упражнения');
     if (f.kind === 'html' && !f.html) throw new Error('Загрузите файл урока (.html)');
+    if (f.kind === 'deck' && !f.deck) throw new Error('Выберите шаблон урока');
     if (isNew) {
       const created = await api.createLibraryItem(body());
       clearDraft(dkey);
@@ -350,10 +355,10 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
       <BackLink to={back}>Библиотека</BackLink>
       <DraftNotice at={restoredAt} onReset={resetDraft} />
       <div className="page-head">
-        <h1 className="page-title">{isNew ? { task: 'Новая задача', game: 'Новое упражнение', html: 'Новый урок', theory: 'Новая теория' }[f.kind] : f.title || 'Материал'}</h1>
+        <h1 className="page-title">{isNew ? { task: 'Новая задача', game: 'Новое упражнение', html: 'Новый урок', deck: 'Урок из слайдов', theory: 'Новая теория' }[f.kind] : f.title || 'Материал'}</h1>
         {!isNew && (
           <div className="row" style={{ gap: 6 }}>
-            <button className="btn btn-secondary btn-sm" onClick={() => setPreview(!preview)}>{preview ? 'Редактировать' : f.kind === 'game' || f.kind === 'html' ? 'Попробовать' : 'Как увидит ученик'}</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => setPreview(!preview)}>{preview ? 'Редактировать' : f.kind === 'deck' ? 'Показать урок' : f.kind === 'game' || f.kind === 'html' ? 'Попробовать' : 'Как увидит ученик'}</button>
             {f.kind !== 'theory' && <Link to={`/homework/new?items=${item.id}`} className="btn btn-secondary btn-sm">Выдать как ДЗ</Link>}
             <PublishButton item={item} />
           </div>
@@ -361,28 +366,42 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
       </div>
 
       {preview && !isNew ? (
-        <div style={{ maxWidth: 860 }}><LibraryItem item={{ ...item, ...body(), files: item.files }} /></div>
+        <div style={{ maxWidth: f.kind === 'deck' ? 1100 : 860 }}><LibraryItem item={{ ...item, ...body(), files: item.files }} /></div>
       ) : (
         <form className="assign-layout" onSubmit={save.submit}>
+          {f.kind === 'game' && f.game?.type === 'board' && (
+            <section className="panel dk-panel">
+              <GameEditor game={f.game} itemId={item?.id} onChange={(game) => setF({ ...f, game })} />
+            </section>
+          )}
+          {f.kind === 'deck' && (
+            <section className="panel dk-panel">
+              {f.deck ? <DeckEditor deck={f.deck} onChange={(deck) => setF({ ...f, deck })} itemId={item?.id} /> : (
+                <Field label="С чего начать" hint="Шаблон задаёт порядок этапов урока. Тексты-подсказки замените своими">
+                  <DeckTemplatePicker onPick={(k) => setF({ ...f, deck: deckFromTemplate(k), title: f.title || '' })} />
+                </Field>
+              )}
+            </section>
+          )}
           <section className="panel form">
             <FormulaBar />
             {isNew && (
               <div className="row" style={{ gap: 6 }}>
-                {Object.entries(KINDS).filter(([k]) => k !== 'books').map(([k, label]) => (
+                {[...Object.keys(KINDS).filter((k) => k !== 'books').flatMap((k) => (k === 'html' ? ['deck', 'html'] : [k]))].map((k) => (
                   <button type="button" key={k} className={`btn btn-sm ${f.kind === k ? '' : 'btn-secondary'}`} onClick={() => setF({ ...f, kind: k })}>{NEW_LABEL[k]}</button>
                 ))}
               </div>
             )}
             <Field label="Название">
               <input className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} required autoFocus={isNew}
-                placeholder={{ task: 'Задача 13 ОГЭ: вариант 4', game: 'Термины: найди пару', html: 'Интерактивный урок по теме', theory: 'Правило или конспект темы' }[f.kind]} />
+                placeholder={{ task: 'Задача 13 ОГЭ: вариант 4', game: 'Термины: найди пару', html: 'Интерактивный урок по теме', deck: 'Present Continuous: что происходит сейчас', theory: 'Правило или конспект темы' }[f.kind]} />
             </Field>
             {f.kind === 'game' && !f.game && (
               <Field label="Тип упражнения">
-                <GameTypePicker onPick={(type) => ((type === 'sheet' || SHEET_PRESETS[type]) && isNew ? createSheet(f.title, type) : setF({ ...f, game: EMPTY_GAME[type] }))} />
+                <GameTypePicker onPick={(type) => ((type === 'sheet' || type === 'board' || SHEET_PRESETS[type]) && isNew ? createSheet(f.title, type) : setF({ ...f, game: EMPTY_GAME[type] }))} />
               </Field>
             )}
-            {f.kind === 'game' && f.game && (
+            {f.kind === 'game' && f.game && f.game.type !== 'board' && (
               <div className="game-editor">
                 <div className="row-between" style={{ marginBottom: 12 }}>
                   <span className="game-type">{GAME_TYPES[f.game.type].label}</span>
@@ -392,7 +411,7 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
               </div>
             )}
             {f.kind === 'html' && <HtmlUpload f={f} setF={setF} />}
-            {f.kind === 'game' || f.kind === 'html' ? (
+            {f.kind === 'game' || f.kind === 'html' || f.kind === 'deck' ? (
               <Field label="Инструкция для ученика" hint="Необязательно">
                 <input className="input" value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} placeholder="Соедините термины с определениями" />
               </Field>

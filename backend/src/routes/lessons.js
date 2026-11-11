@@ -323,11 +323,13 @@ router.get(
     const fields = isTutor
       ? 'i.*'
       : 'i.id, i.kind, i.subject, i.title, i.body, i.exam, i.exam_task, i.links, i.game, i.html';
-    const { rows: items } = await query(
+    const { rows: rawItems } = await query(
       `SELECT ${fields} FROM lesson_items li JOIN library_items i ON i.id = li.item_id
         WHERE li.lesson_id = $1 ORDER BY li.position, li.item_id`,
       [l.id]
     );
+    // Ученику заметки преподавателя из уроков-конструкторов не отдаём
+    const items = isTutor ? rawItems : rawItems.map(require('../services/deck').forStudent);
     const { rows: files } = items.length
       ? await query(
           'SELECT id, filename, mime, size_bytes, uploaded_by, created_at, library_item_id FROM files WHERE library_item_id = ANY($1) ORDER BY id',

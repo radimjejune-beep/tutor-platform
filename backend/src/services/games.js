@@ -61,6 +61,20 @@ const sheetBlock = z.discriminatedUnion('t', [
   z.object({ t: z.literal('dictation'), text: z.string().trim().min(1, 'Пустой диктант').max(2000), audio: fileId.nullish() }).strict(),
 ]);
 
+// Конструктор: холст с деталями, которые преподаватель расставил сам (координаты в процентах)
+const BOARD_KINDS = ['text', 'image', 'audio', 'input', 'select', 'check', 'chip', 'zone'];
+const boardEl = z.object({
+  id: z.string().trim().min(1).max(16), k: z.enum(BOARD_KINDS),
+  x: pct, y: pct, w: z.number().min(1).max(100), h: z.number().min(1).max(100),
+  text: z.string().max(2000).optional(), a: z.string().trim().max(300).optional(),
+  options: z.array(z.string().trim().min(1).max(200)).max(8).optional(), correct: z.number().int().min(0).max(7).optional(),
+  on: z.boolean().optional(), zone: z.string().trim().max(16).nullish(),
+  image: fileId.nullish(), audio: fileId.nullish(), say: z.string().trim().max(500).optional(),
+  size: z.number().min(8).max(96).optional(), color: z.enum(['ink', 'pen', 'blue', 'green', 'white']).optional(),
+  bg: z.enum(['none', 'white', 'yellow', 'pink', 'blue', 'green', 'dark']).optional(), align: z.enum(['left', 'center', 'right']).optional(),
+  bold: z.boolean().optional(),
+}).strict().refine((e) => e.k !== 'select' || (e.options?.length >= 2 && (e.correct ?? 0) < e.options.length), 'В списке выбора нужно минимум 2 варианта');
+
 const gameSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('match'),
@@ -91,6 +105,12 @@ const gameSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('sheet'),
     blocks: z.array(sheetBlock).min(1, 'Добавьте хотя бы одно задание').max(80),
+  }).strict(),
+  z.object({
+    type: z.literal('board'),
+    ratio: z.number().min(0.4).max(2.5).default(4 / 3),
+    bg: fileId.nullish(), paper: z.enum(['white', 'paper', 'grid', 'lines', 'dark']).default('white'),
+    elements: z.array(boardEl).max(150, 'Не больше 150 деталей на холсте').refine((els) => new Set(els.map((e) => e.id)).size === els.length, 'Повторяются детали'),
   }).strict(),
 ]);
 
@@ -206,6 +226,8 @@ function grade(game, answers = {}) {
     });
   } else if (game.type === 'sheet') {
     return gradeSheet(game, answers);
+  } else if (game.type === 'board') {
+    return gradeBoard(game, answers);
   }
   const total = details.length;
   const correct = details.filter((d) => d.ok).length;
@@ -265,6 +287,36 @@ function gradeSheet(game, answers = {}) {
   const correct = auto.filter((d) => d.ok).length;
   const total = auto.length;
   return { correct, total, score: total ? Math.round((correct / total) * 100) : 0, details, manual: details.length - auto.length };
+}
+
+// Конструктор: поля, списки, галочки и карточки проверяются сами; поле без ответа проверяет преподаватель
+function gradeBoard(game, answers = {}) {
+  const given = answers.e || {};
+  const short = (v) => (v === undefined || v === null || v === '' ? null : String(v).slice(0, 300));
+  const zones = game.elements.filter((e) => e.k === 'zone');
+  const zoneName = (id) => { const k = zones.findIndex((z) => z.id === id); return k < 0 ? null : (zones[k].text || '').trim() || `место ${k + 1}`; };
+  const details = [];
+  game.elements.forEach((el) => {
+    const g = given[el.id];
+    if (el.k === 'input') {
+      const opts = alts(el.a);
+      if (!opts.length) details.push({ el: el.id, ok: null, manual: true, prompt: el.text || 'Поле для ответа', given: short(g) });
+      else details.push({ el: el.id, ok: opts.some((o) => normalize(o) === normalize(g)), given: short(g), expected: opts.join(' / '), prompt: el.text || null });
+    } else if (el.k === 'select') {
+      const j = g === undefined || g === null || g === '' ? null : Number(g);
+      const c = el.correct || 0;
+      details.push({ el: el.id, ok: j === c, given: j === null ? null : el.options[j] ?? null, expected: el.options[c] });
+    } else if (el.k === 'check') {
+      details.push({ el: el.id, ok: Boolean(g) === Boolean(el.on), given: g ? 'отмечено' : 'не отмечено', expected: el.on ? 'отмечено' : 'не отмечено', prompt: el.text || null });
+    } else if (el.k === 'chip') {
+      const z = g && zoneName(g) ? g : null;
+      if (el.zone && zoneName(el.zone)) details.push({ el: el.id, ok: z === el.zone, given: z ? zoneName(z) : null, expected: zoneName(el.zone), prompt: el.text || null });
+      else if (z) details.push({ el: el.id, ok: false, given: zoneName(z), expected: 'лишняя карточка', prompt: el.text || null });
+    }
+  });
+  const auto = details.filter((d) => !d.manual);
+  const correct = auto.filter((d) => d.ok).length;
+  return { correct, total: auto.length, score: auto.length ? Math.round((correct / auto.length) * 100) : 0, details, manual: details.length - auto.length };
 }
 
 module.exports = { gameSchema, sheetBlock, grade, parseGaps, writeChecks, parseFix };

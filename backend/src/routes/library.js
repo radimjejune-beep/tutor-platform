@@ -2,6 +2,7 @@
 // Ученик видит условие задачи, только если она выдана ему на уроке или в домашнем задании.
 const express = require('express');
 const { z } = require('zod');
+const deck = require('../services/deck');
 const { query, transaction } = require('../db');
 const { requireRole, accessibleStudentIds, requireOwn } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
@@ -61,7 +62,8 @@ router.get(
   asyncHandler(async (req, res) => {
     const isTutor = req.user.role === 'tutor';
     // kind можно передать списком: task,game
-    const kinds = String(req.query.kind || '').split(',').filter((k) => ['theory', 'task', 'game', 'html'].includes(k));
+    const kinds = String(req.query.kind || '').split(',').filter((k) => ['theory', 'task', 'game', 'html', 'deck'].includes(k));
+    if (kinds.includes('html') && !kinds.includes('deck')) kinds.push('deck'); // «Уроки»: загруженные и собранные в конструкторе
     const kind = isTutor ? (kinds.length ? kinds : null) : ['theory'];
     const examTask = Number(req.query.exam_task) || null;
     // ?folder=<id> — папка вместе с подпапками, ?folder=none — без папки
@@ -120,7 +122,7 @@ router.get(
       rows = rows.filter((r) => r.kind === 'theory' || visible.has(r.id));
     }
     rows.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
-    res.json(await withFiles(rows));
+    res.json(await withFiles(isTutor ? rows : rows.map(deck.forStudent)));
   })
 );
 
@@ -130,7 +132,7 @@ router.get(
     const isTutor = req.user.role === 'tutor';
     const { rows } = await query(`SELECT ${isTutor ? '*' : PUBLIC_FIELDS} FROM library_items WHERE id = $1`, [Number(req.params.id)]);
     if (!rows[0] || !(await canSeeItem(req.user, rows[0]))) return res.status(404).json({ error: 'Материал не найден' });
-    const [item] = await withFiles(rows);
+    const [item] = await withFiles(isTutor ? rows : rows.map(deck.forStudent));
     res.json(item);
   })
 );
@@ -140,7 +142,7 @@ router.get(
 // ------------------------------------------------------------
 const tag = z.string().trim().min(1).max(40);
 const fields = {
-  kind: z.enum(['theory', 'task', 'game', 'html']),
+  kind: z.enum(['theory', 'task', 'game', 'html', 'deck']),
   subject: z.string().trim().min(1).max(100),
   title: z.string().trim().min(1, 'Название не может быть пустым').max(255),
   body: z.string().max(50000).nullable(),
@@ -167,6 +169,7 @@ router.post(
       .strict()
       .refine((b) => b.kind !== 'game' || b.game, 'Заполните упражнение')
       .refine((b) => b.kind !== 'html' || b.html, 'Загрузите файл урока')
+      .refine((b) => b.kind !== 'deck' || (b.html && !deck.check(b.html)), (b) => ({ message: (b.html && deck.check(b.html)) || 'Добавьте слайды' }))
   ),
   asyncHandler(async (req, res) => {
     const b = req.body;
@@ -177,7 +180,7 @@ router.post(
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
       [b.kind, b.subject || req.user.subject, b.title, b.body || null, b.answer || null, b.exam || null, b.exam_task || null,
         [...new Set(b.tags || [])], b.tutor_note || null, b.links || [], b.kind === 'game' ? JSON.stringify(b.game) : null,
-        b.kind === 'html' ? b.html : null, req.user.id, folder]
+        b.kind === 'html' || b.kind === 'deck' ? b.html : null, req.user.id, folder]
     );
     console.log(`✅ В библиотеку добавлено: «${b.title}»`);
     res.status(201).json(rows[0]);
@@ -194,6 +197,10 @@ router.patch(
     if (data.folder_id !== undefined && (await ownFolder(data.folder_id, req.user.tid)) === undefined) return res.status(404).json({ error: 'Папка не найдена' });
     if (data.tags) data.tags = [...new Set(data.tags)];
     if (data.game !== undefined) data.game = data.game ? JSON.stringify(data.game) : null;
+    if (data.kind === 'deck' && data.html !== undefined) {
+      const problem = data.html ? deck.check(data.html) : 'Добавьте слайды';
+      if (problem) return res.status(400).json({ error: problem });
+    }
     data.updated_at = new Date().toISOString();
     const upd = buildUpdate('library_items', Number(req.params.id), data);
     const { rows } = await query(upd.text, upd.values);
@@ -297,7 +304,7 @@ router.post(
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
           [b.kind, subject, b.title, b.body || null, b.answer || null, b.exam || null, b.exam_task || null,
             [...new Set(b.tags || [])], b.tutor_note || null, b.links || [], b.kind === 'game' ? JSON.stringify(b.game) : null,
-            b.kind === 'html' ? b.html : null, req.user.id]
+            b.kind === 'html' || b.kind === 'deck' ? b.html : null, req.user.id]
         );
         if (b.key) byKey[b.key] = rows[0].id;
         created++;

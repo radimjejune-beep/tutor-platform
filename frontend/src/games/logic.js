@@ -5,6 +5,7 @@ export const GAME_TYPES = {
   order: { label: 'Собери предложение', hint: 'Слова перемешаны, нужно поставить их по порядку' },
   gaps: { label: 'Вставь пропуск', hint: 'Текст с пропусками: вписать или выбрать слово' },
   groups: { label: 'Распредели по группам', hint: 'Разложить слова по категориям' },
+  board: { label: 'Конструктор', hint: 'Свой холст: ставите текст, поля, списки, галочки, карточки для перетаскивания, картинки и аудио куда нужно' },
   sheet: { label: 'Лист с заданиями', hint: 'Из фото учебника или тетради: поля для ответов, выбор, аудио, ответ голосом' },
 };
 
@@ -157,6 +158,8 @@ export function grade(game, answers = {}) {
     });
   } else if (game.type === 'sheet') {
     return gradeSheet(game, answers);
+  } else if (game.type === 'board') {
+    return gradeBoard(game, answers);
   }
   const total = details.length;
   const correct = details.filter((d) => d.ok).length;
@@ -213,6 +216,36 @@ export function gradeSheet(game, answers = {}) {
   return { correct, total: auto.length, score: auto.length ? Math.round((correct / auto.length) * 100) : 0, details, manual: details.length - auto.length };
 }
 
+// Конструктор: то же, что на сервере
+export const boardZoneName = (game, id) => { const zs = game.elements.filter((e) => e.k === 'zone'); const k = zs.findIndex((z) => z.id === id); return k < 0 ? null : (zs[k].text || '').trim() || `место ${k + 1}`; };
+export function gradeBoard(game, answers = {}) {
+  const given = answers.e || {};
+  const short = (v) => (v === undefined || v === null || v === '' ? null : String(v).slice(0, 300));
+  const details = [];
+  game.elements.forEach((el) => {
+    const g = given[el.id];
+    if (el.k === 'input') {
+      const opts = alts(el.a);
+      if (!opts.length) details.push({ el: el.id, ok: null, manual: true, prompt: el.text || 'Поле для ответа', given: short(g) });
+      else details.push({ el: el.id, ok: opts.some((o) => normalize(o) === normalize(g)), given: short(g), expected: opts.join(' / '), prompt: el.text || null });
+    } else if (el.k === 'select') {
+      const j = g === undefined || g === null || g === '' ? null : Number(g);
+      const c = el.correct || 0;
+      details.push({ el: el.id, ok: j === c, given: j === null ? null : el.options[j] ?? null, expected: el.options[c] });
+    } else if (el.k === 'check') {
+      details.push({ el: el.id, ok: Boolean(g) === Boolean(el.on), given: g ? 'отмечено' : 'не отмечено', expected: el.on ? 'отмечено' : 'не отмечено', prompt: el.text || null });
+    } else if (el.k === 'chip') {
+      const z = g && boardZoneName(game, g) ? g : null;
+      if (el.zone && boardZoneName(game, el.zone)) details.push({ el: el.id, ok: z === el.zone, given: z ? boardZoneName(game, z) : null, expected: boardZoneName(game, el.zone), prompt: el.text || null });
+      else if (z) details.push({ el: el.id, ok: false, given: boardZoneName(game, z), expected: 'лишняя карточка', prompt: el.text || null });
+    }
+  });
+  const auto = details.filter((d) => !d.manual);
+  const correct = auto.filter((d) => d.ok).length;
+  return { correct, total: auto.length, score: auto.length ? Math.round((correct / auto.length) * 100) : 0, details, manual: details.length - auto.length };
+}
+export const boardSize = (game) => game.elements.filter((e) => ['input', 'select', 'check'].includes(e.k) || (e.k === 'chip' && e.zone)).length;
+
 // Сколько всего ответов ждёт лист (для прогресса и подписи)
 export function sheetSize(game) {
   return game.blocks.reduce((n, b) => n + (b.t === 'gaps' ? parseGaps(b.text).gaps.length : b.t === 'page' ? b.fields.length : b.t === 'fix' ? parseFix(b.text).filter((x) => x.right).length : ['choice', 'open', 'voice', 'write', 'rewrite', 'dictation'].includes(b.t) ? 1 : 0), 0);
@@ -226,5 +259,6 @@ export function gameSize(game) {
   if (game.type === 'gaps') return parseGaps(game.text).gaps.length;
   if (game.type === 'groups') return game.groups.reduce((n, g) => n + g.items.length, 0);
   if (game.type === 'sheet') return sheetSize(game);
+  if (game.type === 'board') return boardSize(game);
   return 0;
 }
