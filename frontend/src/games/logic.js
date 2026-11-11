@@ -5,6 +5,7 @@ export const GAME_TYPES = {
   order: { label: 'Собери предложение', hint: 'Слова перемешаны, нужно поставить их по порядку' },
   gaps: { label: 'Вставь пропуск', hint: 'Текст с пропусками: вписать или выбрать слово' },
   groups: { label: 'Распредели по группам', hint: 'Разложить слова по категориям' },
+  quick: { label: 'Быстрое задание', hint: 'Введите слова один раз и выберите игру: викторина, пары, мемори, анаграмма, верно или нет' },
   board: { label: 'Конструктор', hint: 'Свой холст: ставите текст, поля, списки, галочки, карточки для перетаскивания, картинки и аудио куда нужно' },
   sheet: { label: 'Лист с заданиями', hint: 'Из фото учебника или тетради: поля для ответов, выбор, аудио, ответ голосом' },
 };
@@ -160,6 +161,8 @@ export function grade(game, answers = {}) {
     return gradeSheet(game, answers);
   } else if (game.type === 'board') {
     return gradeBoard(game, answers);
+  } else if (game.type === 'quick') {
+    return gradeQuick(game, answers);
   }
   const total = details.length;
   const correct = details.filter((d) => d.ok).length;
@@ -216,6 +219,35 @@ export function gradeSheet(game, answers = {}) {
   return { correct, total: auto.length, score: auto.length ? Math.round((correct / auto.length) * 100) : 0, details, manual: details.length - auto.length };
 }
 
+export // Быстрые шаблоны: один список «вопрос и ответ», разные игры. answers.r[i] хранит ответ на i-ю строку
+function gradeQuick(game, answers = {}) {
+  const items = game.items || [];
+  if (game.template === 'match') return grade({ type: 'match', pairs: items.map((x) => ({ a: x.q, b: x.a })) }, answers);
+  const r = answers.r || {};
+  const details = [];
+  if (game.template === 'memory') {
+    const found = new Set((answers.found || []).map(Number));
+    items.forEach((x, i) => details.push({ ok: found.has(i), given: found.has(i) ? x.a : null, expected: x.a, prompt: x.q }));
+  } else {
+    items.forEach((x, i) => {
+      const g = r[i];
+      const variants = String((game.template === 'anagram' ? x.q : x.a) || '').split('|').map((s) => s.trim()).filter(Boolean);
+      let ok = false; let given = g === undefined || g === null || g === '' ? null : g;
+      if (game.template === 'tf') {
+        ok = Boolean(g) && typeof g.v === 'boolean' && (Number(g.j) === i) === g.v;
+        given = g && typeof g.v === 'boolean' ? (g.v ? 'верно' : 'неверно') : null;
+      } else if (game.template === 'flip') {
+        ok = g === true; given = g === true ? 'знаю' : g === false ? 'не знаю' : null;
+      } else {
+        ok = given !== null && variants.some((v) => normalize(v) === normalize(String(g)));
+      }
+      details.push({ ok, given: given === null ? null : String(given).slice(0, 300), expected: variants.join(' / ') || x.a, prompt: x.q });
+    });
+  }
+  const correct = details.filter((d) => d.ok).length;
+  return { correct, total: details.length, score: details.length ? Math.round((correct / details.length) * 100) : 0, details };
+}
+
 // Конструктор: то же, что на сервере
 export const boardZoneName = (game, id) => { const zs = game.elements.filter((e) => e.k === 'zone'); const k = zs.findIndex((z) => z.id === id); return k < 0 ? null : (zs[k].text || '').trim() || `место ${k + 1}`; };
 export function gradeBoard(game, answers = {}) {
@@ -260,5 +292,6 @@ export function gameSize(game) {
   if (game.type === 'groups') return game.groups.reduce((n, g) => n + g.items.length, 0);
   if (game.type === 'sheet') return sheetSize(game);
   if (game.type === 'board') return boardSize(game);
+  if (game.type === 'quick') return game.items.length;
   return 0;
 }

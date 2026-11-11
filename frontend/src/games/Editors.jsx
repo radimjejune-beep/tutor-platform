@@ -5,6 +5,7 @@ import { Field, Icon } from '../ui';
 import { GAME_TYPES, SHEET_PRESETS, parseGaps } from './logic';
 import { SheetEditor } from './Sheet';
 import { BoardEditor, EMPTY_BOARD, cleanBoard } from './Board';
+import { QuickEditor, QUICK_TEMPLATES, emptyQuick, cleanQuick } from './Quick';
 
 export const EMPTY_GAME = {
   match: { type: 'match', pairs: [{ a: '', b: '' }, { a: '', b: '' }, { a: '', b: '' }] },
@@ -13,6 +14,8 @@ export const EMPTY_GAME = {
   groups: { type: 'groups', groups: [{ name: '', items: [] }, { name: '', items: [] }] },
   sheet: { type: 'sheet', blocks: [{ t: 'text', text: '' }] },
   board: EMPTY_BOARD,
+  quick: emptyQuick('quiz'),
+  ...Object.fromEntries(Object.keys(QUICK_TEMPLATES).map((t) => [`q_${t}`, emptyQuick(t)])),
   // Готовые листы: с примером внутри, его нужно заменить своим
   write: { type: 'sheet', blocks: [{ t: 'write', q: 'Write about your typical Monday (60–80 words).', min_words: 60, max_words: 80, min_sentences: 6,
     checks: [{ label: 'Наречия частоты: always, usually, often…', words: 'always|usually|often|sometimes|rarely|never', min: 3 }, { label: 'Слова порядка: first, then, after that…', words: 'first|then|next|after that|finally|later', min: 2 }],
@@ -33,8 +36,21 @@ export const EMPTY_GAME = {
 // Выбор типа для нового упражнения
 export function GameTypePicker({ onPick }) {
   return (
+    <>
+    <div className="section-title" style={{ marginBottom: 4 }}>Быстрые игры</div>
+    <div className="small muted" style={{ marginBottom: 10 }}>Введите список слов или вопросов один раз, игру можно сменить потом</div>
+    <div className="type-grid type-grid-quick" style={{ marginBottom: 18 }}>
+      {Object.entries(QUICK_TEMPLATES).map(([k, t]) => (
+        <button type="button" key={k} className="type-card" onClick={() => onPick(`q_${k}`)}>
+          <span className="type-ill" aria-hidden="true">{t.ill}</span>
+          <span className="list-title">{t.label}</span>
+          <span className="list-sub">{t.hint}</span>
+        </button>
+      ))}
+    </div>
+    <div className="section-title" style={{ marginBottom: 10 }}>Другие задания</div>
     <div className="type-grid">
-      {Object.entries({ ...GAME_TYPES, ...SHEET_PRESETS }).map(([type, t]) => (
+      {Object.entries({ ...GAME_TYPES, ...SHEET_PRESETS }).filter(([type]) => type !== 'quick').map(([type, t]) => (
         <button type="button" key={type} className="type-card" onClick={() => onPick(type)}>
           <span className="type-ill" aria-hidden="true">{ILLUSTRATION[type]}</span>
           <span className="list-title">{t.label}</span>
@@ -42,6 +58,7 @@ export function GameTypePicker({ onPick }) {
         </button>
       ))}
     </div>
+    </>
   );
 }
 
@@ -59,6 +76,7 @@ const ILLUSTRATION = {
 };
 
 export default function GameEditor({ game, onChange, itemId }) {
+  if (game.type === 'quick') return <QuickEditor game={game} onChange={onChange} />;
   if (game.type === 'board') return <BoardEditor game={game} onChange={onChange} itemId={itemId} />;
   if (game.type === 'sheet') return <SheetEditor game={game} onChange={onChange} itemId={itemId} />;
   if (game.type === 'match') return <MatchEditor game={game} onChange={onChange} />;
@@ -209,6 +227,7 @@ export function cleanGame(game) {
   if (game.type === 'match') return { ...game, pairs: game.pairs.map((p) => ({ a: p.a.trim(), b: p.b.trim() })).filter((p) => p.a && p.b) };
   if (game.type === 'groups') return { ...game, groups: game.groups.map((g) => ({ name: g.name.trim(), items: g.items })).filter((g) => g.name) };
   if (game.type === 'board') return cleanBoard(game);
+  if (game.type === 'quick') return cleanQuick(game);
   if (game.type === 'sheet') {
     const blocks = game.blocks
       .map((b) => {

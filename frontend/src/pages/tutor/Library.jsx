@@ -15,6 +15,7 @@ import { PublishButton } from './Market';
 import GameEditor, { GameTypePicker, EMPTY_GAME, cleanGame } from '../../games/Editors';
 import { GAME_TYPES, SHEET_PRESETS, gameSize } from '../../games/logic';
 import { relativeDay, dayMonth, time } from '../../format';
+import GamePlayer from '../../games/Players';
 import { DeckEditor, DeckTemplatePicker, deckFromTemplate, parseDeck } from '../../components/Deck';
 
 const KINDS = { task: 'Задачник', game: 'Упражнения', html: 'Уроки', theory: 'Теория', books: 'Учебники' };
@@ -369,9 +370,18 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
         <div style={{ maxWidth: f.kind === 'deck' ? 1100 : 860 }}><LibraryItem item={{ ...item, ...body(), files: item.files }} /></div>
       ) : (
         <form className="assign-layout" onSubmit={save.submit}>
-          {f.kind === 'game' && f.game?.type === 'board' && (
+          {f.kind === 'game' && (f.game?.type === 'board' || f.game?.type === 'quick') && (
             <section className="panel dk-panel">
-              <GameEditor game={f.game} itemId={item?.id} onChange={(game) => setF({ ...f, game })} />
+              {isNew && <div style={{ textAlign: 'right', marginBottom: 6 }}><button type="button" className="btn btn-quiet btn-sm" onClick={() => setF({ ...f, game: null })}>Другой тип</button></div>}
+              {f.game.type === 'quick' ? (
+                <div className="qk-split">
+                  <GameEditor game={f.game} itemId={item?.id} onChange={(game) => setF({ ...f, game })} />
+                  <div className="qk-live">
+                    <div className="section-title" style={{ marginBottom: 8 }}>Как увидит ученик</div>
+                    {(() => { const g = cleanGame(f.game); return g.items.length >= 2 ? <GamePlayer key={JSON.stringify(g)} game={g} /> : <div className="small muted">Заполните хотя бы две строки, и здесь появится игра.</div>; })()}
+                  </div>
+                </div>
+              ) : <GameEditor game={f.game} itemId={item?.id} onChange={(game) => setF({ ...f, game })} />}
             </section>
           )}
           {f.kind === 'deck' && (
@@ -401,7 +411,7 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
                 <GameTypePicker onPick={(type) => ((type === 'sheet' || type === 'board' || SHEET_PRESETS[type]) && isNew ? createSheet(f.title, type) : setF({ ...f, game: EMPTY_GAME[type] }))} />
               </Field>
             )}
-            {f.kind === 'game' && f.game && f.game.type !== 'board' && (
+            {f.kind === 'game' && f.game && f.game.type !== 'board' && f.game.type !== 'quick' && (
               <div className="game-editor">
                 <div className="row-between" style={{ marginBottom: 12 }}>
                   <span className="game-type">{GAME_TYPES[f.game.type].label}</span>

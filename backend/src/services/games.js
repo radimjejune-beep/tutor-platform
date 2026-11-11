@@ -75,7 +75,7 @@ const boardEl = z.object({
   bold: z.boolean().optional(),
 }).strict().refine((e) => e.k !== 'select' || (e.options?.length >= 2 && (e.correct ?? 0) < e.options.length), 'В списке выбора нужно минимум 2 варианта');
 
-const gameSchema = z.discriminatedUnion('type', [
+const gameUnion = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('match'),
     pairs: z.array(z.object({ a: word, b: word }).strict()).min(2, 'Нужно минимум 2 пары').max(24),
@@ -107,12 +107,23 @@ const gameSchema = z.discriminatedUnion('type', [
     blocks: z.array(sheetBlock).min(1, 'Добавьте хотя бы одно задание').max(80),
   }).strict(),
   z.object({
+    type: z.literal('quick'),
+    template: z.enum(['quiz', 'match', 'memory', 'anagram', 'tf', 'type', 'flip']),
+    items: z.array(z.object({
+      q: z.string().trim().min(1, 'В каждой строке нужен вопрос или слово').max(500),
+      a: z.string().trim().min(1, 'В каждой строке нужен ответ').max(300),
+      wrong: z.array(z.string().trim().min(1).max(300)).max(5).optional(),
+    }).strict()).min(1, 'Добавьте хотя бы одну строку').max(60, 'Не больше 60 строк'),
+    timer: z.number().int().min(0).max(1800).default(0),
+  }).strict(),
+  z.object({
     type: z.literal('board'),
     ratio: z.number().min(0.4).max(2.5).default(4 / 3),
     bg: fileId.nullish(), paper: z.enum(['white', 'paper', 'grid', 'lines', 'dark']).default('white'),
     elements: z.array(boardEl).max(150, 'Не больше 150 деталей на холсте').refine((els) => new Set(els.map((e) => e.id)).size === els.length, 'Повторяются детали'),
   }).strict(),
 ]);
+const gameSchema = gameUnion.refine((g) => g.type !== 'quick' || !['match', 'memory', 'tf'].includes(g.template) || g.items.length >= 2, { message: 'Для этой игры нужно минимум 2 строки', path: ['items'] });
 
 
 /* ---------- письмо, исправление ошибок, диктант (зеркало frontend/src/games/logic.js) ---------- */
@@ -228,6 +239,8 @@ function grade(game, answers = {}) {
     return gradeSheet(game, answers);
   } else if (game.type === 'board') {
     return gradeBoard(game, answers);
+  } else if (game.type === 'quick') {
+    return gradeQuick(game, answers);
   }
   const total = details.length;
   const correct = details.filter((d) => d.ok).length;
@@ -287,6 +300,35 @@ function gradeSheet(game, answers = {}) {
   const correct = auto.filter((d) => d.ok).length;
   const total = auto.length;
   return { correct, total, score: total ? Math.round((correct / total) * 100) : 0, details, manual: details.length - auto.length };
+}
+
+// Быстрые шаблоны: один список «вопрос и ответ», разные игры. answers.r[i] хранит ответ на i-ю строку
+function gradeQuick(game, answers = {}) {
+  const items = game.items || [];
+  if (game.template === 'match') return grade({ type: 'match', pairs: items.map((x) => ({ a: x.q, b: x.a })) }, answers);
+  const r = answers.r || {};
+  const details = [];
+  if (game.template === 'memory') {
+    const found = new Set((answers.found || []).map(Number));
+    items.forEach((x, i) => details.push({ ok: found.has(i), given: found.has(i) ? x.a : null, expected: x.a, prompt: x.q }));
+  } else {
+    items.forEach((x, i) => {
+      const g = r[i];
+      const variants = String((game.template === 'anagram' ? x.q : x.a) || '').split('|').map((s) => s.trim()).filter(Boolean);
+      let ok = false; let given = g === undefined || g === null || g === '' ? null : g;
+      if (game.template === 'tf') {
+        ok = Boolean(g) && typeof g.v === 'boolean' && (Number(g.j) === i) === g.v;
+        given = g && typeof g.v === 'boolean' ? (g.v ? 'верно' : 'неверно') : null;
+      } else if (game.template === 'flip') {
+        ok = g === true; given = g === true ? 'знаю' : g === false ? 'не знаю' : null;
+      } else {
+        ok = given !== null && variants.some((v) => normalize(v) === normalize(String(g)));
+      }
+      details.push({ ok, given: given === null ? null : String(given).slice(0, 300), expected: variants.join(' / ') || x.a, prompt: x.q });
+    });
+  }
+  const correct = details.filter((d) => d.ok).length;
+  return { correct, total: details.length, score: details.length ? Math.round((correct / details.length) * 100) : 0, details };
 }
 
 // Конструктор: поля, списки, галочки и карточки проверяются сами; поле без ответа проверяет преподаватель

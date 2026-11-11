@@ -6,6 +6,7 @@ import { GAME_TYPES, grade, parseGaps, shuffle, shuffleChanged, tokenize } from 
 import { Icon, readDraft, writeDraft, clearDraft } from '../ui';
 import { SheetBoard, sheetProgress } from './Sheet';
 import { BoardBoard, boardProgress } from './Board';
+import { QuickBoard, quickProgress, QUICK_TEMPLATES } from './Quick';
 
 /* ============================================================
    Обёртка: заголовок, кнопка «Проверить», итог, «Ещё раз»
@@ -22,6 +23,7 @@ export default function GamePlayer({ game, onFinish, footer, draftKey }) {
 
 // Ответы листа с заданиями сохраняются как черновик: ушли со страницы, вернулись и продолжили
 const DRAFTABLE = new Set(['sheet', 'board']);
+const QuickWithMatch = (p) => <QuickBoard {...p} MatchBoard={MatchBoard} />;
 function Round({ game, onFinish, footer, onRetry, draftKey }) {
   const started = useRef(Date.now());
   const useDraft = Boolean(draftKey && onFinish && DRAFTABLE.has(game.type));
@@ -37,7 +39,7 @@ function Round({ game, onFinish, footer, onRetry, draftKey }) {
   const [saveError, setSaveError] = useState('');
   const checked = Boolean(result);
 
-  const Board = { match: MatchBoard, order: OrderBoard, gaps: GapsBoard, groups: GroupsBoard, sheet: SheetBoard, board: BoardBoard }[game.type];
+  const Board = { match: MatchBoard, order: OrderBoard, gaps: GapsBoard, groups: GroupsBoard, sheet: SheetBoard, board: BoardBoard, quick: QuickWithMatch }[game.type];
   if (!Board) return null;
 
   const check = async () => {
@@ -59,7 +61,7 @@ function Round({ game, onFinish, footer, onRetry, draftKey }) {
   return (
     <div className="game">
       <div className="game-head">
-        <span className="game-type">{GAME_TYPES[game.type].label}</span>
+        <span className="game-type">{game.type === 'quick' ? QUICK_TEMPLATES[game.template]?.label : GAME_TYPES[game.type].label}</span>
         {!checked && <span className="small muted">{progressText(game, answers)}</span>}
       </div>
 
@@ -95,6 +97,7 @@ function progressText(game, answers) {
   if (game.type === 'gaps') return `Заполнено ${(answers.gaps || []).filter(Boolean).length} из ${parseGaps(game.text).gaps.length}`;
   if (game.type === 'sheet') return sheetProgress(game, answers);
   if (game.type === 'board') return boardProgress(game, answers);
+  if (game.type === 'quick') return quickProgress(game, answers);
   if (game.type === 'groups') {
     const total = game.groups.reduce((n, g) => n + g.items.length, 0);
     return `Разложено ${Object.keys(answers.items || {}).length} из ${total}`;

@@ -97,3 +97,17 @@ test('конструктор заданий: схема и проверка', ()
   assert.equal(gameSchema.safeParse({ type: 'board', elements: [{ id: 's', k: 'select', x: 1, y: 1, w: 5, h: 5, options: ['x'] }] }).success, false);
   assert.equal(gameSchema.safeParse({ type: 'board', elements: [{ id: 'q', k: 'text', x: 1, y: 1, w: 5, h: 5 }, { id: 'q', k: 'text', x: 1, y: 1, w: 5, h: 5 }] }).success, false);
 });
+
+test('быстрые игры: одни слова, разные шаблоны', () => {
+  const { gameSchema, grade } = require(src('services/games.js'));
+  const items = [{ q: 'cat', a: 'кот' }, { q: 'dog', a: 'собака|пёс' }, { q: 'cow', a: 'корова', wrong: ['коза'] }];
+  const g = (template) => gameSchema.parse({ type: 'quick', template, items });
+  assert.equal(grade(g('quiz'), { r: { 0: 'кот', 1: 'пёс', 2: 'коза' } }).correct, 2);
+  assert.equal(grade(g('type'), { r: { 0: ' Кот ', 1: 'собака' } }).correct, 2);
+  assert.equal(grade(g('anagram'), { r: { 0: 'cat', 1: 'god' } }).correct, 1);
+  assert.equal(grade(g('tf'), { r: { 0: { j: 0, v: true }, 1: { j: 2, v: true }, 2: { j: 0, v: false } } }).correct, 2);
+  assert.equal(grade(g('memory'), { found: [0, 2] }).correct, 2);
+  assert.equal(grade(g('match'), { pairs: { 0: 0, 1: 1, 2: 0 } }).correct, 2);
+  assert.equal(gameSchema.safeParse({ type: 'quick', template: 'memory', items: [items[0]] }).success, false);
+  assert.equal(gameSchema.safeParse({ type: 'quick', template: 'quiz', items: [items[0]] }).success, true);
+});

@@ -277,7 +277,7 @@ function SlideForm({ s, set, itemId }) {
       {t === 'exercise' && (
         <Field label="Упражнение">
           <div className="row wrap" style={{ gap: 6, marginBottom: 10 }}>
-            {['match', 'gaps', 'order', 'groups', 'board'].map((k) => (
+            {['quick', 'match', 'gaps', 'order', 'groups', 'board'].map((k) => (
               <button key={k} type="button" className={`btn btn-sm ${s.game?.type === k ? '' : 'btn-secondary'}`} onClick={() => (s.game?.type === k ? null : set({ game: JSON.parse(JSON.stringify(EMPTY_GAME[k])) }))}>{GAME_TYPES[k].label}</button>
             ))}
           </div>
