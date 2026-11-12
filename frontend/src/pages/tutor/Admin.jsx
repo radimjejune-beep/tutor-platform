@@ -55,6 +55,7 @@ function SystemState() {
         {row(d.backup_key, d.backup_key ? 'Ключ шифрования копий задан' : 'Не задан BACKUP_KEY', 'Храните его отдельно от сервера: без него копию не расшифровать')}
         {row(d.s3, d.s3 ? 'Хранилище S3 подключено' : 'Хранилище S3 не подключено', 'S3_BUCKET, S3_ACCESS_KEY, S3_SECRET_KEY: копии и файлы вне сервера')}
         {row(d.legal, d.legal ? 'Реквизиты для документов заданы' : 'Реквизиты не заданы', 'PLATFORM_OWNER_NAME, PLATFORM_OWNER_INN, PLATFORM_EMAIL: попадают в оферту и подвал сайта')}
+        <li className={d.mail ? 'ok' : 'bad'}><span>{d.mail ? '✓' : '!'}</span><div><b>{d.mail ? 'Почта для писем настроена' : 'Почта для писем не настроена'}</b><div className="small muted">SMTP_HOST, SMTP_USER, SMTP_PASS: письма восстановления пароля</div>{d.mail && <button type="button" className="btn btn-quiet btn-sm" style={{ marginTop: 4 }} onClick={() => api.adminTestMail().then((r) => toast(`Письмо отправлено на ${r.to}`)).catch((e) => toast(e.message, 'error'))}>Отправить тестовое письмо себе</button>}</div></li>
         {row(d.telegram, d.telegram ? 'Telegram-бот работает' : 'Telegram-бот выключен', 'TELEGRAM_BOT_TOKEN: напоминания ученикам и сообщения вам о сбоях')}
       </ul>
       {d.errors?.length > 0 && (

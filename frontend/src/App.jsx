@@ -5,7 +5,7 @@ import { TrySandbox } from './components/Sandbox';
 import { lazy, Suspense } from 'react';
 import { AuthProvider, useAuth } from './auth';
 import { ToastProvider, Spinner, useRoute } from './ui';
-import { Login, ChangePassword, Register } from './pages/Login';
+import { Login, ChangePassword, Register, Forgot, ResetPassword } from './pages/Login';
 import { LegalPage, PlatformDocPage } from './pages/Legal';
 import Join from './pages/Join';
 import Landing from './pages/Landing';
@@ -46,11 +46,14 @@ function Root() {
   if (path.startsWith('/legal/')) return <LegalPage kind={path.split('/')[2]} tutor={params.get('t') || undefined} />;
   // Страница записи репетитора открывается без входа
   if (path.startsWith('/join/')) return <Join login={decodeURIComponent(path.split('/')[2] || '')} />;
+  // Восстановление пароля по ссылке из письма работает и без входа
+  if (path === '/reset') return <ResetPassword token={params.get('token') || ''} />;
   if (session === undefined) return <Spinner />;
   // Тестовый кабинет без регистрации: ссылку /#/try можно отправить кому угодно
   if (path === '/try') return <TrySandbox />;
   if (!session) {
     if (path === '/register') return <Register />;
+    if (path === '/forgot') return <Forgot />;
     // Главная до входа: страница платформы. Витрина готовых уроков отдельно: /shop
     if (path === '/' || path === '') return <Landing />;
     if (path === '/shop') return <Shop />;

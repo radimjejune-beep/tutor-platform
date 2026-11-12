@@ -221,4 +221,59 @@ router.post(
   })
 );
 
+// ------------------------------------------------------------
+// Восстановление пароля по почте: одноразовая ссылка на час
+const resetLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Слишком много запросов, попробуйте через час' },
+});
+const appUrl = () => String(process.env['LF_APP_URL'] || 'https://lessonfold.ru').replace(/\/+$/, '');
+const sha = (t) => require('crypto').createHash('sha256').update(t).digest('hex');
+
+router.post(
+  '/forgot',
+  resetLimiter,
+  validateBody(z.object({ email: z.string().trim().toLowerCase().max(255).email('Проверьте адрес почты') }).strict()),
+  asyncHandler(async (req, res) => {
+    // Ответ всегда одинаковый, чтобы по нему нельзя было узнать, есть ли такая почта
+    const done = () => res.json({ ok: true });
+    const { rows } = await query('SELECT id, full_name, is_active FROM users WHERE LOWER(email) = $1', [req.body.email]);
+    const user = rows[0];
+    if (!user || !user.is_active) return done();
+    const { rows: recent } = await query("SELECT 1 FROM password_resets WHERE user_id = $1 AND created_at > NOW() - INTERVAL '2 minutes'", [user.id]);
+    if (recent[0]) return done();
+    const token = require('crypto').randomBytes(32).toString('hex');
+    await query("INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES ($1, $2, NOW() + INTERVAL '1 hour')", [user.id, sha(token)]);
+    const link = `${appUrl()}/#/reset?token=${token}`;
+    await require('../services/mailer').send({
+      to: req.body.email,
+      subject: 'Восстановление пароля Lessonfold',
+      text: `Здравствуйте${user.full_name ? `, ${user.full_name}` : ''}!\n\nВы запросили смену пароля в Lessonfold. Чтобы задать новый пароль, откройте ссылку:\n${link}\n\nСсылка действует один час и сработает один раз. Если вы не запрашивали смену пароля, просто проигнорируйте это письмо, пароль останется прежним.\n\nLessonfold`,
+    });
+    console.log(`🔑 Запрошено восстановление пароля: пользователь ${user.id}`);
+    done();
+  })
+);
+
+router.post(
+  '/reset',
+  resetLimiter,
+  validateBody(z.object({ token: z.string().regex(/^[a-f0-9]{64}$/, 'Ссылка повреждена'), password: z.string().min(8, 'Пароль: минимум 8 символов').max(100) }).strict()),
+  asyncHandler(async (req, res) => {
+    const { rows } = await query(
+      'SELECT r.id, r.user_id FROM password_resets r JOIN users u ON u.id = r.user_id WHERE r.token_hash = $1 AND r.used_at IS NULL AND r.expires_at > NOW() AND u.is_active',
+      [sha(req.body.token)]
+    );
+    if (!rows[0]) return res.status(400).json({ error: 'Ссылка устарела или уже использована. Запросите новую' });
+    const hash = await bcrypt.hash(req.body.password, 12);
+    await query('UPDATE users SET password_hash = $1, must_change_password = FALSE WHERE id = $2', [hash, rows[0].user_id]);
+    await query('UPDATE password_resets SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL', [rows[0].user_id]);
+    console.log(`🔑 Пароль восстановлен: пользователь ${rows[0].user_id}`);
+    res.json({ ok: true });
+  })
+);
+
 module.exports = router;

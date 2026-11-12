@@ -188,8 +188,21 @@ router.get(
       s3: require('../services/s3').enabled(),
       legal: require('../legal/platform').configured(),
       telegram: require('../services/telegram').enabled(),
+      mail: require('../services/mailer').configured(),
       errors: require('../services/monitor').recent(),
     });
+  })
+);
+
+// Тестовое письмо себе: проверить, что почта настроена
+router.post(
+  '/test-mail',
+  asyncHandler(async (req, res) => {
+    const to = req.user.email;
+    if (!to) return res.status(400).json({ error: 'Укажите свою почту в профиле' });
+    const ok = await require('../services/mailer').send({ to, subject: 'Проверка почты Lessonfold', text: 'Это тестовое письмо. Если вы его читаете, сайт умеет отправлять письма: восстановление пароля работает.' });
+    if (!ok) return res.status(500).json({ error: 'Письмо не ушло. Проверьте SMTP_HOST, SMTP_USER и SMTP_PASS, подробности в логах' });
+    res.json({ ok: true, to });
   })
 );
 

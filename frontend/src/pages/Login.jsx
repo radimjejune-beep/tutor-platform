@@ -73,7 +73,7 @@ export function Login() {
         </button>
       </form>
       <p className="muted small" style={{ marginTop: 22 }}>
-        Забыли пароль? Напишите преподавателю, он задаст новый.
+        <Link to="/forgot">Забыли пароль?</Link> Восстановим по почте. Ученикам без почты новый пароль задаёт преподаватель.
       </p>
       {reg.data?.open && (
         <div className="register-cta">
@@ -86,6 +86,71 @@ export function Login() {
       <p className="small" style={{ marginTop: 28, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         {LEGAL_LINKS.map((l) => <Link key={l.kind} to={`/legal/${l.kind}`} className="muted">{l.label}</Link>)}
       </p>
+    </AuthLayout>
+  );
+}
+
+// Восстановление пароля: письмо со ссылкой на почту
+export function Forgot() {
+  const [email, setEmail] = useState('');
+  const [sent, setSent] = useState(false);
+  const { busy, error, submit } = useSubmit(async () => { await api.forgotPassword(email.trim().toLowerCase()); setSent(true); });
+  return (
+    <AuthLayout>
+      <Link to="/login" className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 14 }}>← Ко входу</Link>
+      <h1 className="page-title">Восстановление пароля</h1>
+      {sent ? (
+        <p className="muted" style={{ margin: '8px 0 28px' }}>
+          Если эта почта привязана к кабинету, на неё придёт письмо со ссылкой. Ссылка действует час. Письма нет несколько минут? Проверьте папку «Спам».
+        </p>
+      ) : (
+        <>
+          <p className="muted" style={{ margin: '8px 0 28px' }}>Укажите почту, привязанную к кабинету. Пришлём ссылку для нового пароля.</p>
+          <form className="form" onSubmit={submit}>
+            <Field label="Почта">
+              <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" autoCapitalize="none" required />
+            </Field>
+            {error && <div className="alert">{error}</div>}
+            <button className="btn" disabled={busy} style={{ height: 48 }}>{busy ? 'Отправляем…' : 'Прислать ссылку'}</button>
+          </form>
+          <p className="muted small" style={{ marginTop: 22 }}>Ученикам без почты новый пароль задаёт преподаватель.</p>
+        </>
+      )}
+    </AuthLayout>
+  );
+}
+
+export function ResetPassword({ token }) {
+  const [f, setF] = useState({ password: '', repeat: '' });
+  const [done, setDone] = useState(false);
+  const { busy, error, submit, setError } = useSubmit(async () => {
+    if (f.password !== f.repeat) return setError('Пароли не совпадают');
+    await api.resetPassword(token, f.password);
+    setToken(null);
+    setDone(true);
+  });
+  return (
+    <AuthLayout>
+      <h1 className="page-title">Новый пароль</h1>
+      {done ? (
+        <>
+          <p className="muted" style={{ margin: '8px 0 28px' }}>Пароль изменён. Войдите с новым паролем.</p>
+          <a className="btn" href="#/login" onClick={() => setTimeout(() => window.location.reload(), 50)}>Войти</a>
+        </>
+      ) : !token ? (
+        <p className="muted" style={{ margin: '8px 0 28px' }}>Ссылка неполная. Откройте её из письма целиком или <Link to="/forgot">запросите новую</Link>.</p>
+      ) : (
+        <form className="form" onSubmit={submit} style={{ marginTop: 20 }}>
+          <Field label="Новый пароль" hint="Минимум 8 символов">
+            <input className="input" type="password" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} minLength={8} autoComplete="new-password" required />
+          </Field>
+          <Field label="Ещё раз">
+            <input className="input" type="password" value={f.repeat} onChange={(e) => setF({ ...f, repeat: e.target.value })} minLength={8} autoComplete="new-password" required />
+          </Field>
+          {error && <div className="alert">{error}</div>}
+          <button className="btn" disabled={busy} style={{ height: 48 }}>{busy ? 'Сохраняем…' : 'Сохранить пароль'}</button>
+        </form>
+      )}
     </AuthLayout>
   );
 }

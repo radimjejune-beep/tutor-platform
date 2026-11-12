@@ -239,6 +239,36 @@ test('база данных', opts, async (t) => {
     assert.equal(bad.status, 401);
   });
 
+  await t.test('восстановление пароля: ссылка по почте, одноразовая, старый пароль больше не подходит', async () => {
+    const r = loadRoutes('routes/auth.js').mod;
+    const R = r.router || r;
+    const mailer = require(src('services/mailer.js'));
+    const sent = [];
+    const orig = mailer.send;
+    mailer.send = async (m) => { sent.push(m); return true; };
+    try {
+      const login = uniq('rp');
+      await query(`INSERT INTO users (role, login, email, password_hash, full_name) VALUES ('tutor', $1, $2, $3, 'Рита')`, [login, `${login}@mail.ru`, await require('bcryptjs').hash('oldpass123', 4)]);
+      const none = await call(R, 'POST', '/forgot', { body: { email: 'nobody@mail.ru' }, ip: '10.1.0.1' });
+      assert.equal(none.status, 200);
+      assert.equal(sent.length, 0);
+      const f = await call(R, 'POST', '/forgot', { body: { email: `${login.toUpperCase()}@MAIL.RU` }, ip: '10.1.0.2' });
+      assert.equal(f.status, 200);
+      assert.equal(sent.length, 1);
+      const token = sent[0].text.match(/token=([a-f0-9]{64})/)[1];
+      const bad = await call(R, 'POST', '/reset', { body: { token: 'a'.repeat(64), password: 'newpass123' }, ip: '10.1.0.3' });
+      assert.equal(bad.status, 400);
+      const ok = await call(R, 'POST', '/reset', { body: { token, password: 'newpass123' }, ip: '10.1.0.4' });
+      assert.equal(ok.status, 200, JSON.stringify(ok.body));
+      const again = await call(R, 'POST', '/reset', { body: { token, password: 'other12345' }, ip: '10.1.0.5' });
+      assert.equal(again.status, 400);
+      const oldPw = await call(R, 'POST', '/login', { body: { login, password: 'oldpass123' }, ip: '10.1.0.6' });
+      assert.equal(oldPw.status, 401);
+      const newPw = await call(R, 'POST', '/login', { body: { login: `${login}@mail.ru`, password: 'newpass123' }, ip: '10.1.0.7' });
+      assert.equal(newPw.status, 200);
+    } finally { mailer.send = orig; }
+  });
+
   await t.test('конструктор уроков: урок из слайдов сохраняется, кривой отклоняется, ученик не видит заметок', async () => {
     const mod = loadRoutes('routes/library.js').mod.router;
     const a = await tutor();

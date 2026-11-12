@@ -62,6 +62,8 @@ export const api = {
   login: (login, password) => request('POST', '/auth/login', { login, password }),
   me: () => request('GET', '/auth/me'),
   register: (data) => request('POST', '/auth/register', data),
+  forgotPassword: (email) => request('POST', '/auth/forgot', { email }),
+  resetPassword: (token, password) => request('POST', '/auth/reset', { token, password }),
   registrationStatus: () => request('GET', '/auth/registration'),
   shop: () => request('GET', '/shop'),
 
@@ -70,6 +72,7 @@ export const api = {
   adminMetrics: () => request('GET', '/admin/metrics'),
   adminSystem: () => request('GET', '/admin/system'),
   adminBackup: () => request('POST', '/admin/backup'),
+  adminTestMail: () => request('POST', '/admin/test-mail'),
   adminCreateTutor: (data) => request('POST', '/admin/tutors', data),
   adminSetTutorActive: (id, is_active) => request('PATCH', `/admin/tutors/${id}`, { is_active }),
   adminSetTutorAdmin: (id, is_admin) => request('PATCH', `/admin/tutors/${id}`, { is_admin }),

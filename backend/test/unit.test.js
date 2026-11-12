@@ -111,3 +111,12 @@ test('быстрые игры: одни слова, разные шаблоны'
   assert.equal(gameSchema.safeParse({ type: 'quick', template: 'memory', items: [items[0]] }).success, false);
   assert.equal(gameSchema.safeParse({ type: 'quick', template: 'quiz', items: [items[0]] }).success, true);
 });
+
+test('письмо: русская тема и текст кодируются, точка в начале строки не обрывает письмо', () => {
+  const { buildMessage } = require(src('services/mailer.js'));
+  const m = buildMessage({ from: 'noreply@lessonfold.ru', name: 'Lessonfold', to: 'a@b.ru', subject: 'Восстановление пароля', text: 'Привет\n.точка' });
+  assert.match(m, /Subject: =\?UTF-8\?B\?/);
+  assert.match(m, /From: Lessonfold <noreply@lessonfold.ru>/);
+  const body = m.split('\r\n\r\n')[1].replace(/\r\n/g, '');
+  assert.equal(Buffer.from(body, 'base64').toString('utf8'), 'Привет\n.точка');
+});
