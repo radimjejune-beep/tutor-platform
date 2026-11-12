@@ -34,7 +34,7 @@ async function registrationOpen() {
 }
 
 const loginSchema = z.object({
-  login: z.string().trim().toLowerCase().min(1).max(64),
+  login: z.string().trim().toLowerCase().min(1).max(255),
   password: z.string().min(1).max(100),
 });
 
@@ -44,14 +44,15 @@ router.post(
   validateBody(loginSchema),
   asyncHandler(async (req, res) => {
     const { login, password } = req.body;
-    const { rows } = await query('SELECT * FROM users WHERE login = $1', [login]);
+    // В поле можно ввести логин или почту
+    const { rows } = await query('SELECT * FROM users WHERE login = $1 OR (email IS NOT NULL AND LOWER(email) = $1) ORDER BY (login = $1) DESC LIMIT 1', [login]);
     const user = rows[0];
 
     // Одинаковый ответ для «нет такого логина» и «неверный пароль»
     const ok = user && user.is_active && (await bcrypt.compare(password, user.password_hash));
     if (!ok) {
       console.log(`⚠️ Неудачный вход: ${login}`);
-      return res.status(401).json({ error: 'Неверный логин или пароль' });
+      return res.status(401).json({ error: 'Неверная почта, логин или пароль' });
     }
 
     await query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [user.id]);
@@ -64,6 +65,7 @@ router.post(
         id: user.id,
         role: user.role,
         login: user.login,
+        email: user.email,
         full_name: user.full_name,
         must_change_password: user.must_change_password,
         is_admin: user.is_admin,
@@ -89,7 +91,7 @@ router.post(
     z
       .object({
         full_name: z.string().trim().min(2, 'Укажите имя и фамилию').max(255),
-        login: z.string().trim().toLowerCase().regex(/^[a-z0-9._-]{3,64}$/, 'Логин: латиница, цифры, точка, от 3 символов'),
+        email: z.string().trim().toLowerCase().max(255).email('Проверьте адрес почты'),
         password: z.string().min(8, 'Пароль: минимум 8 символов').max(100),
         subject: z.string().trim().min(2, 'Укажите предмет').max(100),
         accept: z.literal(true, { errorMap: () => ({ message: 'Нужно принять условия платформы' }) }),
@@ -99,14 +101,20 @@ router.post(
   asyncHandler(async (req, res) => {
     if (!(await registrationOpen())) return res.status(403).json({ error: 'Регистрация сейчас закрыта' });
     const b = req.body;
-    const { rows: exists } = await query('SELECT 1 FROM users WHERE login = $1', [b.login]);
-    if (exists[0]) return res.status(409).json({ error: `Логин «${b.login}» уже занят` });
+    const { rows: exists } = await query('SELECT 1 FROM users WHERE LOWER(email) = $1', [b.email]);
+    if (exists[0]) return res.status(409).json({ error: 'С этой почтой уже есть кабинет. Войдите или восстановите пароль' });
+    // Логин остаётся внутренним: собираем из почты, при совпадении добавляем цифру
+    const base = (b.email.split('@')[0].replace(/[^a-z0-9._-]/g, '') || 'tutor').slice(0, 40).padEnd(3, '0');
+    const { rows: taken } = await query('SELECT login FROM users WHERE login = $1 OR login ~ $2', [base, `^${base.replace(/[.]/g, '\\.')}[0-9]+$`]);
+    const used = new Set(taken.map((r) => r.login));
+    let login = base;
+    for (let i = 2; used.has(login); i++) login = `${base}${i}`;
     const hash = await bcrypt.hash(b.password, 12);
     await require('../services/plans').ensure();
     const { rows } = await query(
-      `INSERT INTO users (role, login, password_hash, full_name, subject, last_login_at, plan, plan_until)
-       VALUES ('tutor', $1, $2, $3, $4, NOW(), 'trial', NOW() + make_interval(days => $5)) RETURNING id, role, login, full_name, must_change_password, is_admin, subject, password_hash`,
-      [b.login, hash, b.full_name, b.subject, require('../services/plans').TRIAL_DAYS]
+      `INSERT INTO users (role, login, email, password_hash, full_name, subject, last_login_at, plan, plan_until)
+       VALUES ('tutor', $1, $6, $2, $3, $4, NOW(), 'trial', NOW() + make_interval(days => $5)) RETURNING id, role, login, email, full_name, must_change_password, is_admin, subject, password_hash`,
+      [login, hash, b.full_name, b.subject, require('../services/plans').TRIAL_DAYS, b.email]
     );
     const { password_hash: _ph, ...user } = rows[0];
     await require('./platformDocs').acceptOnRegister(user.id, req.ip);
@@ -137,6 +145,26 @@ router.put(
     if (req.user.role !== 'tutor') return res.status(403).json({ error: 'Имя меняет преподаватель' });
     await query('UPDATE users SET full_name = $1 WHERE id = $2', [req.body.full_name, req.user.id]);
     res.json({ full_name: req.body.full_name });
+  })
+);
+
+// Почта для входа: любая роль может указать или сменить свою, нужна проверка пароля
+router.put(
+  '/email',
+  authenticate,
+  validateBody(z.object({ email: z.string().trim().toLowerCase().max(255).email('Проверьте адрес почты').or(z.literal('')), password: z.string().min(1, 'Введите пароль').max(100) }).strict()),
+  asyncHandler(async (req, res) => {
+    const { rows } = await query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+    if (!(await bcrypt.compare(req.body.password, rows[0].password_hash))) return res.status(400).json({ error: 'Пароль указан неверно' });
+    const email = req.body.email || null;
+    if (!email && req.user.role === 'tutor') return res.status(400).json({ error: 'Преподавателю почта нужна для входа' });
+    if (email) {
+      const { rows: other } = await query('SELECT 1 FROM users WHERE LOWER(email) = $1 AND id <> $2', [email, req.user.id]);
+      if (other[0]) return res.status(409).json({ error: 'Эта почта уже привязана к другому кабинету' });
+    }
+    await query('UPDATE users SET email = $1 WHERE id = $2', [email, req.user.id]);
+    console.log(`📝 Почта изменена: ${req.user.login}`);
+    res.json({ email });
   })
 );
 

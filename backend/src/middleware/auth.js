@@ -26,7 +26,7 @@ async function authenticate(req, res, next) {
     }
 
     const { rows } = await query(
-      `SELECT u.id, u.role, u.login, u.full_name, u.is_active, u.password_hash, u.must_change_password, u.is_admin, u.tutor_id,
+      `SELECT u.id, u.role, u.login, u.email, u.full_name, u.is_active, u.password_hash, u.must_change_password, u.is_admin, u.tutor_id,
               COALESCE(u.subject, t.subject, 'Английский язык') AS subject
          FROM users u LEFT JOIN users t ON t.id = u.tutor_id WHERE u.id = $1`,
       [payload.userId]

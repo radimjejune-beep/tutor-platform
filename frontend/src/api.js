@@ -1,12 +1,14 @@
 // api.js — все запросы к бэкенду в одном месте
 // Адрес бэкенда. Берётся из VITE_API_URL; если переменная пустая, с ошибкой
 // или указывает на localhost при открытии сайта из интернета, используем адрес бэкенда на RelaxDev.
-const PROD_API = 'https://tutor-platform.relaxdev.ru';
+// На своём домене lessonfold.ru бэкенд живёт на api.lessonfold.ru, на адресе RelaxDev остаётся прежний
+const OWN_DOMAIN = typeof location !== 'undefined' && /(^|\.)lessonfold\.ru$/i.test(location.hostname);
+const PROD_API = OWN_DOMAIN ? 'https://api.lessonfold.ru' : 'https://tutor-platform.relaxdev.ru';
 const RAW = String(import.meta.env.VITE_API_URL || '').trim();
 const onLocal = typeof location !== 'undefined' && /^(localhost|127\.|\[::1\])/.test(location.hostname);
 const rawOk = /^https?:\/\/[^\s${}]+$/.test(RAW) && (onLocal || !/\/\/(localhost|127\.)/.test(RAW));
 // Лишний «/api» или слеш на конце адреса убираем: пути запросов и так начинаются с /api
-export const API_BASE = (rawOk ? RAW : onLocal ? 'http://localhost:3001' : PROD_API).replace(/\/+$/, '').replace(/\/api$/, '');
+export const API_BASE = (rawOk && !OWN_DOMAIN ? RAW : onLocal ? 'http://localhost:3001' : PROD_API).replace(/\/+$/, '').replace(/\/api$/, '');
 const BASE = API_BASE;
 const TOKEN_KEY = 'tp_token';
 
@@ -151,6 +153,7 @@ export const api = {
   library: (params) => request('GET', `/library${qs(params || {})}`),
   setSubject: (subject) => request('PUT', '/auth/subject', { subject }),
   setProfile: (full_name) => request('PUT', '/auth/profile', { full_name }),
+  setEmail: (email, password) => request('PUT', '/auth/email', { email, password }),
   demoStatus: () => request('GET', '/demo'),
   sandboxCreate: () => request('POST', '/sandbox'),
   sandboxInfo: () => request('GET', '/sandbox'),

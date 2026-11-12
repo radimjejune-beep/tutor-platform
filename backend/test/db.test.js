@@ -220,6 +220,25 @@ test('база данных', opts, async (t) => {
     assert.equal(r.status, 201, JSON.stringify(r.body));
   });
 
+  await t.test('вход по почте: регистрация с почтой, вход по почте и по логину, одна почта на кабинет', async () => {
+    const { mod } = loadRoutes('routes/auth.js');
+    const r = mod.router || mod;
+    await query(`INSERT INTO settings (key, value) VALUES ('registration', '{"open":true}') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`);
+    const body = { full_name: 'Анна Учитель', email: 'Anna.T@Mail.ru', password: 'secret123', subject: 'Английский язык', accept: true };
+    const reg = await call(r, 'POST', '/register', { body, ip: '10.0.0.1' });
+    assert.equal(reg.status, 201, JSON.stringify(reg.body));
+    assert.equal(reg.body.user.email, 'anna.t@mail.ru');
+    assert.match(reg.body.user.login, /^anna\.t/);
+    const dup = await call(r, 'POST', '/register', { body: { ...body, email: 'anna.t@mail.ru' }, ip: '10.0.0.2' });
+    assert.equal(dup.status, 409);
+    const byMail = await call(r, 'POST', '/login', { body: { login: 'anna.t@mail.ru', password: 'secret123' }, ip: '10.0.0.3' });
+    assert.equal(byMail.status, 200, JSON.stringify(byMail.body));
+    const byLogin = await call(r, 'POST', '/login', { body: { login: reg.body.user.login, password: 'secret123' }, ip: '10.0.0.4' });
+    assert.equal(byLogin.status, 200);
+    const bad = await call(r, 'POST', '/login', { body: { login: 'anna.t@mail.ru', password: 'wrong' }, ip: '10.0.0.5' });
+    assert.equal(bad.status, 401);
+  });
+
   await t.test('конструктор уроков: урок из слайдов сохраняется, кривой отклоняется, ученик не видит заметок', async () => {
     const mod = loadRoutes('routes/library.js').mod.router;
     const a = await tutor();

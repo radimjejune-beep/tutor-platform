@@ -41,16 +41,17 @@ export function Login() {
       <Link to="/" className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 14 }}>← На главную</Link>
       <h1 className="page-title">Вход в кабинет</h1>
       <p className="muted" style={{ margin: '8px 0 28px' }}>
-        Логин и пароль выдаёт преподаватель
+        Преподаватель входит по почте. Ученикам и родителям логин и пароль выдаёт преподаватель
       </p>
       <form className="form" onSubmit={submit}>
-        <Field label="Логин">
+        <Field label="Почта или логин">
           <input
             className="input"
             autoComplete="username"
             autoCapitalize="none"
             spellCheck="false"
-            placeholder="ivan.petrov"
+            inputMode="email"
+            placeholder="anna@mail.ru или ivan.petrov"
             value={form.login}
             onChange={(e) => setForm({ ...form, login: e.target.value })}
             required
@@ -141,10 +142,10 @@ export function ChangePassword({ forced, onDone }) {
 // Регистрация репетитора: свой кабинет, ученики и расписание. Пока бесплатно
 export function Register() {
   const { register } = useAuth();
-  const [f, setF] = useState({ full_name: '', subject: '', login: '', password: '', repeat: '', accept: false });
+  const [f, setF] = useState({ full_name: '', subject: '', email: '', password: '', repeat: '', accept: false });
   const { busy, error, submit, setError } = useSubmit(async () => {
     if (f.password !== f.repeat) return setError('Пароли не совпадают');
-    await register({ full_name: f.full_name.trim(), login: f.login.trim().toLowerCase(), password: f.password, subject: f.subject.trim(), accept: f.accept });
+    await register({ full_name: f.full_name.trim(), email: f.email.trim().toLowerCase(), password: f.password, subject: f.subject.trim(), accept: f.accept });
   });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   return (
@@ -160,8 +161,8 @@ export function Register() {
         <Field label="Предмет" hint="Основной. Можно поменять в настройках, у каждого ученика можно указать свой">
           <SubjectInput value={f.subject} onChange={(v) => setF({ ...f, subject: v })} required />
         </Field>
-        <Field label="Логин" hint="Латиница, цифры и точка. Его вы будете вводить при входе">
-          <input className="input" value={f.login} onChange={set('login')} autoCapitalize="none" spellCheck="false" autoComplete="username" placeholder="anna.teacher" required />
+        <Field label="Почта" hint="По ней вы будете входить. Ученики её не видят">
+          <input className="input" type="email" value={f.email} onChange={set('email')} autoCapitalize="none" spellCheck="false" autoComplete="email" placeholder="anna@mail.ru" required />
         </Field>
         <div className="form-row">
           <Field label="Пароль" hint="Минимум 8 символов">

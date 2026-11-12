@@ -28,6 +28,34 @@ function NameForm({ user, refresh }) {
   );
 }
 
+function EmailForm({ user, refresh }) {
+  const toast = useToast();
+  const [email, setEmail] = useState(user.email || '');
+  const [password, setPassword] = useState('');
+  const tutor = user.role === 'tutor';
+  const { busy, error, submit } = useSubmit(async () => {
+    await api.setEmail(email.trim().toLowerCase(), password);
+    await refresh();
+    setPassword('');
+    toast('Почта сохранена');
+  });
+  const changed = email.trim().toLowerCase() !== (user.email || '');
+  return (
+    <form className="form" onSubmit={submit} style={{ maxWidth: 460 }}>
+      <Field label="Почта для входа" hint={tutor ? 'Входите по почте вместо логина' : 'Необязательно. Если укажете, сможете входить по почте вместо логина'}>
+        <input className="input" type="email" value={email} maxLength={255} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="name@mail.ru" required={tutor} />
+      </Field>
+      {changed && (
+        <Field label="Пароль" hint="Для подтверждения">
+          <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
+        </Field>
+      )}
+      {error && <div className="alert">{error}</div>}
+      <div><button className="btn" disabled={busy || !changed}>{busy ? 'Сохраняем…' : 'Сохранить почту'}</button></div>
+    </form>
+  );
+}
+
 function PlanLine() {
   const plan = useLoad(() => api.myPlan().catch(() => null), []);
   const p = plan.data?.current;
@@ -54,19 +82,20 @@ export default function Profile() {
         <div className="profile-avatar serif">{initials(user.full_name)}</div>
         <div>
           <div className="profile-name">{user.full_name}</div>
-          <div className="muted">{ROLE[user.role]}, логин <b>{user.login}</b></div>
+          <div className="muted">{ROLE[user.role]}{user.email ? <>, почта <b>{user.email}</b></> : <>, логин <b>{user.login}</b></>}</div>
           {user.role === 'parent' && students.length > 0 && (
             <div className="muted small" style={{ marginTop: 4 }}>{user.role === 'parent' ? 'Дети' : 'Ученик'}: {students.map((s) => s.full_name).join(', ')}</div>
           )}
         </div>
       </section>
 
-      {tutor && (
-        <section className="panel" style={{ marginTop: 20 }}>
-          <h2 className="section-title" style={{ marginBottom: 14 }}>Данные</h2>
-          <NameForm user={user} refresh={refresh} />
-        </section>
-      )}
+      <section className="panel" style={{ marginTop: 20 }}>
+        <h2 className="section-title" style={{ marginBottom: 14 }}>Данные</h2>
+        <div className="stack" style={{ gap: 22 }}>
+          {tutor && <NameForm user={user} refresh={refresh} />}
+          <EmailForm user={user} refresh={refresh} />
+        </div>
+      </section>
 
       <section className="panel profile-links" style={{ marginTop: 20 }}>
         {tutor && <PlanLine />}

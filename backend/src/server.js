@@ -42,6 +42,8 @@ const origins = String(process.env['FRONTEND_ORIGINS'] || 'http://localhost:5173
   .split(',')
   .map((s) => s.trim().replace(/\/$/, ''))
   .filter((s) => /^https?:\/\//.test(s));
+// Свой домен платформы пускаем всегда, чтобы переезд на него не зависел от переменных
+origins.push('https://lessonfold.ru', 'https://www.lessonfold.ru');
 const RELAXDEV = process.env['FRONTEND_ORIGINS'] ? null : /^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.relaxdev\.ru$/i;
 if (RELAXDEV) console.log('⚠️ FRONTEND_ORIGINS не задан: API открыт для любых *.relaxdev.ru. Задайте адрес своего фронтенда.');
 app.use(
