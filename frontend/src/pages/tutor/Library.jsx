@@ -396,7 +396,7 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
           <section className="panel form">
             <FormulaBar />
             {isNew && (
-              <div className="row" style={{ gap: 6 }}>
+              <div className="row wrap" style={{ gap: 6 }}>
                 {[...Object.keys(KINDS).filter((k) => k !== 'books').flatMap((k) => (k === 'html' ? ['deck', 'html'] : [k]))].map((k) => (
                   <button type="button" key={k} className={`btn btn-sm ${f.kind === k ? '' : 'btn-secondary'}`} onClick={() => setF({ ...f, kind: k })}>{NEW_LABEL[k]}</button>
                 ))}

@@ -1,5 +1,6 @@
 // components/Notifications.jsx — колокольчик: счётчик непрочитанных и список уведомлений
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../api';
 import { Icon, navigate, Spinner } from '../ui';
 import { BRAND } from '../config';
@@ -11,6 +12,9 @@ export default function NotificationBell({ path, compact }) {
   const [items, setItems] = useState(null);
   const [pos, setPos] = useState(null); // в боковом меню окно ставим поверх страницы, чтобы меню его не обрезало
   const box = useRef(null);
+  const panel = useRef(null);
+  // Панель выносим в body: так её не обрежет прокрутка или анимация меню
+  const wrap = (node) => (compact ? node : createPortal(node, document.body));
 
   const refresh = useCallback(() => {
     api.unreadCount().then((r) => setUnread(r.unread)).catch(() => {});
@@ -31,7 +35,7 @@ export default function NotificationBell({ path, compact }) {
   // Закрыть по клику мимо и по Escape
   useEffect(() => {
     if (!open) return undefined;
-    const onDown = (e) => box.current && !box.current.contains(e.target) && setOpen(false);
+    const onDown = (e) => box.current && !box.current.contains(e.target) && !(panel.current && panel.current.contains(e.target)) && setOpen(false);
     const onKey = (e) => e.key === 'Escape' && setOpen(false);
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
@@ -74,7 +78,7 @@ export default function NotificationBell({ path, compact }) {
         {unread > 0 && <span className="bell-count">{unread > 99 ? '99+' : unread}</span>}
       </button>
       {open && (
-        <div className="bell-panel" role="dialog" aria-label="Уведомления" style={!compact && pos ? pos : undefined}>
+        wrap(<div className="bell-panel" role="dialog" aria-label="Уведомления" ref={panel} style={!compact && pos ? pos : undefined}>
           <div className="bell-head">
             <span className="meta-label">Уведомления</span>
             {unread > 0 && <button className="btn btn-quiet btn-sm" onClick={readAll}>Прочитать все</button>}
@@ -90,7 +94,7 @@ export default function NotificationBell({ path, compact }) {
               </button>
             ))}
           </div>
-        </div>
+        </div>)
       )}
     </div>
   );
