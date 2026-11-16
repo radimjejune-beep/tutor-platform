@@ -450,4 +450,6 @@ SEED.push(...require('./math-geometry'));
 // Spotlight 6: авторские упражнения по темам всех модулей.
 SEED.push(...require('./spotlight-6'));
 
+SEED.push(...require('./murphy'));
+
 module.exports = { SEED };

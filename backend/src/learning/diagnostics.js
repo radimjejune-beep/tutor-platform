@@ -37,7 +37,7 @@ function assess(qs, given={}) {
   for(const q of qs){const a=given[q.id];if(q.type==='choice' ? Number.isInteger(a)&&a>=0&&a<q.options.length : typeof a==='string')clean[q.id]=a;}
   const result=quiz.grade(qs,clean), groups=new Map();
   for(const q of qs){
-    if(!groups.has(q.topic_id))groups.set(q.topic_id,{topic_id:q.topic_id,title:catalog.byId.get(q.topic_id)?.title||q.topic_id,total:0,correct:0,earned:0,points:0});
+    if(!groups.has(q.topic_id))groups.set(q.topic_id,{topic_id:q.topic_id,title:catalog.byId.get(q.topic_id)?.label||catalog.byId.get(q.topic_id)?.title||q.topic_id,total:0,correct:0,earned:0,points:0});
     const t=groups.get(q.topic_id);t.total++;t.points+=q.points;if(result.results[q.id]){t.correct++;t.earned+=q.points;}
   }
   return {...result,topics:[...groups.values()].map(t=>({...t,score:Math.round(t.earned/t.points*100),

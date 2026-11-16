@@ -43,6 +43,7 @@ export function DiagnosticBuilder() {
 }
 function Builder({students,topics}) {
   const key='diagnostic:new',toast=useToast();
+  const [topicQuery,setTopicQuery]=useState('');
   const [initial]=useState(()=>readDraft(key)?.value);
   const [f,setF]=useState(()=>initial?.f||{title:'Проверка по пройденному',instructions:'',due_on:'',section_id:null,mode:'covered',student_ids:[],topic_ids:[],per_topic:3,request_key:crypto.randomUUID()});
   const [papers,setPapers]=useState(initial?.papers||[]),[manual,setManual]=useState(initial?.manual||[]),[busy,setBusy]=useState(false),[error,setError]=useState('');
@@ -63,7 +64,7 @@ function Builder({students,topics}) {
     const r=await api.createDiagnostic(body);clearDraft(key);toast('Тест назначен выбранным ученикам');navigate(`/diagnostics/tests/${r.id}`);
   }catch(e){setError(e.message);}finally{setBusy(false);}};
   const meta=(q,i,set)=><div className="form-row" style={{marginBottom:12}}>
-    <Field label="Проверяемая тема"><select className="select" aria-label={`Тема вопроса ${i+1}`} value={q.topic_id||'present-simple'} onChange={e=>set({topic_id:e.target.value})}>{topics.map(t=><option key={t.id} value={t.id}>{t.title}</option>)}</select></Field>
+    <Field label="Проверяемая тема"><select className="select" aria-label={`Тема вопроса ${i+1}`} value={q.topic_id||'present-simple'} onChange={e=>set({topic_id:e.target.value})}>{topics.map(t=><option key={t.id} value={t.id}>{t.label||t.title}</option>)}</select></Field>
     <Field label="Пояснение после сдачи"><input className="input" aria-label={`Пояснение вопроса ${i+1}`} value={q.explanation||''} maxLength={2000} onChange={e=>set({explanation:e.target.value})}/></Field>
   </div>;
   const addBank=async()=>{setBusy(true);try{const id=f.topic_ids[0]||'present-simple',bank=await api.grammarBank(id);
@@ -85,7 +86,8 @@ function Builder({students,topics}) {
       </select></Field>
       {f.mode==='covered'?<p className="muted">Берём до 8 последних пройденных грамматических тем из программы каждого ученика. Учитель отмечает их в карточке ученика → «Прогресс». Объяснение в справочнике можно привязать к каждой теме программы.</p>:
         <><p className="small muted">Выберите темы для автоматической сборки. В ручном режиме первая выбранная тема используется кнопкой «Добавить готовые вопросы».</p>
-        <div className="learning-topic-picker">{topics.map(t=><label className="check" key={t.id}><input type="checkbox" checked={f.topic_ids.includes(t.id)} onChange={()=>toggle('topic_ids',t.id)}/><span>{t.title}</span></label>)}</div></>}
+        <Field label="Найти тему или юнит"><input type="search" className="input" aria-label="Поиск тем теста" value={topicQuery} onChange={e=>setTopicQuery(e.target.value)} placeholder="Present Simple, Essential, English · 5 · Unit 52…"/></Field>
+        <div className="learning-topic-picker">{topics.filter(t=>!topicQuery||`${t.label||t.title} ${t.aliases.join(' ')}`.toLowerCase().includes(topicQuery.toLowerCase())).map(t=><label className="check" key={t.id}><input type="checkbox" checked={f.topic_ids.includes(t.id)} onChange={()=>toggle('topic_ids',t.id)}/><span>{t.label||t.title}</span></label>)}</div></>}
       {f.mode==='covered'&&<div className="row wrap" style={{gap:8}}>{students.filter(s=>f.student_ids.includes(s.id)).map(s=><Link key={s.id} className="btn btn-secondary btn-sm" to={`/students/${s.id}/progress`}>{s.full_name}: программа</Link>)}</div>}
       {f.mode!=='manual'&&<><Field label="Вопросов на тему"><select className="select" aria-label="Вопросов на тему" value={f.per_topic} onChange={e=>change({per_topic:Number(e.target.value)},true)}>{[3,4,5,6].map(n=><option key={n}>{n}</option>)}</select></Field>
         <button type="button" className="btn btn-secondary" disabled={busy||!f.student_ids.length} onClick={preview}>Сформировать варианты</button></>}

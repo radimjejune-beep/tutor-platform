@@ -698,7 +698,7 @@ export function TopicsModal({ studentId, onClose, onSaved }) {
         </div>
         {f.skill === 'grammar' && <Field label="Добавить из справочника грамматики" hint="Связь с темой сохранится для диагностики по пройденному.">
           <select className="select" aria-label="Добавить тему из справочника" value="" onChange={e=>{const t=(grammar.data||[]).find(t=>t.id===e.target.value);if(t)setF({...f,items:[f.items.trim(),t.title].filter(Boolean).join('\n')});}}>
-            <option value="">Выберите тему</option>{(grammar.data||[]).map(t=><option key={t.id} value={t.id}>{t.title}</option>)}
+            <option value="">Выберите тему</option>{(grammar.data||[]).map(t=><option key={t.id} value={t.id}>{t.label||t.title}</option>)}
           </select>
         </Field>}
         <Field label="Темы" hint="Каждая с новой строки">

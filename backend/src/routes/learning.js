@@ -66,7 +66,7 @@ router.get('/covered/:studentId',tutor,asyncHandler(async(req,res)=>{
   res.json({topic_ids:await d.completed(sid)});
 }));
 const previewSchema=z.object({student_ids:z.array(z.number().int().positive()).min(1).max(30),
-  mode:z.enum(['topics','covered']),topic_ids:z.array(d.topicKey).max(41).default([]),
+  mode:z.enum(['topics','covered']),topic_ids:z.array(d.topicKey).max(100).default([]),
   per_topic:z.number().int().min(3).max(6).default(3),max_topics:z.number().int().min(1).max(12).default(8),
 }).strict();
 router.post('/diagnostics/preview',tutor,validateBody(previewSchema),asyncHandler(async(req,res)=>{

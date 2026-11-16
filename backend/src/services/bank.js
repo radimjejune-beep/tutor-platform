@@ -38,14 +38,19 @@ async function ensure() {
 async function seed() {
   let added = 0;
   for (const s of SEED) {
-    const ok = gameSchema.safeParse(s.game);
-    if (!ok.success) { console.error(`Банк: задание ${s.key} не прошло проверку:`, ok.error.issues[0]?.message); continue; }
+    const kind = s.kind || 'game';
+    const ok = kind === 'game' ? gameSchema.safeParse(s.game) : null;
+    if ((kind !== 'game' && kind !== 'theory') || (kind === 'theory' && !s.body?.trim()) || (ok && !ok.success)) {
+      throw new Error(`Банк: задание ${s.key} не прошло проверку: ${ok?.error?.issues[0]?.message || 'неверный материал'}`);
+    }
     const { rowCount } = await query(
-      `INSERT INTO bank_items (book, unit, kind, title, game, seed_key)
-       VALUES ($1, $2, 'game', $3, $4, $5)
-       ON CONFLICT (seed_key) DO UPDATE SET title = EXCLUDED.title, game = EXCLUDED.game, book = EXCLUDED.book, unit = EXCLUDED.unit
-       WHERE bank_items.game IS DISTINCT FROM EXCLUDED.game OR bank_items.title IS DISTINCT FROM EXCLUDED.title`,
-      [s.book, s.unit, s.title, JSON.stringify(ok.data), s.key]
+      `INSERT INTO bank_items (book, unit, kind, title, body, game, seed_key)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (seed_key) DO UPDATE SET title = EXCLUDED.title, body = EXCLUDED.body,
+         kind = EXCLUDED.kind, game = EXCLUDED.game, book = EXCLUDED.book, unit = EXCLUDED.unit
+       WHERE (bank_items.title,bank_items.body,bank_items.kind,bank_items.game,bank_items.book,bank_items.unit)
+         IS DISTINCT FROM (EXCLUDED.title,EXCLUDED.body,EXCLUDED.kind,EXCLUDED.game,EXCLUDED.book,EXCLUDED.unit)`,
+      [s.book, s.unit, kind, s.title, s.body || null, ok ? JSON.stringify(ok.data) : null, s.key]
     );
     added += rowCount;
   }

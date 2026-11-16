@@ -1,6 +1,5 @@
 import { BackLink } from '../../Shell';
-import HomeworkSections from '../../components/HomeworkSections';
-import { SectionPicker } from '../../components/StudySections';
+import { SectionPicker, LearningTabs } from '../../components/StudySections';
 // pages/tutor/Assignments.jsx — задания:
 // список → редактор → страница задания → проверка работы ученика
 import { MethodTip } from '../Method';
@@ -28,6 +27,8 @@ const dueText = (d) => (d ? `Срок: ${shortDate(d)}` : 'Без срока');
    ============================================================ */
 export function AssignmentsList() {
   const list = useLoad(() => api.assignments(), []);
+  const [section, setSection] = useState('all');
+  const [search, setSearch] = useState('');
   if (list.loading) return <Spinner />;
   if (list.error) return <ErrorBox error={list.error} onRetry={list.reload} />;
   const toCheck = list.data.reduce((n, a) => n + a.submitted, 0);
@@ -42,13 +43,24 @@ export function AssignmentsList() {
         <Link to="/homework/new" className="btn"><Icon name="plus" /> Задание</Link>
       </div>
 
-      <HomeworkSections items={list.data} tutor renderRow={(a) => (
+      <LearningTabs active="homework" />
+      <div className="row wrap" style={{gap:10,marginBottom:18}}>
+        <input className="input" type="search" aria-label="Поиск заданий преподавателя" style={{maxWidth:340}} placeholder="Найти задание…" value={search} onChange={e=>setSearch(e.target.value)} />
+        <select className="select" style={{maxWidth:300}} aria-label="Фильтр по разделу ученика" value={section} onChange={e=>setSection(e.target.value)}>
+          <option value="all">Все задания</option><option value="0">Без раздела</option>
+          {[...new Map(list.data.filter(a=>a.section_id).map(a=>[a.section_id,a.section_title])).entries()].map(([id,title])=><option key={id} value={id}>{title}</option>)}
+        </select>
+      </div>
+      <section className="panel">
+        {!list.data.length&&<Empty title="Заданий пока нет">При выдаче выберите раздел: он появится в кабинете ученика вместе с работой.</Empty>}
+        {list.data.filter(a=>(section==='all'||String(a.section_id||0)===section)&&[a.title,a.section_title,...a.students].filter(Boolean).join(' ').toLowerCase().includes(search.toLowerCase())).map((a) => (
           <div key={a.id} className="assign-row" onClick={() => navigate(`/homework/${a.id}`)}>
             <div className="assign-icon"><Icon name={a.question_count ? 'quiz' : 'book'} /></div>
             <div className="list-main">
               <div className="list-title truncate">{a.title}</div>
               <div className="list-sub truncate">
                 {dueText(a.due_on)}. {a.students.join(', ')}
+                {a.section_title ? `. Раздел ученика: ${a.section_title}` : ''}
                 {a.task_count ? `. Задач: ${a.task_count}` : ''}
                 {a.question_count ? `. Тест: ${a.question_count} ${plural(a.question_count, 'вопрос', 'вопроса', 'вопросов')}` : ''}
               </div>
@@ -57,7 +69,9 @@ export function AssignmentsList() {
             {a.overdue > 0 && <Badge tone="red">Просрочено: {a.overdue}</Badge>}
             <div className="counter"><b className="num">{a.submitted + a.checked}</b><span>сдали из {a.total}</span></div>
           </div>
-      )} />
+        ))}
+        {list.data.length>0&&!list.data.some(a=>(section==='all'||String(a.section_id||0)===section)&&[a.title,a.section_title,...a.students].filter(Boolean).join(' ').toLowerCase().includes(search.toLowerCase()))&&<Empty title="По этому фильтру заданий нет"/>}
+      </section>
     </>
   );
 }

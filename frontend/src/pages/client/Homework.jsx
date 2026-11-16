@@ -10,8 +10,6 @@ export default function ClientHomework({ student }) {
   if (hw.error) return <ErrorBox error={hw.error} onRetry={hw.reload} />;
 
   const today = todayISO();
-  const todo = hw.data.filter((h) => h.status !== 'checked');
-  const done = hw.data.filter((h) => h.status === 'checked');
 
   const Row = ({ h }) => {
     const overdue = h.status === 'assigned' && h.due_on && h.due_on < today;
@@ -23,6 +21,7 @@ export default function ClientHomework({ student }) {
           <div className="list-sub">
             {h.due_on ? `До ${shortDate(h.due_on)}` : 'Без срока'}
             {h.question_count ? '. Есть тест' : ''}
+            {h.status==='checked'&&h.submitted_at?`. Сдано ${shortDate(h.submitted_at)}`:''}
           </div>
         </div>
         {h.status === 'checked' && h.score !== null ? (

@@ -24,6 +24,7 @@ export default function BankPage({ book, unit }) {
   const wordsView = unit === 'words';
   const books = useLoad(() => api.bankBooks(), []);
   const [sharing, setSharing] = useState(false);
+  const [unitQuery,setUnitQuery]=useState('');
   if (books.loading) return <Spinner />;
   if (books.error) return <ErrorBox error={books.error} onRetry={books.reload} />;
   if (!books.data.length) {
@@ -56,7 +57,7 @@ export default function BankPage({ book, unit }) {
             <span className="meta-label">{label}</span>
             <div className="seg">
               {list.map((x) => (
-                <button key={x.id} type="button" className={x.id === b.id ? 'on' : ''} onClick={() => navigate(`/bank/${x.id}`)}>{x.short} <span className="muted">{x.total}</span></button>
+                <button key={x.id} type="button" className={x.id === b.id ? 'on' : ''} onClick={() => {setUnitQuery('');navigate(`/bank/${x.id}`);}}>{x.short} <span className="muted">{x.total}</span></button>
               ))}
             </div>
           </div>
@@ -73,7 +74,8 @@ export default function BankPage({ book, unit }) {
               <span className="bank-count">{totalWords}</span>
             </Link>
           )}
-          {b.units.map((x) => (
+          {b.units.length>25&&<input type="search" className="input" aria-label="Номер или тема юнита" placeholder="Номер или тема юнита" value={unitQuery} onChange={e=>setUnitQuery(e.target.value)}/>}
+          {b.units.filter(x=>!unitQuery||(/^\d+$/.test(unitQuery.trim())?x.code===unitQuery.trim():`${x.code} ${x.title} ${x.topics||''}`.toLowerCase().includes(unitQuery.trim().toLowerCase()))).map((x) => (
             <Link key={x.code} to={`/bank/${b.id}/${encodeURIComponent(x.code)}`} className={`bank-unit ${!wordsView && x.code === u.code ? 'active' : ''}`}>
               <span className="bank-code serif">{x.code}</span>
               <span className="bank-unit-main"><b>{x.title}</b>{x.topics && <small>{x.topics}</small>}</span>
@@ -83,6 +85,7 @@ export default function BankPage({ book, unit }) {
         </nav>
         {wordsView ? <BookWords key={b.id} book={b} /> : (
           <div className="stack">
+            {u.grammar_key&&<div className="panel"><p className="small muted">{b.notice}</p><Link className="btn btn-secondary" to={`/grammar/${u.grammar_key}`}>Объяснение и короткая практика</Link></div>}
             {u.words > 0 && <UnitWords key={`w-${b.id}/${u.code}`} book={b} unit={u} />}
             <UnitItems key={`${b.id}/${u.code}`} book={b} unit={u} onShare={() => setSharing(true)} />
           </div>

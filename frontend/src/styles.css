@@ -2111,3 +2111,7 @@ details.panel>summary { cursor:pointer; padding:4px 0; }
 .section-progress>span { display:block; height:100%; background:var(--green); }
 .section-filter { display:flex; gap:8px; flex-wrap:wrap; margin:16px 0; }
 @media(max-width:600px){.learning-result .btn { width:100%; }.learning-card .section-title { font-size:20px; }}
+
+/* Длинные грамматические маршруты: список юнитов остаётся рядом с материалом. */
+.bank-units { max-height:calc(100vh - 32px); overflow:auto; }
+@media (max-width:900px) { .bank-units { max-height:320px; } }

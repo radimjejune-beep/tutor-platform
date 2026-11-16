@@ -240,7 +240,7 @@ function ProgressTab({ student }) {
                   <div className="list-main">
                     <div className="list-title">{t.title}</div>
                     {t.skill === 'grammar' && <select className="select" style={{maxWidth:320,marginTop:6}} aria-label={`Грамматика: ${t.title}`} value={t.grammar_key||''} onChange={async e=>{try{await api.updateTopic(t.id,{grammar_key:e.target.value||null});p.reload();}catch(err){toast(err.message,'error');}}}>
-                      <option value="">Связать со справочником</option>{(grammar.data||[]).map(g=><option key={g.id} value={g.id}>{g.title}</option>)}
+                      <option value="">Связать со справочником</option>{(grammar.data||[]).map(g=><option key={g.id} value={g.id}>{g.label||g.title}</option>)}
                     </select>}
                     <div className="list-sub">{SKILLS[t.skill]}{t.completed_on ? `, ${shortDate(t.completed_on)}` : ''}</div>
                   </div>
