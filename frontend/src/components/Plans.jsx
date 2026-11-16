@@ -47,8 +47,8 @@ export function PlanTable({ data, current, onPick, pickLabel = 'Выбрать' 
                 <li key={f.key}><span>{f.label}</span><b>{cell(p, f)}</b></li>
               ))}
             </ul>
-            {onPick && p.price > 0 && current !== p.id && (
-              <button type="button" className={`btn ${p.id === 'tutor' ? '' : 'btn-secondary'}`} onClick={() => onPick(p, period)}>{pickLabel}</button>
+            {onPick && p.price > 0 && (
+              <button type="button" className={`btn ${p.id === 'tutor' ? '' : 'btn-secondary'}`} onClick={() => onPick(p, period)}>{current === p.id ? 'Продлить тариф' : pickLabel}</button>
             )}
           </article>
         ))}

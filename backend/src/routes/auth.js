@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const { z } = require('zod');
-const { query } = require('../db');
+const { query, transaction } = require('../db');
 const { authenticate, signToken } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 
@@ -94,7 +94,7 @@ router.post(
         email: z.string().trim().toLowerCase().max(255).email('Проверьте адрес почты'),
         password: z.string().min(8, 'Пароль: минимум 8 символов').max(100),
         subject: z.string().trim().min(2, 'Укажите предмет').max(100),
-        accept: z.literal(true, { errorMap: () => ({ message: 'Нужно принять условия платформы' }) }),
+        accept: z.literal(true, { error: 'Нужно принять условия платформы' }),
       })
       .strict()
   ),
@@ -263,15 +263,27 @@ router.post(
   resetLimiter,
   validateBody(z.object({ token: z.string().regex(/^[a-f0-9]{64}$/, 'Ссылка повреждена'), password: z.string().min(8, 'Пароль: минимум 8 символов').max(100) }).strict()),
   asyncHandler(async (req, res) => {
-    const { rows } = await query(
-      'SELECT r.id, r.user_id FROM password_resets r JOIN users u ON u.id = r.user_id WHERE r.token_hash = $1 AND r.used_at IS NULL AND r.expires_at > NOW() AND u.is_active',
-      [sha(req.body.token)]
-    );
-    if (!rows[0]) return res.status(400).json({ error: 'Ссылка устарела или уже использована. Запросите новую' });
     const hash = await bcrypt.hash(req.body.password, 12);
-    await query('UPDATE users SET password_hash = $1, must_change_password = FALSE WHERE id = $2', [hash, rows[0].user_id]);
-    await query('UPDATE password_resets SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL', [rows[0].user_id]);
-    console.log(`🔑 Пароль восстановлен: пользователь ${rows[0].user_id}`);
+    const userId = await transaction(async (client) => {
+      // Один пользователь может иметь несколько ссылок. Сначала блокируем пользователя,
+      // затем проверяем ссылку новым запросом: параллельный сброс уже не увидит её действующей.
+      const { rows: users } = await client.query(
+        'SELECT u.id FROM users u JOIN password_resets r ON r.user_id = u.id WHERE r.token_hash = $1 AND u.is_active FOR UPDATE OF u',
+        [sha(req.body.token)]
+      );
+      if (!users[0]) return null;
+      const id = users[0].id;
+      const { rows } = await client.query(
+        'SELECT id FROM password_resets WHERE token_hash = $1 AND user_id = $2 AND used_at IS NULL AND expires_at > NOW() FOR UPDATE',
+        [sha(req.body.token), id]
+      );
+      if (!rows[0]) return null;
+      await client.query('UPDATE users SET password_hash = $1, must_change_password = FALSE WHERE id = $2', [hash, id]);
+      await client.query('UPDATE password_resets SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL', [id]);
+      return id;
+    });
+    if (!userId) return res.status(400).json({ error: 'Ссылка устарела или уже использована. Запросите новую' });
+    console.log(`🔑 Пароль восстановлен: пользователь ${userId}`);
     res.json({ ok: true });
   })
 );

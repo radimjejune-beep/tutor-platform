@@ -25,8 +25,9 @@ router.get(
   asyncHandler(async (req, res) => {
     if (req.user.role !== 'tutor') return res.status(403).json({ error: 'Только для преподавателя' });
     const plan = await plans.planOf(req.user.tid);
+    await require('./demo').ensure();
     const [{ rows: s }, { rows: b }, { rows: t }] = await Promise.all([
-      query("SELECT COUNT(*)::int AS n FROM students WHERE tutor_id = $1 AND status = 'active'", [req.user.tid]),
+      query("SELECT COUNT(*)::int AS n FROM students WHERE tutor_id = $1 AND status = 'active' AND NOT is_demo", [req.user.tid]),
       query("SELECT COALESCE(SUM(size_bytes), 0)::bigint AS n FROM library_books WHERE tutor_id = $1", [req.user.tid]).catch(() => ({ rows: [{ n: 0 }] })),
       query("SELECT COUNT(*)::int AS n FROM bank_takes WHERE tutor_id = $1 AND taken_at > date_trunc('month', NOW())", [req.user.tid]).catch(() => ({ rows: [{ n: 0 }] })),
     ]);

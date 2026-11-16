@@ -14,19 +14,19 @@ export const SheetContext = createContext({ homeworkId: null });
 /* ============================================================
    Файлы листа: загружаются с токеном, поэтому через blob
    ============================================================ */
-const urlCache = new Map();
 export function useFileUrl(id) {
-  const [url, setUrl] = useState(() => (id ? urlCache.get(id) || null : null));
+  const [url, setUrl] = useState(null);
   useEffect(() => {
-    if (!id) return setUrl(null);
-    if (urlCache.has(id)) return setUrl(urlCache.get(id));
+    setUrl(null);
+    if (!id) return;
     let alive = true;
+    let objectUrl = null;
     api.fileBlob(id).then((b) => {
-      const u = URL.createObjectURL(b);
-      urlCache.set(id, u);
-      if (alive) setUrl(u);
+      if (!alive) return;
+      objectUrl = URL.createObjectURL(b);
+      setUrl(objectUrl);
     }).catch(() => {});
-    return () => { alive = false; };
+    return () => { alive = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [id]);
   return url;
 }

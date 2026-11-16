@@ -3,7 +3,7 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { z } = require('zod');
-const { query } = require('../db');
+const { query, transaction } = require('../db');
 const { requireRole } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const placement = require('../services/placement');
@@ -61,8 +61,8 @@ publicRouter.post(
         age_group: z.enum(['adult', 'teen', 'child']).default('adult'),
         goal: z.string().trim().max(2000).optional(),
         preferred_time: z.string().trim().max(500).optional(),
-        answers: z.record(z.union([z.number().int(), z.string().max(5)])).optional(),
-        consent: z.literal(true, { errorMap: () => ({ message: 'Нужно согласие на обработку данных' }) }),
+        answers: z.record(z.string(), z.union([z.number().int(), z.string().max(5)])).optional(),
+        consent: z.literal(true, { error: 'Нужно согласие на обработку данных' }),
       })
       .strict()
   ),
@@ -166,19 +166,28 @@ router.post(
   '/:id/convert',
   ownLead,
   asyncHandler(async (req, res) => {
-    const l = req.lead;
-    if (l.student_id) return res.json({ student_id: l.student_id });
-    const over = await require('../services/plans').studentLimit(req.user.id);
-    if (over) return require('../services/plans').upgradeError(res, over);
-    const notes = [`Контакт: ${l.contact}`, l.preferred_time && `Удобное время: ${l.preferred_time}`,
-      l.level && `Тест уровня: ${l.level}, ${l.test_score}/${l.test_total}`].filter(Boolean).join('\n');
-    const { rows } = await query(
-      `INSERT INTO students (full_name, category, level, goal, notes, tutor_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-      [l.full_name, l.age_group, l.level, l.goal, notes, req.user.id]
-    );
-    await query("UPDATE leads SET status = 'student', student_id = $2 WHERE id = $1", [l.id, rows[0].id]);
-    console.log(`✅ Заявка #${l.id} → ученик #${rows[0].id}`);
-    res.status(201).json({ student_id: rows[0].id });
+    const plans = require('../services/plans');
+    const result = await transaction(async (client) => {
+      await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [req.user.id]);
+      const { rows: leads } = await client.query('SELECT * FROM leads WHERE id = $1 AND tutor_id = $2 FOR UPDATE', [req.lead.id, req.user.id]);
+      const l = leads[0];
+      if (!l) return { missing: true };
+      if (l.student_id) return { student_id: l.student_id, existing: true };
+      const over = await plans.studentLimit(req.user.id, client);
+      if (over) return { over };
+      const notes = [`Контакт: ${l.contact}`, l.preferred_time && `Удобное время: ${l.preferred_time}`,
+        l.level && `Тест уровня: ${l.level}, ${l.test_score}/${l.test_total}`].filter(Boolean).join('\n');
+      const { rows } = await client.query(
+        `INSERT INTO students (full_name, category, level, goal, notes, tutor_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+        [l.full_name, l.age_group, l.level, l.goal, notes, req.user.id]
+      );
+      await client.query("UPDATE leads SET status = 'student', student_id = $2 WHERE id = $1", [l.id, rows[0].id]);
+      return { student_id: rows[0].id };
+    });
+    if (result.missing) return res.status(404).json({ error: 'Заявка не найдена' });
+    if (result.over) return plans.upgradeError(res, result.over);
+    console.log(`✅ Заявка #${req.lead.id} → ученик #${result.student_id}`);
+    res.status(result.existing ? 200 : 201).json({ student_id: result.student_id });
   })
 );
 

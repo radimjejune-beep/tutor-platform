@@ -189,6 +189,8 @@ router.get(
   '/summary',
   tutorOnly,
   asyncHandler(async (req, res) => {
+    const plans = require('../services/plans');
+    if (!(await plans.allows(req.user.tid, 'finance'))) return plans.upgradeError(res, 'Сводка дохода входит в тариф «Репетитор».');
     const month = /^\d{4}-\d{2}$/.test(req.query.month || '') ? req.query.month : null;
     const start = month ? `${month}-01` : null;
 

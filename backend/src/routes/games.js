@@ -7,7 +7,6 @@ const { validateBody, asyncHandler } = require('../middleware/validate');
 const { grade } = require('../services/games');
 const { addWords, wordsFromMistakes } = require('../services/vocab');
 const { POINTS, addPoints } = require('../services/points');
-const { visibleTaskIds } = require('./library');
 
 const router = express.Router();
 
@@ -34,7 +33,7 @@ const resultSchema = z
     student_id: z.number().int().positive(),
     homework_id: z.number().int().positive().optional(),
     lesson_id: z.number().int().positive().optional(),
-    answers: z.record(z.any()),
+    answers: z.record(z.string(), z.any()),
     duration_sec: z.number().int().min(0).max(24 * 3600).optional(),
   })
   .strict();
@@ -48,17 +47,30 @@ router.post(
     const b = req.body;
     if (!(await canAccessStudent(req.user, b.student_id))) return res.status(404).json({ error: 'Ученик не найден' });
 
-    const { rows } = await query("SELECT id, kind, game FROM library_items WHERE id = $1 AND kind IN ('game', 'html')", [itemId]);
+    const { rows } = await query("SELECT id, kind, game FROM library_items WHERE id = $1 AND tutor_id = $2 AND kind IN ('game', 'html')", [itemId, req.user.tid]);
     const item = rows[0];
-    if (!item || !(await visibleTaskIds(req.user)).includes(item.id)) return res.status(404).json({ error: 'Упражнение не найдено' });
+    // У родителя может быть несколько детей. Доступ проверяем для того ребёнка,
+    // чей результат сохраняется, а не для объединённого списка детей родителя.
+    const { rows: assigned } = await query(
+      `SELECT 1 FROM lesson_items li JOIN lessons l ON l.id = li.lesson_id
+        WHERE li.item_id = $1 AND l.student_id = $2
+          AND ($3::int IS NULL OR l.id = $3)
+       UNION ALL
+       SELECT 1 FROM homework h JOIN assignments a ON a.id = h.assignment_id
+        WHERE $1 = ANY(a.library_item_ids) AND h.student_id = $2
+          AND ($4::int IS NULL OR h.id = $4)
+       LIMIT 1`,
+      [itemId, b.student_id, b.lesson_id || null, b.homework_id || null]
+    );
+    if (!item || !assigned[0]) return res.status(404).json({ error: 'Упражнение не найдено' });
 
     // Работа и урок должны относиться к этому ученику
     if (b.homework_id) {
-      const { rows: h } = await query('SELECT 1 FROM homework WHERE id = $1 AND student_id = $2', [b.homework_id, b.student_id]);
+      const { rows: h } = await query('SELECT 1 FROM homework h JOIN assignments a ON a.id = h.assignment_id WHERE h.id = $1 AND h.student_id = $2 AND $3 = ANY(a.library_item_ids)', [b.homework_id, b.student_id, itemId]);
       if (!h[0]) return res.status(400).json({ error: 'Задание не относится к ученику' });
     }
     if (b.lesson_id) {
-      const { rows: l } = await query('SELECT 1 FROM lessons WHERE id = $1 AND student_id = $2', [b.lesson_id, b.student_id]);
+      const { rows: l } = await query('SELECT 1 FROM lessons l JOIN lesson_items li ON li.lesson_id = l.id WHERE l.id = $1 AND l.student_id = $2 AND li.item_id = $3', [b.lesson_id, b.student_id, itemId]);
       if (!l[0]) return res.status(400).json({ error: 'Урок не относится к ученику' });
     }
 

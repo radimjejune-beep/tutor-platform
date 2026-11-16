@@ -29,7 +29,7 @@ export function ResultLine({ results, who = 'Ваш' }) {
 // Подробно для проверки ДЗ: лучший результат и ошибки последней попытки
 export function GameResultsPanel({ items, results }) {
   const map = byItem(results);
-  const games = items.filter((i) => i.kind === 'game');
+  const games = items.filter((i) => i.kind === 'game' || i.kind === 'html');
   if (!games.length) return null;
   return (
     <section style={{ marginTop: 26 }}>

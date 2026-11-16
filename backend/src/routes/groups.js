@@ -256,7 +256,7 @@ router.post(
     z
       .object({
         starts_at: iso,
-        attendance: z.record(z.enum(['done', 'missed', 'cancelled_late'])),
+        attendance: z.record(z.string(), z.enum(['done', 'missed', 'cancelled_late'])),
         topic: z.string().trim().max(255).nullable().optional(),
         summary: z.string().max(5000).nullable().optional(),
         private_notes: z.string().max(5000).nullable().optional(),

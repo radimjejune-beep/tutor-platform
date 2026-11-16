@@ -139,7 +139,8 @@ const requestSchema = z
     comment: z.string().trim().max(500).optional(),
   })
   .strict()
-  .refine((b) => b.kind === 'book' || b.lesson_id, 'Укажите занятие для переноса');
+  .refine((b) => b.kind === 'reschedule' ? Boolean(b.lesson_id) : b.lesson_id === undefined,
+    'Для переноса укажите занятие; при новой записи занятие указывать нельзя');
 
 router.post(
   '/requests',

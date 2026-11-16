@@ -72,7 +72,7 @@ const cache = new Map();
 async function planOf(tutorId) {
   if (!tutorId) return effective(null);
   const hit = cache.get(tutorId);
-  if (hit && hit.at > Date.now() - 60 * 1000) return hit.plan;
+  if (hit && hit.at > Date.now() - 60 * 1000 && (!hit.plan.until || new Date(hit.plan.until) > new Date())) return hit.plan;
   await ensure();
   const { rows } = await query('SELECT id, is_admin, plan, plan_until FROM users WHERE id = $1', [tutorId]);
   const plan = effective(rows[0]);
@@ -91,12 +91,12 @@ function upgradeError(res, text) {
 }
 
 // Можно ли добавить ещё одного активного ученика. Вернёт текст ошибки или null
-async function studentLimit(tutorId) {
+async function studentLimit(tutorId, db = { query }) {
   const plan = await planOf(tutorId);
   const max = plan.limits.students;
   if (max == null) return null;
   await require('../routes/demo').ensure();
-  const { rows } = await query("SELECT COUNT(*)::int AS n FROM students WHERE tutor_id = $1 AND status = 'active' AND NOT is_demo", [tutorId]);
+  const { rows } = await db.query("SELECT COUNT(*)::int AS n FROM students WHERE tutor_id = $1 AND status = 'active' AND NOT is_demo", [tutorId]);
   return rows[0].n >= max ? `На тарифе «${plan.name}» до ${max} активных учеников. Переведите кого-то в архив или выберите тариф больше.` : null;
 }
 

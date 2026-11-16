@@ -16,7 +16,7 @@ const zlib = require('zlib');
 const crypto = require('crypto');
 const { pipeline } = require('stream/promises');
 const { Readable } = require('stream');
-const { query } = require('../db');
+const { query, pool } = require('../db');
 const s3 = require('./s3');
 const { withLock } = require('./jobs');
 const alerts = require('./alerts');
@@ -30,8 +30,8 @@ const BATCH = 300;
 
 const keyFrom = (pass) => crypto.scryptSync(pass, 'lessonfold-backup', 32);
 
-async function tables() {
-  const { rows } = await query(`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name`);
+async function tables(db) {
+  const { rows } = await db.query(`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name`);
   return rows.map((r) => r.table_name).filter((t) => !SKIP.has(t));
 }
 
@@ -39,14 +39,14 @@ async function tables() {
 const enc = (v) => (Buffer.isBuffer(v) ? { $b: v.toString('base64') } : v instanceof Date ? v.toISOString() : v);
 
 // Построчная выгрузка: идём по ctid пачками, чтобы большие таблицы (учебники) не попадали в память целиком
-async function* dumpLines() {
+async function* dumpLines(db) {
   yield `${JSON.stringify({ lessonfold_backup: 1, at: new Date().toISOString() })}\n`;
-  for (const t of await tables()) {
-    const { rows: cols } = await query(`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1 ORDER BY ordinal_position`, [t]);
+  for (const t of await tables(db)) {
+    const { rows: cols } = await db.query(`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1 ORDER BY ordinal_position`, [t]);
     yield `${JSON.stringify({ table: t, columns: cols.map((c) => c.column_name) })}\n`;
     let last = '(0,0)';
     for (;;) {
-      const { rows } = await query(`SELECT ctid::text AS _ctid, * FROM "${t}" WHERE ctid > $1::tid ORDER BY ctid LIMIT ${BATCH}`, [last]);
+      const { rows } = await db.query(`SELECT ctid::text AS _ctid, * FROM "${t}" WHERE ctid > $1::tid ORDER BY ctid LIMIT ${BATCH}`, [last]);
       if (!rows.length) break;
       for (const r of rows) {
         last = r._ctid;
@@ -65,11 +65,24 @@ async function makeFile(pass) {
   fs.mkdirSync(dir, { recursive: true });
   const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
   const file = path.join(dir, `lessonfold-${stamp}.lfbk`);
+  const client = await pool.connect();
   const out = fs.createWriteStream(file);
-  out.write(Buffer.concat([MAGIC, iv]));
-  await pipeline(Readable.from(dumpLines()), zlib.createGzip({ level: 6 }), cipher, out, { end: false });
-  await new Promise((resolve, reject) => out.end(cipher.getAuthTag(), (err) => (err ? reject(err) : resolve())));
-  return file;
+  try {
+    // Все таблицы видят один снимок, даже если во время копирования идут уроки и оплаты.
+    await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+    out.write(Buffer.concat([MAGIC, iv]));
+    await pipeline(Readable.from(dumpLines(client)), zlib.createGzip({ level: 6 }), cipher, out, { end: false });
+    await new Promise((resolve, reject) => out.end(cipher.getAuthTag(), (err) => (err ? reject(err) : resolve())));
+    await client.query('COMMIT');
+    return file;
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    out.destroy();
+    await fs.promises.unlink(file).catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 // Расшифровать файл копии в поток строк JSON (для восстановления и проверки)

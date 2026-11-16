@@ -1,5 +1,5 @@
 // auth.jsx — кто вошёл, вход и выход
-import { setDraftUser } from './ui';
+import { setDraftUser, ErrorBox } from './ui';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { api, getToken, setToken, setUnauthorizedHandler } from './api';
 
@@ -9,13 +9,23 @@ export const useAuth = () => useContext(AuthContext);
 export function AuthProvider({ children }) {
   // session: undefined — проверяем, null — не вошёл, объект — { user, students }
   const [session, setSession] = useState(getToken() ? undefined : null);
+  const [error, setError] = useState(null);
 
   const refresh = async () => {
+    const token = getToken();
+    setError(null);
     try {
-      setSession(await api.me());
-    } catch {
-      setToken(null);
-      setSession(null);
+      const next = await api.me();
+      if (token === getToken()) setSession(next);
+    } catch (err) {
+      if (token !== getToken()) return;
+      if (err.status === 401) {
+        setToken(null);
+        setSession(null);
+      } else {
+        setError(err);
+        throw err;
+      }
     }
   };
 
@@ -24,7 +34,8 @@ export function AuthProvider({ children }) {
       setToken(null);
       setSession(null);
     });
-    if (getToken()) refresh();
+    if (getToken()) refresh().catch(() => {});
+    return () => setUnauthorizedHandler(() => {});
   }, []);
 
   const login = async (loginName, password) => {
@@ -41,12 +52,14 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
+    setError(null);
     setToken(null);
     setSession(null);
     window.location.hash = '/';
   };
 
   setDraftUser(session?.user?.id); // черновики форм хранятся отдельно для каждого пользователя
+  if (session === undefined && error) return <main className="page"><ErrorBox error={error} onRetry={() => refresh().catch(() => {})} /><button type="button" className="btn btn-secondary" onClick={logout}>На страницу входа</button></main>;
   return (
     <AuthContext.Provider value={{ session, user: session?.user, students: session?.students || [], login, register, logout, refresh }}>
       {children}

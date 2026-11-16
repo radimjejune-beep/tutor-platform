@@ -36,19 +36,14 @@ const BIG_BODY = ['/api/files', '/api/library'];
 app.use((req, res, next) => (BIG_BODY.some((p) => req.path === p || req.path.startsWith(`${p}/`)) ? next() : smallJson(req, res, next)));
 
 // CORS: только адреса из FRONTEND_ORIGINS (через запятую).
-// Пока FRONTEND_ORIGINS не задан, для первого запуска пускаем любые https://….relaxdev.ru.
-// Это адреса и других клиентов хостинга, поэтому в работе задайте FRONTEND_ORIGINS (адрес фронтенда и свой домен).
-const origins = String(process.env['FRONTEND_ORIGINS'] || 'http://localhost:5173')
+// Разрешаем только точные адреса. Другие клиенты общего хостинга не являются нашими сайтами.
+const origins = String(process.env['FRONTEND_ORIGINS'] || 'https://lessonfold.ru,https://www.lessonfold.ru,http://localhost:5173')
   .split(',')
   .map((s) => s.trim().replace(/\/$/, ''))
   .filter((s) => /^https?:\/\//.test(s));
-// Свой домен платформы пускаем всегда, чтобы переезд на него не зависел от переменных
-origins.push('https://lessonfold.ru', 'https://www.lessonfold.ru');
-const RELAXDEV = process.env['FRONTEND_ORIGINS'] ? null : /^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.relaxdev\.ru$/i;
-if (RELAXDEV) console.log('⚠️ FRONTEND_ORIGINS не задан: API открыт для любых *.relaxdev.ru. Задайте адрес своего фронтенда.');
 app.use(
   cors({
-    origin: (origin, cb) => cb(null, !origin || origins.includes(origin) || Boolean(RELAXDEV && RELAXDEV.test(origin))),
+    origin: (origin, cb) => cb(null, !origin || origins.includes(origin)),
   })
 );
 
@@ -100,6 +95,7 @@ app.get('/api/shop', async (req, res) => {
 // Всё остальное — только после входа и смены временного пароля
 const protectedApi = express.Router();
 protectedApi.use(authenticate, requirePasswordChanged);
+protectedApi.use((req, res, next) => { res.set('Cache-Control', 'private, no-store'); next(); });
 
 // Ограничения частоты: общий потолок на пользователя и отдельные для тяжёлых действий
 const rateLimit = require('express-rate-limit');
@@ -151,6 +147,7 @@ app.use('/api', (req, res) => res.status(404).json({ error: 'Не найдено
 // Общий обработчик ошибок: подробности — в лог, пользователю — короткое сообщение
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
   if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Некорректный JSON' });
   if (err.type === 'entity.too.large') return res.status(413).json({ error: 'Слишком большой файл (до 10 МБ)' });
   if (err.status) return res.status(err.status).json({ error: err.message });
@@ -160,23 +157,37 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = Number(process.env['PORT']) || 3001;
-if (require.main === module) {
+async function start() {
   require('./services/monitor').install();
-  app.listen(PORT, () => console.log(`✅ API запущен на порту ${PORT}`));
+  // Не принимаем запросы и не запускаем ботов, пока схема не готова.
+  await require('./services/migrate').migrate();
+  await require('./services/schema').ensureAll();
+  const server = await new Promise((resolve, reject) => {
+    const listener = app.listen(PORT, () => resolve(listener));
+    listener.once('error', reject);
+  });
+  console.log(`✅ API запущен на порту ${PORT}`);
   require('./services/telegram').start();
   require('./services/reminders').start();
   require('./services/autoclose').start();
   require('./services/bank').start();
   require('./services/folders').start();
-  require('./services/migrate').migrate()
-    .then(() => require('./services/schema').ensureAll())
-    .catch((err) => { console.error('❌ Схема базы не обновилась:', err.message); require('./services/monitor').capture(err, { where: 'миграции' }); });
   require('./services/backup').start();
   require('./services/trial').start();
   require('./services/storage').start();
   require('./services/hwnudge').start();
   require('./routes/sandbox').start();
   lessonfold.start();
+  return server;
+}
+if (require.main === module) {
+  start().catch(async (err) => {
+    console.error('❌ API не запущен:', err.message);
+    require('./services/monitor').capture(err, { where: 'запуск' });
+    await pool.end().catch(() => {});
+    process.exitCode = 1;
+  });
 }
 
 module.exports = app;
+module.exports.start = start;

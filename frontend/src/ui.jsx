@@ -52,20 +52,23 @@ export function Link({ to, className, children, ...rest }) {
 export function useLoad(fn, deps = []) {
   const [state, setState] = useState({ data: null, loading: true, error: null });
   const fnRef = useRef(fn);
+  const requestId = useRef(0);
   fnRef.current = fn;
 
   const load = useCallback(async (silent = false) => {
+    const id = ++requestId.current;
     if (!silent) setState((s) => ({ ...s, loading: true, error: null }));
     try {
       const data = await fnRef.current();
-      setState({ data, loading: false, error: null });
+      if (id === requestId.current) setState({ data, loading: false, error: null });
     } catch (error) {
-      setState({ data: null, loading: false, error });
+      if (id === requestId.current) setState({ data: null, loading: false, error });
     }
   }, []);
 
   useEffect(() => {
     load();
+    return () => { requestId.current++; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 

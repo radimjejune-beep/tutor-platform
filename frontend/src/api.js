@@ -2,18 +2,19 @@
 // Адрес бэкенда. Берётся из VITE_API_URL; если переменная пустая, с ошибкой
 // или указывает на localhost при открытии сайта из интернета, используем адрес бэкенда на RelaxDev.
 // На своём домене lessonfold.ru бэкенд живёт на api.lessonfold.ru, на адресе RelaxDev остаётся прежний
-const OWN_DOMAIN = typeof location !== 'undefined' && /(^|\.)lessonfold\.ru$/i.test(location.hostname);
-const PROD_API = OWN_DOMAIN ? 'https://api.lessonfold.ru' : 'https://tutor-platform.relaxdev.ru';
-const RAW = String(import.meta.env.VITE_API_URL || '').trim();
-const onLocal = typeof location !== 'undefined' && /^(localhost|127\.|\[::1\])/.test(location.hostname);
-const rawOk = /^https?:\/\/[^\s${}]+$/.test(RAW) && (onLocal || !/\/\/(localhost|127\.)/.test(RAW));
-// Лишний «/api» или слеш на конце адреса убираем: пути запросов и так начинаются с /api
-export const API_BASE = (rawOk && !OWN_DOMAIN ? RAW : onLocal ? 'http://localhost:3001' : PROD_API).replace(/\/+$/, '').replace(/\/api$/, '');
+import { resolveApiBase } from './api-config';
+export const API_BASE = resolveApiBase(import.meta.env.VITE_API_URL, typeof location === 'undefined' ? '' : location.hostname);
 const BASE = API_BASE;
 const TOKEN_KEY = 'tp_token';
 
-export const getToken = () => localStorage.getItem(TOKEN_KEY);
-export const setToken = (t) => (t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY));
+let memoryToken = null;
+export const getToken = () => {
+  try { return localStorage.getItem(TOKEN_KEY); } catch { return memoryToken; }
+};
+export const setToken = (t) => {
+  memoryToken = t || null;
+  try { if (t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); } catch { /* Вход работает до закрытия вкладки. */ }
+};
 
 // Ошибка API с понятным текстом от сервера
 export class ApiError extends Error {
@@ -35,18 +36,23 @@ async function request(method, path, body) {
   if (token) headers.Authorization = `Bearer ${token}`;
 
   let res;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
   try {
     res = await fetch(`${BASE}/api${path}`, {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
     });
-  } catch {
-    throw new ApiError(0, { error: `Нет связи с сервером (${BASE}). Проверьте интернет и попробуйте ещё раз` });
+  } catch (err) {
+    throw new ApiError(0, { error: err.name === 'AbortError' ? 'Сервер долго не отвечает. Попробуйте ещё раз' : `Нет связи с сервером (${BASE}). Проверьте интернет и попробуйте ещё раз` });
+  } finally {
+    clearTimeout(timeout);
   }
 
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401 && path !== '/auth/login') onUnauthorized();
+  if (res.status === 401 && path !== '/auth/login' && token && token === getToken()) onUnauthorized();
   if (!res.ok) throw new ApiError(res.status, data);
   return data;
 }

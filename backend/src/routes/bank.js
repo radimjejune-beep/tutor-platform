@@ -80,11 +80,8 @@ router.post(
     // лимит на тарифе «Старт»: сколько заданий можно взять за месяц
     const plans = require('../services/plans');
     const max = (await plans.planOf(req.user.tid)).limits.bank_takes;
-    if (max != null) {
-      const { rows: t } = await query("SELECT COUNT(*)::int AS n FROM bank_takes WHERE tutor_id = $1 AND taken_at > date_trunc('month', NOW()) AND item_id <> $2", [req.user.id, id]);
-      if (t[0].n >= max) return plans.upgradeError(res, `На этом тарифе можно взять ${max} заданий из банка в месяц.`);
-    }
     const out = await transaction(async (client) => {
+      await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [req.user.tid]);
       const { rows } = await client.query('SELECT * FROM bank_items WHERE id = $1 AND NOT hidden', [id]);
       const b = rows[0];
       if (!b) return null;
@@ -93,6 +90,10 @@ router.post(
         [id, req.user.id]
       );
       if (had[0]) return { library_id: had[0].library_id, again: true };
+      if (max != null) {
+        const { rows: t } = await client.query("SELECT COUNT(*)::int AS n FROM bank_takes WHERE tutor_id = $1 AND taken_at >= date_trunc('month', NOW()) AND item_id <> $2", [req.user.id, id]);
+        if (t[0].n >= max) return { over: true };
+      }
       const book = bookById(b.book);
       const tags = [...new Set([...(b.tags || []), book ? book.short : b.book, `${book ? book.short : b.book} ${b.unit}`, 'банк'])].slice(0, 20);
       // если есть папка этого учебника и юнита, задание сразу ложится в неё
@@ -111,6 +112,7 @@ router.post(
       return { library_id: li[0].id, again: false };
     });
     if (!out) return res.status(404).json({ error: 'Задание не найдено' });
+    if (out.over) return plans.upgradeError(res, `На этом тарифе можно взять ${max} заданий из банка в месяц.`);
     res.json(out);
   })
 );
@@ -123,7 +125,7 @@ router.post(
       library_item_id: z.number().int().positive(),
       book: z.string().max(40),
       unit: z.string().max(10),
-      own_work: z.literal(true, { errorMap: () => ({ message: 'Подтвердите, что задание ваше и в нём нет текстов из учебника' }) }),
+      own_work: z.literal(true, { error: 'Подтвердите, что задание ваше и в нём нет текстов из учебника' }),
     }).strict()
   ),
   asyncHandler(async (req, res) => {

@@ -35,11 +35,16 @@ async function authenticate(req, res, next) {
     if (!user || !user.is_active) {
       return res.status(401).json({ error: 'Учётная запись недоступна' });
     }
-    // Токены старого формата (без pv) принимаем, пока не истекут
-    if (payload.pv && payload.pv !== pwStamp(user.password_hash)) {
+    // Без отпечатка нельзя гарантировать отзыв сессии после смены пароля.
+    if (payload.pv !== pwStamp(user.password_hash)) {
       return res.status(401).json({ error: 'Пароль изменён, войдите снова' });
     }
     delete user.password_hash;
+
+    if (user.role !== 'tutor') {
+      const { rows: owner } = await query("SELECT 1 FROM users WHERE id = $1 AND role = 'tutor' AND is_active", [user.tutor_id]);
+      if (!owner[0]) return res.status(401).json({ error: 'Кабинет преподавателя недоступен' });
+    }
 
     // tid — чей это кабинет: у репетитора он сам, у ученика и родителя — их репетитор
     user.tid = user.role === 'tutor' ? user.id : user.tutor_id;

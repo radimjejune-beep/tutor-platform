@@ -111,7 +111,7 @@ router.get(
       'Content-Type': inline ? file.mime : 'application/octet-stream',
       'Content-Length': file.size_bytes,
       'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(file.filename)}`,
-      'Cache-Control': 'private, max-age=3600',
+      'Cache-Control': 'private, no-store',
     });
     res.send(await storage.read(file));
   })

@@ -74,7 +74,7 @@ async function call(router, method, routePath, { user, body = {}, params = {}, q
     once() {},
     end() { if (out.chunks) out.body = Buffer.concat(out.chunks); out.done = true; finish(); },
   };
-  const req = { user, body, params, query, ip, headers: {}, get: () => undefined };
+  const req = { user, body, params, query, ip, headers: {}, app: { get: () => false }, get: () => undefined };
   for (const h of chain) {
     let err = null;
     let advanced = false;

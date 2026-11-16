@@ -10,7 +10,7 @@
 //   DELETE /library-books/:id
 const express = require('express');
 const { z } = require('zod');
-const { query } = require('../db');
+const { query, transaction } = require('../db');
 const storage = require('../services/storage');
 const { requireRole } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
@@ -108,18 +108,23 @@ router.post(
     const mime = TYPES[b.mime] ? b.mime : Object.keys(TYPES).find((m) => TYPES[m] === ext);
     if (!mime) return res.status(422).json({ error: 'Подойдут PDF, DjVu, EPUB, DOCX, ZIP или MP3' });
     if (b.size_bytes > MAX_FILE) return res.status(413).json({ error: 'Файл больше 200 МБ. Сожмите PDF или разделите учебник на части' });
-    const { rows: u } = await query("SELECT COALESCE(SUM(size_bytes), 0)::bigint AS n FROM library_books WHERE tutor_id = $1", [req.user.tid]);
     const QUOTA = await quotaOf(req.user.tid);
-    if (Number(u[0].n) + b.size_bytes > QUOTA) return plans.upgradeError(res, `Не хватает места: на вашем тарифе учебники до ${Math.round(QUOTA / 1024 / 1024)} МБ. Удалите ненужные или выберите тариф больше.`);
     const folder = await ownFolder(b.folder_id ?? null, req.user.tid);
     if (folder === undefined) return res.status(404).json({ error: 'Папка не найдена' });
     const parts = Math.ceil(b.size_bytes / PART);
-    const { rows } = await query(
-      `INSERT INTO library_books (tutor_id, title, filename, mime, size_bytes, parts, folder_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-      [req.user.tid, b.title, b.filename, mime, b.size_bytes, parts, folder]
-    );
-    res.status(201).json({ id: rows[0].id, part_size: PART, parts });
+    const result = await transaction(async (client) => {
+      await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [req.user.tid]);
+      const { rows: u } = await client.query('SELECT COALESCE(SUM(size_bytes), 0)::bigint AS n FROM library_books WHERE tutor_id = $1', [req.user.tid]);
+      if (Number(u[0].n) + b.size_bytes > QUOTA) return { over: true };
+      const { rows } = await client.query(
+        `INSERT INTO library_books (tutor_id, title, filename, mime, size_bytes, parts, folder_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+        [req.user.tid, b.title, b.filename, mime, b.size_bytes, parts, folder]
+      );
+      return { id: rows[0].id };
+    });
+    if (result.over) return plans.upgradeError(res, `Не хватает места: на вашем тарифе учебники до ${Math.round(QUOTA / 1024 / 1024)} МБ. Удалите ненужные или выберите тариф больше.`);
+    res.status(201).json({ id: result.id, part_size: PART, parts });
   })
 );
 

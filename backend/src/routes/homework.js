@@ -110,7 +110,7 @@ router.put(
   validateBody(
     z.object({
       student_answer: z.string().max(20000).optional(),
-      quiz_answers: z.record(z.union([z.string().max(1000), z.number().int()])).optional(),
+      quiz_answers: z.record(z.string(), z.union([z.string().max(1000), z.number().int()])).optional(),
     }).strict()
   ),
   asyncHandler(async (req, res) => {
@@ -130,7 +130,7 @@ router.post(
     z
       .object({
         student_answer: z.string().trim().max(20000).optional(),
-        quiz_answers: z.record(z.union([z.string().max(1000), z.number().int()])).optional(),
+        quiz_answers: z.record(z.string(), z.union([z.string().max(1000), z.number().int()])).optional(),
       })
       .strict()
   ),
