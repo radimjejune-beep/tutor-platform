@@ -10,14 +10,12 @@ import { LegalPage, PlatformDocPage } from './pages/Legal';
 import Join from './pages/Join';
 import Landing from './pages/Landing';
 import Shop from './pages/Shop';
+import AppErrorBoundary from './AppErrorBoundary';
+import { reloadForNewVersion } from './version-recovery';
 
 // Если файл кабинета не загрузился (сайт обновился, пока вкладка была открыта), перезагружаем страницу один раз
 const retry = (load) => () => load().catch((err) => {
-  let last = 0;
-  try { last = Number(sessionStorage.getItem('lf-reloaded') || 0); } catch { /* нет хранилища */ }
-  if (Date.now() - last > 60000) {
-    try { sessionStorage.setItem('lf-reloaded', String(Date.now())); } catch { /* нет хранилища */ }
-    window.location.reload();
+  if (reloadForNewVersion()) {
     return new Promise(() => {});
   }
   throw err;
@@ -27,11 +25,11 @@ const ClientApp = lazy(retry(() => import('./cabinets/ClientApp')));
 
 export default function App() {
   return (
-    <ToastProvider>
+    <AppErrorBoundary><ToastProvider>
       <AuthProvider>
         <Root />
       </AuthProvider>
-    </ToastProvider>
+    </ToastProvider></AppErrorBoundary>
   );
 }
 

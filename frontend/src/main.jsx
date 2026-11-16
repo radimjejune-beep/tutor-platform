@@ -2,21 +2,13 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './styles.css';
+import { isAssetLoadError, reloadForNewVersion } from './version-recovery';
 
 // После обновления сайта открытая вкладка может просить старые файлы, которых уже нет, и показывать белый экран.
 // Тогда один раз перезагружаем страницу: подтянется новая версия. Защита от зацикливания: не чаще раза в минуту.
-function reloadForNewVersion() {
-  try {
-    const last = Number(sessionStorage.getItem('lf-reloaded') || 0);
-    if (Date.now() - last < 60000) return false;
-    sessionStorage.setItem('lf-reloaded', String(Date.now()));
-  } catch { /* без хранилища просто перезагрузим */ }
-  window.location.reload();
-  return true;
-}
 window.addEventListener('vite:preloadError', (e) => { if (reloadForNewVersion()) e.preventDefault(); });
 window.addEventListener('unhandledrejection', (e) => {
-  if (/Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(String(e.reason?.message || e.reason))) reloadForNewVersion();
+  if (isAssetLoadError(e.reason) && reloadForNewVersion()) e.preventDefault();
 });
 
 createRoot(document.getElementById('root')).render(
@@ -55,5 +47,5 @@ document.addEventListener('keydown', (e) => {
   setInterval(check, 5 * 60 * 1000);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
   setTimeout(check, 30 * 1000);
-  window.addEventListener('hashchange', () => { if (outdated) window.location.reload(); });
+  window.addEventListener('hashchange', () => { if (outdated) reloadForNewVersion(); });
 })();

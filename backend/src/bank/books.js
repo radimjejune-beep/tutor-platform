@@ -3,6 +3,24 @@
 // Тексты и упражнения учебников в банк не копируются: все задания авторские.
 const BOOKS = [
   {
+    id: 'spotlight-6',
+    subject: 'Английский язык',
+    title: 'Spotlight / Английский в фокусе, 6 класс (Ваулина и др.)',
+    short: 'Spotlight 6',
+    units: [
+      { code: '1', title: "Who's who?", topics: 'семья, внешность, личные данные, страны; притяжательные формы, as … as' },
+      { code: '2', title: 'Here we are!', topics: 'даты и время, дом, район; предлоги, some / any, неопределённые местоимения' },
+      { code: '3', title: 'Getting around', topics: 'безопасность на дороге, транспорт; повелительное наклонение, can / should, относительные местоимения' },
+      { code: '4', title: 'Day after day', topics: 'распорядок дня, досуг; Present Simple, наречия частоты, like doing, возвратные местоимения' },
+      { code: '5', title: 'Feasts', topics: 'праздники и подготовка; Present Continuous, do / make' },
+      { code: '6', title: 'Leisure activities', topics: 'увлечения и игры; Present Simple / Continuous, Past Continuous, словообразование' },
+      { code: '7', title: 'Now & then', topics: 'город в прошлом, истории, биографии; Past Simple / Continuous, прилагательные -ed / -ing' },
+      { code: '8', title: 'House Rules', topics: 'правила и обязанности, места в городе; must / have to / needn’t, сравнение прилагательных и наречий' },
+      { code: '9', title: 'Food & Refreshments', topics: 'еда, кафе, рецепты; исчисляемость, количество, Present Perfect' },
+      { code: '10', title: 'Holiday Time', topics: 'путешествия, погода, гостиница; going to / will / Present Continuous, because / so' },
+    ],
+  },
+  {
     id: 'solutions-elem-3',
     subject: 'Английский язык',
     title: 'Solutions Elementary, 3rd edition',

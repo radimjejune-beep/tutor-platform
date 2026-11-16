@@ -447,5 +447,7 @@ SEED.push(...vocabTasks());
 SEED.push(...require('./grammar-roundup'), ...require('./grammar-units'));
 // Математика: геометрия 7–9
 SEED.push(...require('./math-geometry'));
+// Spotlight 6: авторские упражнения по темам всех модулей.
+SEED.push(...require('./spotlight-6'));
 
 module.exports = { SEED };

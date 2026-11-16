@@ -337,6 +337,37 @@ test('база данных', opts, async (t) => {
     assert.equal((await call(mod, 'PUT', '/:id/draft', { user: sUser, params: { id: hw.id }, body: { student_answer: 'x' } })).status, 409);
   });
 
+  await t.test('Spotlight 6: повторный seed, API, копия в библиотеку и словарь', async () => {
+    const bank = require(src('services/bank.js'));
+    await bank.ensure();
+    await bank.seed();
+    const first = await query("SELECT seed_key, id FROM bank_items WHERE book = 'spotlight-6' ORDER BY seed_key");
+    assert.equal(first.rows.length, 318);
+    await bank.seed();
+    const second = await query("SELECT seed_key, id FROM bank_items WHERE book = 'spotlight-6' ORDER BY seed_key");
+    assert.deepEqual(second.rows, first.rows);
+    const a = await tutor();
+    a.subject = 'Английский язык';
+    const { mod } = loadRoutes('routes/bank.js');
+    const books = await call(mod, 'GET', '/books', { user: a });
+    const book = books.body.find(b => b.id === 'spotlight-6');
+    assert.equal(book.units.length, 10);
+    assert.equal(book.total, 318);
+    assert.equal(book.units.reduce((sum, u) => sum + u.words, 0), 754);
+    const vocab = await call(mod, 'GET', '/vocab', { user: a, query: { book: book.id, unit: '3' } });
+    assert.ok(vocab.body.words.some(w => w.term === 'traffic lights' && w.translation === 'светофор'));
+    const list = await call(mod, 'GET', '/items', { user: a, query: { book: book.id, unit: '3' } });
+    assert.equal(list.body.length, 30);
+    const item = first.rows.find(r => r.seed_key === 'spt6-3-reading');
+    const copied = await call(mod, 'POST', '/items/:id/take', { user: a, params: { id: item.id } });
+    assert.equal(copied.status, 200, JSON.stringify(copied.body));
+    const again = await call(mod, 'POST', '/items/:id/take', { user: a, params: { id: item.id } });
+    assert.equal(again.body.library_id, copied.body.library_id);
+    const stored = await query('SELECT game, tutor_id FROM library_items WHERE id = $1', [copied.body.library_id]);
+    assert.equal(stored.rows[0].tutor_id, a.id);
+    assert.equal(stored.rows[0].game.type, 'sheet');
+  });
+
   await t.test('фоновая задача не запускается дважды одновременно', async () => {
     const { withLock } = require(src('services/jobs.js'));
     const { pool } = require(src('db.js'));

@@ -3,6 +3,65 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <script>
+      // Runs before React, including when the entry module itself cannot load.
+      (() => {
+        var key = 'lf-reloaded', param = 'lf_reload', pending = false, failed = false;
+        function message() {
+          failed = true;
+          var boot = document.getElementById('lf-boot');
+          if (boot) {
+            boot.querySelector('h1').textContent = 'Не удалось загрузить страницу';
+            boot.querySelector('p').textContent = 'Проверьте подключение и нажмите «Повторить». Ваш вход сохранён.';
+          }
+        }
+        window.__lfBootRecovery = function (force, asset) {
+          if (pending) return true;
+          var url = new URL(location.href), now = Date.now(), last = Number(url.searchParams.get(param)) || 0;
+          try { last = Math.max(last, Number(sessionStorage.getItem(key)) || 0); } catch (_) {}
+          if (!force && (navigator.onLine === false || (last > 0 && now - last < 60000))) { message(); return false; }
+          pending = true;
+          try { sessionStorage.setItem(key, String(now)); } catch (_) {}
+          url.searchParams.set(param, String(now));
+          var refresh = Promise.resolve();
+          if (asset) {
+            try {
+              var resource = new URL(asset, location.href);
+              if (resource.origin === location.origin && resource.pathname.indexOf('/assets/') === 0) {
+                refresh = Promise.race([
+                  fetch(resource.href, { cache: 'reload', credentials: 'same-origin' }).catch(function () {}),
+                  new Promise(function (done) { setTimeout(done, 3000); })
+                ]);
+              }
+            } catch (_) {}
+          }
+          refresh.then(function () { location.replace(url.href); });
+          return true;
+        };
+        window.addEventListener('error', function (e) {
+          var el = e.target;
+          if (el && ((el.tagName === 'SCRIPT' && el.type === 'module') || (el.tagName === 'LINK' && el.rel === 'stylesheet'))) {
+            window.__lfBootRecovery(false, el.src || el.href);
+          }
+        }, true);
+        function checkStyle(el) {
+          if (el && el.tagName === 'LINK' && el.rel === 'stylesheet' && !el.sheet) {
+            window.__lfBootRecovery(false, el.href);
+          }
+        }
+        window.addEventListener('load', function (e) { checkStyle(e.target); }, true);
+        document.addEventListener('DOMContentLoaded', function () {
+          document.querySelectorAll('link[rel="stylesheet"]').forEach(checkStyle);
+          if (failed) message();
+        });
+        window.addEventListener('unhandledrejection', function (e) {
+          if (/not a valid JavaScript MIME type|Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Unable to preload CSS/i.test(String(e.reason && e.reason.message || e.reason || ''))) {
+            if (window.__lfBootRecovery(false)) e.preventDefault();
+          }
+        });
+        document.addEventListener('click', function (e) { if (e.target.id === 'lf-boot-retry') window.__lfBootRecovery(true); });
+      })();
+    </script>
     <meta name="theme-color" content="#FAF9F6" />
     <title>Lessonfold: интерактивные уроки английского и кабинет репетитора</title>
     <meta name="description" content="Готовые интерактивные уроки английского к школьным учебникам: озвучка, игры с автопроверкой, PDF для учителя. Кабинеты для репетитора, учеников и родителей." />
@@ -23,7 +82,12 @@
     <link rel="preload" href="/fonts/lf-serif.woff" as="font" type="font/woff" crossorigin />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><main id="lf-boot" style="max-width:540px;margin:12vh auto;padding:24px;font:16px/1.5 system-ui;color:#202020">
+      <h1 style="font-size:26px">Открываем Lessonfold…</h1>
+      <p>Загрузка страницы. Если она не откроется, нажмите «Повторить».</p>
+      <button id="lf-boot-retry" type="button" style="padding:12px 20px;cursor:pointer">Повторить</button>
+    </main></div>
+    <noscript>Для работы Lessonfold включите JavaScript в настройках браузера.</noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

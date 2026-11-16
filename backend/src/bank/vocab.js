@@ -1,6 +1,7 @@
 // bank/vocab.js — слова по юнитам учебников, сгруппированные по темам.
 // Сами списки лежат в vocab-*.js: только слова и наш перевод, без текстов и упражнений учебника.
 const SOURCES = {
+  'spotlight-6': require('./vocab-spotlight-6'),
   'solutions-elem-3': require('./vocab-solutions-elem'),
   'speakout-a1-3': require('./vocab-speakout-a1'),
   'atanasyan-geom-7-9': require('./vocab-geometry'),
