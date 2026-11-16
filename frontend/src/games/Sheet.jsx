@@ -4,6 +4,7 @@
 import { MathText } from '../components/MathText';
 import { createContext, useContext, useEffect, useId, useRef, useState } from 'react';
 import { api } from '../api';
+import {useActivityMedia} from '../components/ActivityMedia';
 import { Icon, useToast } from '../ui';
 import { parseGaps, alts, writeChecks, parseFix, words } from './logic';
 import { say } from '../voice';
@@ -15,19 +16,20 @@ export const SheetContext = createContext({ homeworkId: null });
    Файлы листа: загружаются с токеном, поэтому через blob
    ============================================================ */
 export function useFileUrl(id) {
+  const loadFile=useActivityMedia();
   const [url, setUrl] = useState(null);
   useEffect(() => {
     setUrl(null);
     if (!id) return;
     let alive = true;
     let objectUrl = null;
-    api.fileBlob(id).then((b) => {
+    loadFile(id).then((b) => {
       if (!alive) return;
       objectUrl = URL.createObjectURL(b);
       setUrl(objectUrl);
     }).catch(() => {});
     return () => { alive = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [id]);
+  }, [id,loadFile]);
   return url;
 }
 

@@ -7,6 +7,7 @@ const { validateBody, asyncHandler } = require('../middleware/validate');
 const { grade, hideAnswers } = require('../services/quiz');
 const { buildUpdate } = require('../utils');
 const notify = require('../services/notify');
+const { HOMEWORK_SECTION } = require('../learning/homework-sections');
 const { POINTS, addPoints } = require('../services/points');
 
 const router = express.Router();
@@ -14,9 +15,9 @@ const tutorOnly = requireRole('tutor');
 
 // Работа + поля задания
 const SELECT_HW = `
-  SELECT h.*, a.title, a.description, a.links, a.due_on, a.library_item_ids, a.vocab_practice, a.answer_mode, a.section_id,
-         (SELECT title FROM study_sections ss WHERE ss.id=a.section_id) AS section_title,
-         (SELECT grammar_key FROM study_sections ss WHERE ss.id=a.section_id) AS section_grammar_key,
+  SELECT h.*, a.title, a.description, a.links, a.due_on, a.library_item_ids, a.vocab_practice, a.answer_mode, a.section_id AS assignment_section_id, ${HOMEWORK_SECTION} AS section_id,
+         (SELECT title FROM study_sections ss WHERE ss.id=(${HOMEWORK_SECTION})) AS section_title,
+         (SELECT grammar_key FROM study_sections ss WHERE ss.id=(${HOMEWORK_SECTION})) AS section_grammar_key,
          jsonb_array_length(a.questions) AS question_count,
          s.full_name AS student_name,
          a.word_set_id, ws.title AS word_set_title, jsonb_array_length(ws.words) AS word_set_count,

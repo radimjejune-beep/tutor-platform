@@ -8,6 +8,7 @@ const { validateBody, asyncHandler } = require('../middleware/validate');
 const { questionsSchema, grade } = require('../services/quiz');
 const { buildUpdate } = require('../utils');
 const notify = require('../services/notify');
+const { HOMEWORK_SECTION } = require('../learning/homework-sections');
 const { ownSection } = require('../learning/diagnostics');
 
 const router = express.Router();
@@ -65,6 +66,7 @@ router.get(
     const { rows } = await query(
       `SELECT a.id, a.title, a.due_on, a.created_at, a.section_id,
               (SELECT title FROM study_sections ss WHERE ss.id=a.section_id) AS section_title,
+              COALESCE(jsonb_agg(DISTINCT jsonb_build_object('id',(${HOMEWORK_SECTION}),'title',(SELECT title FROM study_sections ss WHERE ss.id=(${HOMEWORK_SECTION})))) FILTER (WHERE h.id IS NOT NULL),'[]'::jsonb) AS homework_sections,
               jsonb_array_length(a.questions) AS question_count,
               cardinality(a.library_item_ids) AS task_count,
               COUNT(h.id)::int AS total,
@@ -143,11 +145,12 @@ router.get(
 
     const { rows: files } = await query(`SELECT ${FILE_META} FROM files WHERE assignment_id = $1 ORDER BY id`, [id]);
     const { rows: submissions } = await query(
-      `SELECT h.id, h.student_id, s.full_name AS student_name, h.status, h.submitted_at, h.score, h.quiz_score, h.vocab_result,
+      `SELECT h.id, h.student_id, s.full_name AS student_name, (${HOMEWORK_SECTION}) AS section_id,
+              (SELECT title FROM study_sections ss WHERE ss.id=(${HOMEWORK_SECTION})) AS section_title, h.status, h.submitted_at, h.score, h.quiz_score, h.vocab_result,
               (SELECT COUNT(*)::int FROM files f WHERE f.homework_id = h.id) AS files_count,
               (SELECT COUNT(*)::int FROM word_set_progress p WHERE p.set_id = $2 AND p.student_id = h.student_id AND p.level = 3) AS set_learned,
               (SELECT COUNT(*)::int FROM practice_log l WHERE l.set_id = $2 AND l.student_id = h.student_id) AS set_sessions
-         FROM homework h JOIN students s ON s.id = h.student_id
+         FROM homework h JOIN students s ON s.id = h.student_id JOIN assignments a ON a.id=h.assignment_id
         WHERE h.assignment_id = $1
         ORDER BY (h.status = 'submitted') DESC, s.full_name`,
       [id, rows[0].word_set_id || 0]

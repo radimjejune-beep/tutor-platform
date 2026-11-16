@@ -1,3 +1,4 @@
+import ActivityActions from '../../components/ActivityActions';
 import { BackLink } from '../../Shell';
 // pages/tutor/Library.jsx — библиотека преподавателя: теория и задачник
 import { useSubject, hasBank } from '../../subjects';
@@ -366,6 +367,7 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
         )}
       </div>
 
+      {!isNew&&<ActivityActions key={item.id} id={item.id}/>}
       {preview && !isNew ? (
         <div style={{ maxWidth: f.kind === 'deck' ? 1100 : 860 }}><LibraryItem item={{ ...item, ...body(), files: item.files }} /></div>
       ) : (

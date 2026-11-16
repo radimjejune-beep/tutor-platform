@@ -12,6 +12,7 @@ import {
 import LessonsByDay from '../../components/LessonsByDay';
 import { CourseTab, WordsTab } from './StudentCourse';
 import Recommendations from '../../components/Recommendations';
+import StudentHomework from '../../components/StudentHomework';
 import {
   CATEGORY, HW_STATUS, SKILLS, METHOD, rub, shortDate, fullDate, monthName, currentMonth, prevMonth,
   lessonsWord, relativeDay, time,
@@ -153,35 +154,7 @@ function LessonsTab({ student, onChange }) {
 
 /* ---------- Задания ---------- */
 function HomeworkTab({ student }) {
-  const hw = useLoad(() => api.homework({ student_id: student.id }), [student.id]);
-
-  return (
-    <section className="panel">
-      <div className="panel-head">
-        <h2 className="section-title">Задания</h2>
-        <Link to={`/homework/new?student=${student.id}`} className="btn btn-sm"><Icon name="plus" /> Задание</Link>
-      </div>
-      {hw.loading && <Spinner />}
-      {hw.data && !hw.data.length && <Empty title="Заданий пока нет" />}
-      {(hw.data || []).map((h) => (
-        <div key={h.id} className="assign-row" onClick={() => navigate(`/homework/${h.assignment_id}/review/${h.id}`)}>
-          <div className="assign-icon"><Icon name={h.question_count ? 'quiz' : 'book'} /></div>
-          <div className="list-main">
-            <div className="list-title truncate">{h.title}</div>
-            <div className="list-sub truncate">
-              {h.due_on ? `Срок: ${shortDate(h.due_on)}` : 'Без срока'}
-              {h.quiz_score !== null && h.quiz_score !== undefined ? `. Тест ${h.quiz_score}%` : ''}
-            </div>
-          </div>
-          {h.status === 'checked' && h.score !== null ? (
-            <Badge tone="green">{h.score}%</Badge>
-          ) : (
-            <Badge tone={HW_STATUS[h.status].tone}>{h.status === 'submitted' ? 'Проверить' : HW_STATUS[h.status].label}</Badge>
-          )}
-        </div>
-      ))}
-    </section>
-  );
+  return <StudentHomework key={student.id} student={student}/>;
 }
 
 /* ---------- Прогресс ---------- */

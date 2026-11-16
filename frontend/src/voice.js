@@ -83,7 +83,10 @@ function synth(text, rate = 0.9) {
 
 // Запись диктора: кэш на время открытой страницы, чтобы повтор звучал сразу
 const recCache = new Map(); // слово → objectURL | null
+// На отдельной странице голос устройства работает без обращения к личному API.
+const guestActivity=()=>typeof location!=='undefined'&&location.hash.startsWith('#/activity/');
 async function recording(word) {
+  if(guestActivity())return null;
   if (recCache.has(word)) return recCache.get(word);
   let url = null;
   try {
@@ -123,6 +126,7 @@ export async function speak(text, example) {
 // Транскрипция слова, если есть в словаре: '/ɪkˈspensɪv/'
 const ipaCache = new Map();
 export async function transcription(text) {
+  if(guestActivity())return null;
   const w = singleWord(text);
   if (!w || !lang.startsWith('en')) return null;
   if (ipaCache.has(w)) return ipaCache.get(w);

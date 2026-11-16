@@ -5,6 +5,7 @@ const {query,transaction}=require('../db');
 const {requireRole,accessibleStudentIds,canAccessStudent}=require('../middleware/auth');
 const {validateBody,asyncHandler}=require('../middleware/validate');
 const catalog=require('../learning/grammar');
+const {HOMEWORK_SECTION}=require('../learning/homework-sections');
 const d=require('../learning/diagnostics');
 const router=express.Router();
 router.use(express.json({limit:'2mb'}));
@@ -39,7 +40,7 @@ router.get('/sections',asyncHandler(async(req,res)=>{
   let ids=await accessibleStudentIds(req.user);
   if(req.query.student_id){const n=id(req.query.student_id);if(!ids.includes(n))return res.status(404).json({error:'Ученик не найден'});ids=[n];}
   const {rows}=await query(`SELECT ss.id,ss.title,ss.grammar_key FROM study_sections ss WHERE
-    EXISTS(SELECT 1 FROM assignments a JOIN homework h ON h.assignment_id=a.id WHERE a.section_id=ss.id AND h.student_id=ANY($1::int[])) OR
+    EXISTS(SELECT 1 FROM assignments a JOIN homework h ON h.assignment_id=a.id WHERE (${HOMEWORK_SECTION})=ss.id AND h.student_id=ANY($1::int[])) OR
     EXISTS(SELECT 1 FROM diagnostic_tests t JOIN diagnostic_runs r ON r.test_id=t.id WHERE t.section_id=ss.id AND r.student_id=ANY($1::int[]))
     ORDER BY ss.created_at,ss.id`,[ids]);res.json(rows);
 }));
@@ -59,6 +60,27 @@ router.patch('/sections/:id',tutor,validateBody(sectionSchema),asyncHandler(asyn
 router.delete('/sections/:id',tutor,asyncHandler(async(req,res)=>{
   const {rows}=await query('DELETE FROM study_sections WHERE id=$1 AND tutor_id=$2 RETURNING id',[id(req.params.id),req.user.id]);
   if(!rows[0])return res.status(404).json({error:'Раздел не найден'});res.json({ok:true});
+}));
+
+// Меняется только размещение работ конкретного ученика: ответы и проверка сохраняются.
+router.patch('/students/:studentId/homework-sections',tutor,validateBody(z.object({
+  homework_ids:z.array(z.number().int().positive()).min(1).max(200).refine(a=>new Set(a).size===a.length,'Работы не должны повторяться'),
+  section_id:z.number().int().positive().nullable(),
+}).strict()),asyncHandler(async(req,res)=>{
+  const sid=id(req.params.studentId),{homework_ids:ids,section_id:section}=req.body;
+  const result=await transaction(async db=>{
+    const own=await db.query('SELECT id FROM students WHERE id=$1 AND tutor_id=$2 FOR KEY SHARE',[sid,req.user.id]);
+    if(!own.rows[0])fail(404,'Ученик не найден');
+    if(section){
+      const found=await db.query('SELECT id FROM study_sections WHERE id=$1 AND tutor_id=$2 FOR KEY SHARE',[section,req.user.id]);
+      if(!found.rows[0])fail(404,'Раздел не найден');
+    }
+    const owned=await db.query(`SELECT h.id FROM homework h JOIN assignments a ON a.id=h.assignment_id
+      WHERE h.student_id=$1 AND h.id=ANY($2::int[]) AND a.tutor_id=$3 ORDER BY h.id FOR UPDATE OF h`,[sid,ids,req.user.id]);
+    if(owned.rows.length!==ids.length)fail(404,'Некоторые работы не найдены у этого ученика');
+    await db.query('UPDATE homework SET section_id=$1,section_overridden=true WHERE id=ANY($2::int[])',[section,ids]);
+    return {updated:ids.length,section_id:section};
+  });res.json(result);
 }));
 
 router.get('/covered/:studentId',tutor,asyncHandler(async(req,res)=>{

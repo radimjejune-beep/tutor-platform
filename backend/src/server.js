@@ -89,6 +89,9 @@ app.get('/api/shop', async (req, res) => {
   }
 });
 
+// Обособленные упражнения по ссылке, без сессии преподавателя.
+app.use('/api/activities', require('express-rate-limit')({windowMs:60*1000,limit:240,standardHeaders:true,legacyHeaders:false,message:{error:'Слишком много запросов. Попробуйте через минуту'}}), require('./routes/activities').publicRouter);
+
 // Всё остальное — только после входа и смены временного пароля
 const protectedApi = express.Router();
 protectedApi.use(authenticate, requirePasswordChanged);
@@ -118,6 +121,7 @@ protectedApi.use('/library', require('./routes/library').router);
 protectedApi.use('/telegram', require('./routes/telegram'));
 protectedApi.use('/games', require('./routes/games'));
 protectedApi.use('/legal', require('./routes/legal').protectedRouter);
+protectedApi.use('/activity-links', require('./routes/activities').router);
 protectedApi.use('/learning', require('./routes/learning'));
 protectedApi.use('/progress', require('./routes/progress'));
 protectedApi.use('/courses', require('./routes/courses'));

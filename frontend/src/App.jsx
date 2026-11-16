@@ -20,15 +20,18 @@ const retry = (load) => () => load().catch((err) => {
   }
   throw err;
 });
+const PublicActivity = lazy(retry(() => import('./pages/PublicActivity')));
 const TutorApp = lazy(retry(() => import('./cabinets/TutorApp')));
 const ClientApp = lazy(retry(() => import('./cabinets/ClientApp')));
 
 export default function App() {
+  const [publicPath,search]=useRoute().split('?');
+  const activity=publicPath.startsWith('/activity/');
   return (
     <AppErrorBoundary><ToastProvider>
-      <AuthProvider>
+      {activity?<Suspense fallback={<Spinner/>}><PublicActivity key={publicPath} token={publicPath.split('/')[2]||''} embed={new URLSearchParams(search||'').get('embed')==='1'}/></Suspense>:<AuthProvider>
         <Root />
-      </AuthProvider>
+      </AuthProvider>}
     </ToastProvider></AppErrorBoundary>
   );
 }

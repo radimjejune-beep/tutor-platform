@@ -64,6 +64,10 @@ const qs = (params) => {
 };
 
 export const api = {
+  activityLink: (source,id) => request('GET', `/activity-links/${source}/${id}`),
+  createActivityLink: (source,id) => request('POST', `/activity-links/${source}/${id}`, {}),
+  disableActivityLink: (source,id) => request('DELETE', `/activity-links/${source}/${id}`),
+  moveStudentHomework: (studentId, data) => request('PATCH', `/learning/students/${studentId}/homework-sections`, data),
   grammarTopics: (q = '') => request('GET', `/learning/grammar${qs({ q })}`),
   grammarTopic: (id) => request('GET', `/learning/grammar/${encodeURIComponent(id)}`),
   grammarPractice: (id) => request('GET', `/learning/grammar/${encodeURIComponent(id)}/practice`),
@@ -408,3 +412,15 @@ async function prepareFile(file) {
   if (f.size > MAX_UPLOAD) throw new ApiError(413, { error: `«${file.name}» больше 10 МБ` });
   return { name: f.name, type: f.type || 'application/octet-stream', base64: await toBase64(f) };
 }
+
+// Гостевой показ не читает и не отправляет токен кабинета.
+async function activityFetch(path,blob=false) {
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),30000);
+ try {
+  const r=await fetch(`${BASE}/api/activities/${path}`,{signal:controller.signal,credentials:'omit',referrerPolicy:'no-referrer'});
+  if(!r.ok)throw new ApiError(r.status,await r.json().catch(()=>({error:'Ссылка недоступна'})));
+  return blob?r.blob():r.json();
+ }catch(e){if(e instanceof ApiError)throw e;throw new ApiError(0,{error:'Не удалось загрузить упражнение. Попробуйте ещё раз'});}finally{clearTimeout(timer);}
+}
+export const publicActivity=token=>activityFetch(encodeURIComponent(token));
+export const publicActivityFile=(token,id)=>activityFetch(`${encodeURIComponent(token)}/files/${id}`,true);

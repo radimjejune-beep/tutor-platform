@@ -1,6 +1,7 @@
 // components/Files.jsx — список файлов с превью и кнопка «Прикрепить»
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
+import {useActivityMedia} from './ActivityMedia';
 import { Icon, useToast } from '../ui';
 
 const isImage = (mime) => /^image\//.test(mime);
@@ -17,12 +18,13 @@ function kindLabel(f) {
 
 // Миниатюра картинки: файл загружается с токеном, поэтому через blob
 function Thumb({ file }) {
+  const loadFile=useActivityMedia();
   const [url, setUrl] = useState(null);
   const [broken, setBroken] = useState(false);
   useEffect(() => {
     let alive = true;
     let u;
-    api.fileBlob(file.id).then((b) => {
+    loadFile(file.id).then((b) => {
       u = URL.createObjectURL(b);
       if (alive) setUrl(u);
     }).catch(() => {});
@@ -30,18 +32,19 @@ function Thumb({ file }) {
       alive = false;
       if (u) URL.revokeObjectURL(u);
     };
-  }, [file.id]);
+  }, [file.id,loadFile]);
   return url && !broken ? <img src={url} alt="" onError={() => setBroken(true)} /> : <span className="file-kind">Фото</span>;
 }
 
 export function FileList({ files, canDelete, onDeleted, empty }) {
+  const loadFile=useActivityMedia();
   const toast = useToast();
 
   const open = async (f) => {
     // Открываем вкладку сразу (иначе браузер заблокирует как всплывающее окно), потом подставляем файл
     const win = isImage(f.mime) || f.mime === 'application/pdf' ? window.open('', '_blank') : null;
     try {
-      const blob = await api.fileBlob(f.id);
+      const blob = await loadFile(f.id);
       const url = URL.createObjectURL(blob);
       if (win) {
         win.location.href = url;

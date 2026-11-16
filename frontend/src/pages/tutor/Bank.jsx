@@ -1,3 +1,4 @@
+import ActivityActions from '../../components/ActivityActions';
 import { BackLink } from '../../Shell';
 // pages/tutor/Bank.jsx — банк заданий по учебникам: учебник → юнит → задания.
 // Задания можно посмотреть, проверить на себе и взять в свою библиотеку. Своими заданиями можно поделиться.
@@ -160,6 +161,7 @@ function UnitItems({ book, unit, onShare }) {
               {it.taken_id ? <Link to={`/library/${it.taken_id}`} className="btn btn-quiet btn-sm">В библиотеке</Link>
                 : <button className="btn btn-sm" disabled={busy === it.id} onClick={() => take(it)}>Взять себе</button>}
             </div>
+            <ActivityActions source="bank" id={it.id} compact/>
             {(it.mine || user.is_admin) && <button type="button" className="btn btn-quiet btn-sm" style={{ alignSelf: 'flex-start', marginLeft: -10 }} onClick={() => hide(it)}>Убрать из банка</button>}
           </article>
         ))}
@@ -177,6 +179,7 @@ function Preview({ id, onClose, onTake, taken }) {
         <>
           <p className="small muted" style={{ marginTop: 0 }}>Можно пройти задание прямо здесь: так его увидит ученик. Результат никуда не сохраняется.</p>
           <LibraryItem item={item.data} />
+          <ActivityActions source="bank" id={id}/>
           <div className="modal-actions">
             <button className="btn btn-secondary" onClick={onClose}>Закрыть</button>
             {taken ? <Link to={`/library/${taken}`} className="btn">Открыть в библиотеке</Link> : <button className="btn" onClick={onTake}>Взять себе</button>}
