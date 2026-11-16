@@ -160,11 +160,13 @@ async function loadFromDb() {
 }
 
 async function save(src, hasFile) {
+  const before=JSON.stringify(raw);
   const clean = flattenLegacy(src);
   const errors = await validate(clean, hasFile);
   if (errors.length) return { ok: false, errors };
   const db = require('./db');
-  await db.kvSet('catalog', JSON.stringify(clean));
+  const saved=await db.q("UPDATE kv SET value=$1 WHERE key='catalog' AND value::jsonb=$2::jsonb RETURNING key",[JSON.stringify(clean),before]);
+  if(!saved.rowCount)return {ok:false,conflict:true,errors:['Каталог изменён другим сотрудником. Обновите данные и повторите публикацию.']};
   raw = clean;
   data = build(clean);
   return { ok: true };

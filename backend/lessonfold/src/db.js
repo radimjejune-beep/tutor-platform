@@ -19,6 +19,10 @@ function db() {
 
 const q = (text, params) => db().query(text, params);
 
+async function transaction(fn){
+ const client=await db().connect();try{await client.query('BEGIN');const result=await fn(client);await client.query('COMMIT');return result;}catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
+}
+
 async function migrate() {
   if (config.dbSchema) await q(`CREATE SCHEMA IF NOT EXISTS ${config.dbSchema}`);
   // Защита общей базы: если хостинг не применил search_path, таблицы магазина (users и др.)
@@ -209,6 +213,6 @@ async function close() {
 }
 
 module.exports = {
-  q, migrate, upsertUser, getUser, findUserByUsername, addPurchase, userPurchases, hasPurchase, buyersOf,
+  q, transaction, migrate, upsertUser, getUser, findUserByUsername, addPurchase, userPurchases, hasPurchase, buyersOf,
   markDelivered, isDelivered, deliveredSkus, linkFor, resolveLink, dueFollowups, markFollowup, stats, kvGet, kvSet, close
 };

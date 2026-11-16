@@ -97,6 +97,19 @@ label{font-weight:500}
 .kpi b{font-family:"LF Serif",Georgia,serif;font-weight:500}
 .item small.ok{color:var(--ok)}
 .item small.bad{color:var(--bad)}
+
+/* Кабинет продаж: навигация отдельно от рабочей области. */
+.sales-side{position:fixed;inset:0 auto 0 0;width:238px;padding:28px 18px;background:#ebe7dc;border-right:1px solid var(--line);overflow:auto}
+.sales-brand{font:28px "LF Serif",Georgia,serif;margin:0 12px 4px}.sales-side .help{margin:0 12px 25px}
+.sales-side .tabs{display:flex;flex-direction:column;gap:5px}.sales-side .tabs button{text-align:left;border-radius:8px;padding:11px 14px}
+.sales-body{margin-left:238px;min-width:0}.sales-body .top{min-height:80px;padding:16px 28px;flex-wrap:wrap}.sales-body main{padding:28px;max-width:1500px}
+.sales-body .top h1{font-size:29px}.sales-body .top .r{flex-wrap:wrap}.sales-body .table-scroll{overflow:auto}
+.sales-body table{min-width:650px}.sales-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}.sales-grid .panel{min-width:0}
+.sales-section-head{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+.sales-section-head h2{font-size:28px}.sales-side .nav-foot{font-size:12px;color:var(--muted);margin:28px 12px}
+.business-dialog{max-width:min(660px,95vw);width:100%;border:1px solid var(--line);border-radius:14px;padding:26px;background:var(--panel);color:var(--ink)}
+.business-dialog::backdrop{background:#15151566}.business-dialog form{display:flex;flex-direction:column;gap:14px}.business-dialog h2{font-size:27px}
+@media(max-width:900px){.sales-side{position:static;width:auto;padding:15px;border-right:0}.sales-brand{font-size:24px}.sales-side .help,.sales-side .nav-foot{display:none}.sales-side .tabs{flex-direction:row;flex-wrap:nowrap;overflow:auto;padding-top:12px}.sales-side .tabs button{white-space:nowrap}.sales-body{margin-left:0}.sales-body .top{position:static;padding:16px}.sales-body main{padding:16px}}
 </style>
 </head>
 <body>
@@ -113,8 +126,13 @@ async function api(path, opts = {}) {
   if (!r.ok) { const e = new Error(data.error || "Ошибка " + r.status); e.data = data; throw e }
   return data;
 }
+const ROLE_LABEL={admin:"Полный доступ",manager:"Менеджер продаж",editor:"Редактор материалов",finance:"Просмотр финансов"};
+const TEAM_PRESETS=[{name:"Кочка Радим Сергеевич",email:"RSKochka@lessonfold.ru"},{name:"Авасьев Илья Андреевич",email:"IAAvasyev@lessonfold.ru"}];
+const can=cap=>(state.me?.permissions||[]).includes("all")||(state.me?.permissions||[]).includes(cap);
+const money=n=>Number(n||0).toLocaleString("ru-RU")+" ₽";
+const displayLogin=login=>TEAM_PRESETS.find(p=>p.email.toLowerCase()===login)?.email||login;
 const STATUS = { available: "В продаже", preorder: "Предзаказ", soon: "Готовится", hidden: "Скрыт" };
-const state = { me: null, tab: "orders", cat: null, files: {}, sel: null, dirty: false, errors: [], warnings: {}, facts: {}, version: null, baseline: null, remote: null, conflicts: null };
+const state = { me: null, tab: "overview", cat: null, files: {}, sel: null, dirty: false, errors: [], warnings: {}, facts: {}, version: null, baseline: null, remote: null, conflicts: null };
 
 function djb(s) { let h = 5381; for (const c of String(s)) h = (h * 33 + c.charCodeAt(0)) >>> 0; return h.toString(36) }
 function markDirty() { state.dirty = true; $("#dirty") && ($("#dirty").textContent = "Есть неопубликованные изменения") }
@@ -154,14 +172,17 @@ function render() {
       catch (err) { $("#lerr").textContent = err.message } };
     return;
   }
-  const tabs = [["orders", "Заказы"], ["lessons", "Уроки"], ["books", "Учебники"], ["settings", "Реквизиты и ссылки"], ["admins", "Администраторы"], ["stats", "Статистика"], ["authors", "Авторы"]];
-  app.innerHTML = `<div class="top"><div class="l"><h1>Lessonfold</h1><div class="tabs">${tabs.map(([k, t]) => `<button data-t="${k}" class="${state.tab === k ? "on" : ""}">${t}</button>`).join("")}</div></div>
-    <div class="r"><span class="dirty" id="dirty">${state.dirty ? "Есть неопубликованные изменения" : ""}</span><button class="btn main" id="pub">Опубликовать</button><a class="btn" href="/" target="_blank">Сайт</a><button class="btn" id="out">Выйти (${esc(state.me.login)})</button></div></div><main id="m"></main>`;
-  $(".tabs").onclick = e => { const b = e.target.closest("button"); if (!b) return; state.tab = b.dataset.t; render() };
-  $("#out").onclick = async () => { await api("/logout", { method: "POST", json: {} }); state.me = null; render() };
-  $("#pub").onclick = publish;
-  $("#pub").hidden = !["lessons", "books"].includes(state.tab);
-  ({ orders: renderOrders, lessons: renderLessons, books: renderBooks, settings: renderSettings, admins: renderAdmins, stats: renderStats, authors: renderAuthors })[state.tab]();
+  const allTabs=[["overview","Обзор","reports"],["orders","Заказы","orders_read"],["subscriptions","Подписки","subscriptions_read"],["buyers","Покупатели","orders_read"],["mail","Письма","mail_read"],["lessons","Материалы","catalog_write"],["books","Учебники и серии","catalog_write"],["stats","Журнал и отчёты","reports"],["authors","Авторы","reports"],["admins","Команда","all"],["settings","Настройки продаж","all"]];
+  const tabs=allTabs.filter(t=>can(t[2]));if(!tabs.some(t=>t[0]===state.tab))state.tab=tabs[0]?.[0]||"orders";
+  const title=tabs.find(t=>t[0]===state.tab)?.[1]||"Продажи";
+  app.innerHTML=`<aside class="sales-side"><div class="sales-brand">Lessonfold</div><p class="help">Рабочее пространство продаж</p><nav class="tabs" aria-label="Разделы продаж">${tabs.map(([k,t])=>`<button data-t="${k}" class="${state.tab===k?'on':''}">${t}</button>`).join('')}</nav><div class="nav-foot">${esc(state.me.display_name||displayLogin(state.me.login))}<br>${esc(ROLE_LABEL[state.me.role]||state.me.role)}</div></aside>
+  <div class="sales-body"><div class="top"><div class="l"><h1>${title}</h1></div><div class="r"><span class="dirty" id="dirty">${state.dirty?'Есть неопубликованные изменения':''}</span><button class="btn main" id="pub">Опубликовать</button><a class="btn" href="/" target="_blank" rel="noopener">Витрина</a><button class="btn" id="out">Выйти</button></div></div><main id="m"></main></div>`;
+  $(".tabs").onclick=e=>{const b=e.target.closest('button');if(!b)return;state.tab=b.dataset.t;render();};
+  $("#out").onclick=async()=>{await api('/logout',{method:'POST',json:{}});state.me=null;render();};
+  $("#pub").onclick=publish;$("#pub").hidden=!can('catalog_write')||!["lessons","books"].includes(state.tab);
+  const tab=state.tab;const fn={overview:renderOverview,subscriptions:renderSubscriptions,buyers:renderBuyers,mail:renderMail,orders:renderOrders,lessons:renderLessons,books:renderBooks,settings:renderSettings,admins:renderAdmins,stats:renderStats,authors:renderAuthors}[tab];
+  Promise.resolve().then(fn).catch(e=>{if(state.tab===tab){$("#m").innerHTML=`<div class="panel"><p class="bad">${esc(e.message)}</p><button class="btn" id="retryView">Повторить загрузку</button></div>`;$("#retryView").onclick=render;}});
+
 }
 
 async function publish() {
@@ -429,16 +450,52 @@ async function renderSettings() {
     catch (err) { toast(err.message) } };
 }
 
+async function renderOverview(){
+ const days=state.salesDays||30,r=await api('/sales/summary?days='+days),m=$('#m');
+ const k=(value,label)=>`<div><b>${value}</b><small>${label}</small></div>`;
+ m.innerHTML=`<div class="sales-section-head"><div><h2>Продажи и работа команды</h2><p class="muted">Подтверждённые продажи материалов. Суммы до комиссий и налогов.</p></div><label>Период<select id="salesPeriod">${[7,30,90,365].map(n=>`<option value="${n}" ${n===days?'selected':''}>${n} дней</option>`).join('')}</select></label></div>
+ <section class="panel"><div class="kpi">${k(money(r.sales.net),'Выручка после возвратов')}${k(r.sales.sales,'Подтверждённых покупок')}${k(money(r.sales.refunds),'Возвраты')}${k(r.products.ready,'Материалов в продаже')}</div></section>
+ <div class="sales-grid" style="margin-top:20px"><section class="panel"><h3>Требуют внимания</h3><p>Ожидают оплаты: <b>${r.sales.pending}</b></p><p>Писем в очереди: <b>${r.sales.mail_waiting}</b></p><div class="actions"><button class="btn" data-go="orders">Открыть заказы</button>${can('mail_read')?'<button class="btn" data-go="mail">Проверить письма</button>':''}</div></section>
+ <section class="panel"><h3>Подписки преподавателей</h3>${r.subscriptions?`<p>Действующий платный тариф: <b>${r.subscriptions.active}</b></p><p>Пробный период: <b>${r.subscriptions.trial}</b></p><p>Заканчиваются за 7 дней: <b>${r.subscriptions.ending}</b></p><button class="btn" data-go="subscriptions">Управлять подписками</button>`:'<p class="muted">Платформа не подключена к этой базе магазина.</p>'}<p class="help">Автооплата подписок ещё не подключена. Назначенный вручную тариф не считается денежной продажей.</p></section></div>`;
+ $('#salesPeriod').onchange=e=>{state.salesDays=Number(e.target.value);renderOverview();};m.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{state.tab=b.dataset.go;render();});
+}
+async function renderBuyers(){
+ const q=state.buyerQ||'',r=await api('/sales/buyers?q='+encodeURIComponent(q)),m=$('#m');
+ m.innerHTML=`<div class="sales-section-head"><div><h2>Покупатели</h2><p class="muted">Покупки по указанной при заказе почте. Финансы учеников репетиторов здесь не показываются.</p></div></div><form id="buyerSearch" class="actions"><input aria-label="Поиск покупателя" id="buyerQ" placeholder="Email покупателя" value="${esc(q)}" style="max-width:360px"><button class="btn">Найти</button></form><section class="panel table-scroll" style="margin-top:20px"><table><thead><tr><th>Покупатель</th><th>Заказов</th><th>Оплачено</th><th>Сумма без возвращённых</th><th>Последний заказ</th></tr></thead><tbody>${r.buyers.map(b=>`<tr><td><button class="btn sm" data-buyer="${esc(b.email)}">${esc(b.email)}</button>${b.news?'<br><small class="muted">Отмечал подписку на новости</small>':''}</td><td>${b.orders}</td><td>${b.paid}</td><td>${money(b.net)}</td><td>${when(b.last_order)}</td></tr>`).join('')||'<tr><td colspan="5">Покупателей пока нет.</td></tr>'}</tbody></table></section>`;
+ $('#buyerSearch').onsubmit=e=>{e.preventDefault();state.buyerQ=$('#buyerQ').value;renderBuyers();};m.querySelectorAll('[data-buyer]').forEach(b=>b.onclick=()=>{state.oq=b.dataset.buyer;state.tab='orders';render();});
+}
+async function renderMail(){
+ const r=await api('/sales/mail'),m=$('#m');
+ m.innerHTML=`<div class="sales-section-head"><div><h2>Выдача материалов по почте</h2><p class="muted">Письмо после подтверждённой оплаты: ссылка на урок и PDF из комплекта. «Отправлено» означает приём почтовым сервером.</p></div><button class="btn" id="refreshMail">Обновить</button></div><section class="panel table-scroll"><table><thead><tr><th>Покупатель и материал</th><th>Статус</th><th>Попыток</th><th>Последняя ошибка</th><th></th></tr></thead><tbody>${r.jobs.map(j=>`<tr><td>${esc(j.email||'')}<br><small>${esc(j.title||'Восстановление покупок')}</small></td><td>${j.sent_at?'Отправлено '+when(j.sent_at):j.canceled_at?'Отменено':j.lease_until&&new Date(j.lease_until)>new Date()?'Отправляется':j.attempts>=12?'Требуется повторная попытка':'В очереди'}</td><td>${j.attempts}</td><td><small>${esc(j.last_error||'—')}</small></td><td>${can('mail_write')&&!j.sent_at&&!j.canceled_at?`<button class="btn sm" data-mail="${esc(j.id)}">Повторить</button>`:''}</td></tr>`).join('')||'<tr><td colspan="5">Очередь пуста.</td></tr>'}</tbody></table></section>`;
+ $('#refreshMail').onclick=renderMail;m.querySelectorAll('[data-mail]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{await api('/sales/mail/retry',{method:'POST',json:{id:b.dataset.mail}});toast('Повторная попытка запланирована');renderMail();}catch(e){toast(e.message);b.disabled=false;}});
+}
+async function renderSubscriptions(){
+ const q=state.subQ||'',r=await api('/sales/subscriptions?q='+encodeURIComponent(q)),m=$('#m');
+ if(!r.available){m.innerHTML='<section class="panel"><h2>Подписки</h2><p>В этой базе магазина нет подключённой платформы преподавателей.</p></section>';return;}
+ m.innerHTML=`<div class="sales-section-head"><div><h2>Подписки преподавателей</h2><p class="muted">Сроки доступа и заявки. Ручная выдача тарифа не подтверждает получение оплаты.</p></div></div>
+ <section class="panel"><h3>Заявки на тариф</h3><div class="table-scroll"><table><thead><tr><th>Преподаватель</th><th>Запрошено</th><th>Дата</th><th></th></tr></thead><tbody>${r.requests.map(x=>`<tr><td>${esc(x.full_name)}<br><small>${esc(x.email||x.login)}</small></td><td>${money(x.requested_amount)} · ${x.period==='year'?'год':'месяц'}</td><td>${when(x.created_at)}</td><td>${can('subscriptions_write')?`<button class="btn sm" data-request="${x.id}">Назначить тариф</button><button class="btn sm" data-close-request="${x.id}">Закрыть заявку</button>`:'Просмотр'}</td></tr>`).join('')||'<tr><td colspan="4">Новых заявок нет.</td></tr>'}</tbody></table></div></section>
+ <form id="subSearch" class="actions"><input id="subQ" aria-label="Поиск подписки" placeholder="Имя, email или логин" value="${esc(q)}" style="max-width:360px"><button class="btn">Найти</button></form>
+ <section class="panel table-scroll" style="margin-top:20px"><table><thead><tr><th>Преподаватель</th><th>Доступ</th><th>До</th><th></th></tr></thead><tbody>${r.tutors.map(u=>`<tr><td>${esc(u.full_name)}<br><small>${esc(u.email||u.login)}${u.is_active?'':' · учётная запись отключена'}</small></td><td>${esc(u.current.name)}${u.current.expired?' · срок истёк':''}</td><td>${u.plan_until?when(u.plan_until):'Без срока'}</td><td>${can('subscriptions_write')?`<button class="btn sm" data-grant="${u.id}">Изменить доступ</button>`:'Просмотр'}</td></tr>`).join('')||'<tr><td colspan="4">Преподаватели не найдены.</td></tr>'}</tbody></table></section>
+ <section class="panel table-scroll" style="margin-top:20px"><h3>История ручных изменений</h3><table><thead><tr><th>Когда</th><th>Кто</th><th>Преподаватель</th><th>Основание</th></tr></thead><tbody>${r.events.map(x=>`<tr><td>${when(x.created_at)}</td><td>${esc(x.actor)}</td><td>#${x.tutor_id}</td><td>${esc(x.reason)}</td></tr>`).join('')||'<tr><td colspan="4">Изменений пока нет.</td></tr>'}</tbody></table></section>`;
+ $('#subSearch').onsubmit=e=>{e.preventDefault();state.subQ=$('#subQ').value;renderSubscriptions();};
+ const grant=(u,req)=>{const d=document.createElement('dialog');d.className='business-dialog';d.innerHTML=`<form><h2>Назначить доступ</h2><p>${esc(u.full_name||u.login)} · изменение вручную, без списания денег.</p><label>Тариф<select name="plan"><option value="start">Старт</option><option value="tutor">Репетитор</option><option value="trial">Пробный период</option></select></label><label>Дата окончания<input type="date" name="until"><small>Без даты — бессрочно.</small></label><label>Основание<textarea name="reason" required maxlength="1000" placeholder="Например, подтверждение оплаты вне сайта или предоставление пробного доступа"></textarea></label><p class="bad" id="grantError"></p><div class="actions"><button class="btn dark" type="submit">Сохранить доступ</button><button class="btn" type="button" id="cancelGrant">Отмена</button></div></form>`;document.body.appendChild(d);d.querySelector('[name=plan]').value=req?'tutor':(['start','tutor','trial'].includes(u.plan)?u.plan:'start');$('#cancelGrant',d).onclick=()=>{d.close();d.remove();};d.querySelector('form').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);try{await api('/sales/subscriptions',{method:'PUT',json:{id:u.id||u.tutor_id,plan:f.get('plan'),until:f.get('until')||null,reason:f.get('reason'),request_id:req?.id}});d.close();d.remove();toast('Доступ обновлён, изменение записано в журнал');renderSubscriptions();}catch(err){$('#grantError',d).textContent=err.message;}};d.showModal();};
+ m.querySelectorAll('[data-grant]').forEach(b=>b.onclick=()=>grant(r.tutors.find(u=>u.id===Number(b.dataset.grant))));m.querySelectorAll('[data-request]').forEach(b=>b.onclick=()=>{const x=r.requests.find(x=>x.id===Number(b.dataset.request));grant({...x,id:x.tutor_id,plan:'tutor'},x);});
+ m.querySelectorAll('[data-close-request]').forEach(b=>b.onclick=async()=>{if(!confirm('Закрыть заявку без назначения тарифа?'))return;try{await api('/sales/subscriptions/close',{method:'POST',json:{id:Number(b.dataset.closeRequest)}});renderSubscriptions();}catch(e){toast(e.message);}});
+}
+
 /* ---------- админы ---------- */
-async function renderAdmins() {
-  const m = $("#m");
-  const r = await api("/admins");
-  m.innerHTML = `<div class="grid2"><div class="panel"><h3 style="font-size:15px;margin-bottom:10px">Администраторы</h3><table><tbody>${r.admins.map(a => `<tr><td><b>${esc(a.login)}</b>${a.login === r.me ? ' <span class="muted">(вы)</span>' : ""}<br><small class="muted">последний вход: ${a.last_login_at ? new Date(a.last_login_at).toLocaleString("ru-RU") : "не входил"}</small></td><td style="text-align:right">${a.login === r.me ? "" : `<button class="btn sm danger" data-x="${esc(a.login)}">Удалить</button>`}</td></tr>`).join("")}</tbody></table></div>
-    <div style="display:flex;flex-direction:column;gap:20px"><form class="panel form" id="af"><div class="sec" style="border:0;margin:0;padding:0">Добавить администратора</div><label class="c3">Логин<input id="a_l" required></label><label class="c3">Пароль (от 10 символов)<input id="a_p" type="text" required minlength="10"></label><div class="c6"><button class="btn dark" type="submit">Добавить</button><p class="help">Передайте логин и пароль коллеге лично или в мессенджере, затем попросите сменить пароль.</p></div></form>
-    <form class="panel form" id="pf"><div class="sec" style="border:0;margin:0;padding:0">Сменить свой пароль</div><label class="c6">Новый пароль<input id="p_n" type="password" required minlength="10" autocomplete="new-password"></label><div class="c6"><button class="btn" type="submit">Сменить и выйти</button></div></form></div></div>`;
-  m.querySelectorAll("[data-x]").forEach(b => b.onclick = async () => { if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "Точно?"; return } await api("/admins/" + b.dataset.x, { method: "DELETE" }); renderAdmins() });
-  $("#af").onsubmit = async e => { e.preventDefault(); try { await api("/admins", { method: "POST", json: { login: $("#a_l").value, password: $("#a_p").value } }); toast("Добавлен"); renderAdmins() } catch (err) { toast(err.message) } };
-  $("#pf").onsubmit = async e => { e.preventDefault(); try { await api("/password", { method: "POST", json: { password: $("#p_n").value } }); state.me = null; render(); toast("Пароль изменён, войдите снова") } catch (err) { toast(err.message) } };
+async function renderAdmins(){
+ const m=$("#m"),r=await api('/admins');
+ m.innerHTML=`<div class="sales-section-head"><div><h2>Команда Lessonfold</h2><p class="muted">Отдельный вход для каждого сотрудника. Действия фиксируются в журнале.</p></div></div>
+ <div class="sales-grid"><section class="panel"><h3>Сотрудники</h3><div class="table-scroll"><table><thead><tr><th>Сотрудник</th><th>Роль</th><th></th></tr></thead><tbody>${r.admins.map(a=>`<tr><td><b>${esc(a.display_name||displayLogin(a.login))}</b><br><small>${esc(displayLogin(a.login))}${a.login===r.me?' · вы':''}</small><br><small class="muted">${a.last_login_at?'Вход: '+when(a.last_login_at):'Ещё не входил'}</small></td><td><select aria-label="Роль ${esc(a.login)}" data-role="${esc(a.login)}" ${a.login===r.me?'disabled':''}>${Object.entries(ROLE_LABEL).map(([k,v])=>`<option value="${k}" ${a.role===k?'selected':''}>${v}</option>`).join('')}</select></td><td>${a.login===r.me?'':`<button class="btn sm danger" data-x="${esc(a.login)}">Отключить</button>`}</td></tr>`).join('')}</tbody></table></div></section>
+ <section class="panel"><h3>Добавить сотрудника</h3><div class="actions">${TEAM_PRESETS.map((p,i)=>`<button type="button" class="btn sm" data-preset="${i}">${esc(p.name)}</button>`).join('')}</div><form id="af" style="display:flex;flex-direction:column;gap:14px;margin-top:18px"><label>ФИО<input id="a_name" maxlength="160" autocomplete="name"></label><label>Email для входа<input id="a_l" required autocomplete="username" placeholder="name@lessonfold.ru"></label><label>Права<select id="a_role">${Object.entries(ROLE_LABEL).map(([k,v])=>`<option value="${k}" ${k==='manager'?'selected':''}>${v}</option>`).join('')}</select></label><label>Пароль для админки<input id="a_p" type="password" required minlength="10" autocomplete="new-password"></label><button type="button" class="btn" id="genPassword">Сгенерировать пароль</button><button class="btn dark" type="submit">Создать учётную запись</button><p class="help">Это отдельный пароль, не пароль почтового ящика. После создания покажем данные для передачи сотруднику.</p></form></section></div>
+ <section class="panel" style="margin-top:20px"><h3>Мой пароль</h3><form id="pf" class="actions"><label>Новый пароль<input id="p_n" type="password" minlength="10" required autocomplete="new-password"></label><button class="btn" type="submit">Сменить и выйти</button></form></section>`;
+ m.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>{const p=TEAM_PRESETS[Number(b.dataset.preset)];$('#a_name').value=p.name;$('#a_l').value=p.email;$('#a_role').value='admin';});
+ $('#genPassword').onclick=()=>{$('#a_p').value=Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('');toast('Новый пароль подготовлен');};
+ m.querySelectorAll('[data-x]').forEach(b=>b.onclick=async()=>{if(!confirm('Отключить доступ '+b.dataset.x+'?'))return;try{await api('/admins/'+encodeURIComponent(b.dataset.x),{method:'DELETE'});renderAdmins();}catch(e){toast(e.message);}});
+ m.querySelectorAll('[data-role]').forEach(el=>el.onchange=async()=>{try{await api('/admins/'+encodeURIComponent(el.dataset.role),{method:'PATCH',json:{role:el.value}});toast('Права обновлены');}catch(e){toast(e.message);renderAdmins();}});
+ $('#af').onsubmit=async e=>{e.preventDefault();const login=$('#a_l').value.trim(),password=$('#a_p').value;try{await api('/admins',{method:'POST',json:{login,password,name:$('#a_name').value,role:$('#a_role').value}});await renderAdmins();const d=document.createElement('dialog');d.className='business-dialog';d.innerHTML='<h2>Учётная запись создана</h2><p>Передайте сотруднику данные лично. Пароль хранится только в виде хеша и повторно не показывается.</p><label>Логин<input id="credLogin" readonly></label><label>Пароль<input id="credPassword" type="password" readonly></label><div class="actions"><button class="btn" id="copyCred">Скопировать данные</button><button class="btn" id="closeCred">Закрыть</button></div>';document.body.appendChild(d);$('#credLogin',d).value=login;$('#credPassword',d).value=password;$('#copyCred',d).onclick=async()=>{try{await navigator.clipboard.writeText('Логин: '+login+'\nПароль: '+password);toast('Данные скопированы');}catch{$('#credPassword',d).type='text';$('#credPassword',d).select();}};$('#closeCred',d).onclick=()=>{d.close();d.remove();};d.showModal();}catch(err){toast(err.message);}};
+ $('#pf').onsubmit=async e=>{e.preventDefault();try{await api('/password',{method:'POST',json:{password:$('#p_n').value}});state.me=null;render();}catch(err){toast(err.message);}};
 }
 
 /* ---------- заказы ---------- */
@@ -459,8 +516,8 @@ async function renderOrders(q) {
       <td>${esc(o.email)}${o.news ? '<br><small class="muted">подписан на новости</small>' : ""}</td>
       <td>${esc(o.title)}</td><td style="white-space:nowrap">${o.amount_rub} ₽</td>
       <td><span class="pill ${st[1]}">${st[0]}</span></td>
-      <td>${o.status === "paid" ? (o.emailed_at ? '<span class="ok">ушло</span>' : `<span class="bad">не ушло</span>${o.mail_error ? `<br><small class="muted">${esc(o.mail_error)}</small>` : ""}`) : ""}${o.opened ? `<br><small class="muted">скачиваний: ${o.opened}</small>` : ""}</td>
-      <td style="white-space:nowrap">${o.status === "paid" ? `<button class="btn sm" data-a="resend" data-id="${o.id}">Отправить ссылку</button> <button class="btn sm" data-a="link" data-id="${o.id}">Ссылка</button> <button class="btn sm danger" data-a="refund" data-id="${o.id}">Возврат</button>` : o.status === "pending" ? `<button class="btn sm" data-a="sync" data-id="${o.id}">Проверить оплату</button>` : ""}</td></tr>` }).join("") || '<tr><td colspan="8" class="muted">Заказов пока нет</td></tr>'}
+      <td>${o.status === "paid" ? (o.mail_pending ? `<span class="${o.mail_exhausted?'bad':'muted'}">${o.mail_exhausted?'нужна повторная отправка':'в очереди'}</span>${o.mail_error?`<br><small class="muted">${esc(o.mail_error)}</small>`:''}` : o.emailed_at ? '<span class="ok">принято почтовым сервером</span>' : `<span class="bad">не ушло</span>${o.mail_error ? `<br><small class="muted">${esc(o.mail_error)}</small>` : ""}`) : ""}${o.opened ? `<br><small class="muted">скачиваний: ${o.opened}</small>` : ""}</td>
+      <td style="white-space:nowrap">${o.status === "paid" && can("orders_write") ? `<button class="btn sm" data-a="resend" data-id="${o.id}">Отправить ссылку</button> <button class="btn sm" data-a="link" data-id="${o.id}">Ссылка</button> ${can("refund")?`<button class="btn sm danger" data-a="${o.refund_state==='pending'?'sync':'refund'}" data-id="${o.id}">${o.refund_state==='pending'?'Проверить возврат':'Возврат'}</button>`:""}` : o.status === "pending" && can("orders_write") ? `<button class="btn sm" data-a="sync" data-id="${o.id}">Проверить оплату</button>` : ""}</td></tr>` }).join("") || '<tr><td colspan="8" class="muted">Заказов пока нет</td></tr>'}
     </tbody></table></div><p class="help">После возврата аннулируйте чек в приложении «Мой налог»: Продажи → чек → Аннулировать → «Возврат средств».</p></div>`;
   $("#oqf").onsubmit = e => { e.preventDefault(); renderOrders($("#oq").value.trim()) };
   m.querySelectorAll("[data-a]").forEach(b => b.onclick = async () => {
@@ -468,14 +525,14 @@ async function renderOrders(q) {
     try {
       if (a === "refund") {
         if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "Вернуть деньги?"; return }
-        await api(`/orders/${id}/refund`, { method: "POST", json: {} }); toast("Возврат отправлен в ЮKassa. Не забудьте аннулировать чек."); return renderOrders();
+        const r=await api(`/orders/${id}/refund`, { method: "POST", json: {} }); toast(r.order?.status === "refunded" ? "Возврат подтверждён. Аннулируйте чек в «Мой налог»." : "Возврат ожидает подтверждения ЮKassa."); return renderOrders();
       }
       if (a === "link") {
         const r = await api("/orders/link", { method: "POST", json: { id } });
         try { await navigator.clipboard.writeText(r.link); toast("Ссылка скопирована") } catch (e) { prompt("Ссылка на заказ", r.link) }
         return;
       }
-      if (a === "resend") { await api(`/orders/${id}/resend`, { method: "POST", json: {} }); toast("Письмо отправлено"); return renderOrders() }
+      if (a === "resend") { const r=await api(`/orders/${id}/resend`, { method: "POST", json: {} }); toast(r.queued?"Письмо поставлено в очередь":"Письмо принято почтовым сервером"); return renderOrders() }
       if (a === "sync") { const r = await api(`/orders/${id}/sync`, { method: "POST", json: {} }); toast("Статус: " + (OST[r.order.status] || [r.order.status])[0]); return renderOrders() }
     } catch (e) { toast(e.message) }
   });

@@ -48,6 +48,8 @@ router.post(
     const p = plans.PLANS[req.body?.plan];
     if (!p || p.id === 'start') return res.status(422).json({ error: 'Выберите тариф' });
     const period = req.body?.period === 'year' ? 'year' : 'month';
+    await query(`INSERT INTO plan_requests(tutor_id,requested_plan,period,requested_amount) VALUES($1,$2,$3,$4)
+      ON CONFLICT(tutor_id) WHERE status='pending' DO UPDATE SET requested_plan=EXCLUDED.requested_plan,period=EXCLUDED.period,requested_amount=EXCLUDED.requested_amount,updated_at=NOW()`,[req.user.id,p.id,period,period==='year'?p.year:p.price]);
     const { rows: admins } = await query("SELECT id FROM users WHERE role = 'tutor' AND is_admin AND is_active");
     const { rows: me } = await query('SELECT full_name, login FROM users WHERE id = $1', [req.user.id]);
     const notify = require('../services/notify');

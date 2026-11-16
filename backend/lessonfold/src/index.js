@@ -91,6 +91,8 @@ const startedLine = () => `${config.botEnabled ? '@' + config.botUsername : 'С�
 // Фоновые задачи: периодические проверки и чтение сообщений бота
 function background() {
   periodic();
+  const flushMail=()=>require('./mail-queue').flush().catch(e=>console.error('mail queue',e.message));
+  flushMail();setInterval(flushMail,60*1000).unref();
   if (config.botEnabled) poll().catch(e => console.error('poll stopped', e.message));
 }
 

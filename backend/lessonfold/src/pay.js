@@ -41,4 +41,5 @@ function refund({ paymentId, amountRub, key }) {
   return yk('POST', '/refunds', { payment_id: paymentId, amount: money(amountRub) }, key);
 }
 
-module.exports = { createPayment, getPayment, refund, PayError };
+const getRefund=id=>yk('GET',`/refunds/${encodeURIComponent(id)}`);
+module.exports = { createPayment, getPayment, getRefund, refund, PayError };

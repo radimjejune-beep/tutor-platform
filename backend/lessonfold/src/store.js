@@ -21,6 +21,8 @@ async function migrate() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       last_login_at TIMESTAMPTZ
     );
+    ALTER TABLE admins ADD COLUMN IF NOT EXISTS display_name TEXT;
+    ALTER TABLE admins ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'admin' CHECK(role IN ('admin','manager','editor','finance'));
     CREATE TABLE IF NOT EXISTS sessions (
       token TEXT PRIMARY KEY,
       login TEXT NOT NULL REFERENCES admins(login) ON DELETE CASCADE,
@@ -85,12 +87,13 @@ function checkPassword(password, stored) {
   return crypto.timingSafeEqual(want, got);
 }
 
-const LOGIN_RE = /^[a-z0-9_.-]{3,32}$/;
+const LOGIN_RE = /^(?:[a-z0-9_.-]{3,32}|[a-z0-9][a-z0-9._+-]{0,63}@[a-z0-9][a-z0-9.-]{0,188}\.[a-z]{2,24})$/;
 
-async function createAdmin(login, password) {
-  if (!LOGIN_RE.test(login)) throw new Error('Логин: 3-32 символа, латиница, цифры, точка, дефис, подчёркивание');
+async function createAdmin(login,password,name='',role='admin') {
+  if(!['admin','manager','editor','finance'].includes(role))throw Error('Неверная роль');
+  if (login.length>254||!LOGIN_RE.test(login)) throw new Error('Укажите email или логин латиницей');
   if (String(password).length < 10) throw new Error('Пароль должен быть не короче 10 символов');
-  await db.q('INSERT INTO admins (login, pass) VALUES ($1, $2)', [login, hashPassword(password)]);
+  await db.q('INSERT INTO admins(login,pass,display_name,role) VALUES($1,$2,$3,$4)',[login,hashPassword(password),String(name).trim().slice(0,160)||null,role]);
 }
 
 async function setPassword(login, password) {
@@ -100,13 +103,21 @@ async function setPassword(login, password) {
 }
 
 async function listAdmins() {
-  const r = await db.q('SELECT login, created_at, last_login_at FROM admins ORDER BY created_at');
+  const r = await db.q('SELECT login, display_name, role, created_at, last_login_at FROM admins ORDER BY created_at');
   return r.rows;
 }
 
-async function deleteAdmin(login) {
-  await db.q('DELETE FROM admins WHERE login = $1', [login]);
+async function adminProfile(login){return (await db.q('SELECT login,display_name,role FROM admins WHERE login=$1',[login])).rows[0]||null;}
+async function changeAdmin(login,{remove=false,role}={}){
+ return db.transaction(async c=>{
+  await c.query('LOCK TABLE admins IN SHARE ROW EXCLUSIVE MODE');
+  const row=(await c.query('SELECT role FROM admins WHERE login=$1',[login])).rows[0];if(!row)throw Object.assign(Error('Сотрудник не найден'),{status:404});
+  if(row.role==='admin'&&(remove||role!=='admin')){const n=(await c.query("SELECT COUNT(*)::int AS n FROM admins WHERE role='admin'")).rows[0].n;if(n<=1)throw Object.assign(Error('Нельзя отключить последнего администратора с полным доступом'),{status:409});}
+  if(remove)await c.query('DELETE FROM admins WHERE login=$1',[login]);else{if(!['admin','manager','editor','finance'].includes(role))throw Object.assign(Error('Неверная роль'),{status:422});await c.query('UPDATE admins SET role=$2 WHERE login=$1',[login,role]);}
+ });
 }
+const deleteAdmin=login=>changeAdmin(login,{remove:true});
+const setRole=(login,role)=>changeAdmin(login,{role});
 
 async function countAdmins() {
   const r = await db.q('SELECT count(*)::int AS n FROM admins');
@@ -167,5 +178,5 @@ async function recentLog(limit = 30) {
 
 module.exports = {
   migrate, putFile, getFile, fileInfo, hasFile, deleteFile,
-  createAdmin, setPassword, sessionFor, listAdmins, deleteAdmin, ensureFirstAdmin, login, session, logout, log, recentLog
+  createAdmin, adminProfile, setRole, setPassword, sessionFor, listAdmins, deleteAdmin, ensureFirstAdmin, login, session, logout, log, recentLog
 };

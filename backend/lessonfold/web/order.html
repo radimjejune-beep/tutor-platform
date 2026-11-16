@@ -61,7 +61,7 @@ const base = location.pathname.replace(/\/$/, "");
 const meta = `<div class="meta"><span>Заказ <b>${esc(O.id)}</b></span><span>${esc(O.title)}</span><span>${O.amount} ₽</span><span>${esc(O.email)}</span></div>`;
 if (O.status === "paid") {
   app.innerHTML = `<span class="kick">Оплата прошла</span><h1>Ваши уроки готовы</h1>
-  <p class="lead">Скачайте HTML-урок и откройте его в браузере на компьютере или интерактивной доске. Интернет на уроке не нужен. ${O.mailOk ? `Эту ссылку мы также отправили на ${esc(O.email)}.` : "Сохраните эту страницу в закладки: по ссылке можно скачать файлы снова."}</p>${meta}
+  <p class="lead">Скачайте HTML-урок и откройте его в браузере на компьютере или интерактивной доске. Интернет на уроке не нужен. ${O.mailOk ? `Эту ссылку мы также отправили на ${esc(O.email)}.` : "Письмо с материалами ожидает отправки. Файлы уже доступны ниже — сохраните эту страницу, чтобы открыть их снова."}</p>${meta}
   ${O.ready.map(l => `<div class="lesson"><h2>${esc(l.title)}</h2>${l.meta.length ? `<p class="facts">${l.meta.map(esc).join(" · ")}</p>` : ""}
     <div class="btns"><a class="btn main" href="${base}/${esc(l.sku)}/lesson.html">Скачать урок</a>${l.pdf ? `<a class="btn" href="${base}/${esc(l.sku)}/teacher.pdf">PDF для учителя</a>` : ""}<a class="btn" href="${base}/${esc(l.sku)}/view" target="_blank" rel="noopener">Открыть в браузере</a></div></div>`).join("")}
   ${O.waiting.length ? `<div class="lesson"><h2>Выйдут позже</h2><ul>${O.waiting.map(w => `<li>${esc(w.title)}</li>`).join("")}</ul><p class="facts">Когда урок выйдет, он появится на этой странице, и мы пришлём письмо.</p></div>` : ""}

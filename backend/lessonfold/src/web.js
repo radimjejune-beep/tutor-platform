@@ -9,6 +9,8 @@ const store = require('./store');
 const catalog = require('./catalog');
 const delivery = require('./delivery');
 const orders = require('./orders');
+const sales = require('./sales');
+const adminPermissions = require('./admin-permissions');
 
 const WEB = path.join(config.root, 'web');
 const MAX_JSON = 2 * 1024 * 1024;
@@ -112,7 +114,7 @@ function lessonFacts(text) {
 async function authorReport(month) {
   const from = `${month}-01`;
   const site = await db.q(`SELECT sku, amount_rub FROM orders WHERE status = 'paid' AND paid_at >= $1::date AND paid_at < ($1::date + interval '1 month')`, [from]);
-  const bot = await db.q(`SELECT sku, amount_rub FROM purchases WHERE kind = 'paid' AND created_at >= $1::date AND created_at < ($1::date + interval '1 month')`, [from]);
+  const bot = await db.q(`SELECT p.sku,p.amount_rub FROM purchases p WHERE p.kind='paid' AND p.created_at >= $1::date AND p.created_at < ($1::date + interval '1 month') AND NOT EXISTS(SELECT 1 FROM orders o WHERE p.tg_charge_id='yk:'||o.yk_payment_id)`, [from]);
   const authors = new Map();
   const add = (author, title, rub, share) => {
     const a = authors.get(author) || { author, rub: 0, items: new Map() };
@@ -244,14 +246,18 @@ async function adminApi(req, res, url, hooks) {
   const who = await store.session(token);
   if (!who) return json(res, 401, { error: 'Нужно войти' });
 
+  const profile=await store.adminProfile(who);
+  if(!adminPermissions.allows(profile?.role,route,method))return json(res,403,{error:'У вашей роли нет доступа к этому действию'});
+
   if (route === '/logout' && method === 'POST') {
     await store.logout(token);
     res.setHeader('set-cookie', 'lf_s=; Path=/admin; HttpOnly; SameSite=Strict; Max-Age=0');
     return json(res, 200, { ok: true });
   }
-  if (route === '/me') return json(res, 200, { login: who, bot: config.botUsername, publicUrl: config.publicUrl, mode: config.catalogMode });
+  if (route === '/me') return json(res, 200, { login: who, display_name:profile.display_name,role:profile.role,permissions:adminPermissions.permissions(profile.role), bot: config.botUsername, publicUrl: config.publicUrl, mode: config.catalogMode });
 
   if (route === '/catalog' && method === 'GET') {
+    if(config.catalogMode==='db')await catalog.loadFromDb();
     const raw = catalog.getRaw();
     const files = await store.fileInfo(refsOf(raw));
     return json(res, 200, { catalog: raw, files, version: catalogVersion(raw) });
@@ -259,6 +265,7 @@ async function adminApi(req, res, url, hooks) {
   if (route === '/catalog' && method === 'PUT') {
     if (config.catalogMode !== 'db') return json(res, 409, { error: 'Каталог читается из файла (CATALOG_FILE). Уберите эту переменную, чтобы править каталог в админке.' });
     const body = await readJson(req);
+    if(config.catalogMode==='db')await catalog.loadFromDb();
     const before = catalog.getRaw();
     const bp = before.products || {};
     let next = body.catalog;
@@ -292,7 +299,7 @@ async function adminApi(req, res, url, hooks) {
       if (strip(old) !== strip(p)) { p.editedBy = who; p.editedAt = stamp; } else if (old) { p.editedBy = old.editedBy; p.editedAt = old.editedAt; }
     }
     const r = await catalog.save(next, hasRef);
-    if (!r.ok) return json(res, 422, { error: 'Каталог не сохранён', errors: r.errors });
+    if (!r.ok) return json(res, r.conflict?409:422, { error: 'Каталог не сохранён', errors: r.errors });
     delivery.clearCache();
     const changed = Object.keys(next.products || {}).filter(k => JSON.stringify(bp[k]) !== JSON.stringify(next.products[k]));
     await store.log(who, 'каталог опубликован', (changed.join(', ') || 'без изменений в товарах') + (merged ? ' (вместе с правками другого админа)' : ''));
@@ -300,6 +307,7 @@ async function adminApi(req, res, url, hooks) {
     return json(res, 200, { ok: true, merged, version: catalogVersion(catalog.getRaw()) });
   }
   if (route === '/catalog/version' && method === 'GET') {
+    if(config.catalogMode==='db')await catalog.loadFromDb();
     const raw = catalog.getRaw();
     const last = (await store.recentLog(20)).find(l => l.action === 'каталог опубликован');
     return json(res, 200, { version: catalogVersion(raw), by: last ? last.login : null, at: last ? last.at : null });
@@ -383,18 +391,31 @@ async function adminApi(req, res, url, hooks) {
   if (route === '/admins' && method === 'GET') return json(res, 200, { admins: await store.listAdmins(), me: who });
   if (route === '/admins' && method === 'POST') {
     const b = await readJson(req);
-    try { await store.createAdmin(String(b.login || '').toLowerCase().trim(), String(b.password || '')); }
+    try { await store.createAdmin(String(b.login || '').toLowerCase().trim(), String(b.password || ''),b.name||'',b.role||'manager'); }
     catch (e) { return json(res, 422, { error: e.code === '23505' ? 'Такой логин уже есть' : e.message }); }
     await store.log(who, 'добавлен админ', b.login);
     return json(res, 200, { ok: true });
   }
-  const am = route.match(/^\/admins\/([a-z0-9_.-]+)$/);
+  const am = route.match(/^\/admins\/([^/]+)$/);
+  let adminLogin;if(am){try{adminLogin=decodeURIComponent(am[1]).toLowerCase();}catch{return json(res,422,{error:'Некорректный логин'});}}
   if (am && method === 'DELETE') {
-    if (am[1] === who) return json(res, 422, { error: 'Нельзя удалить себя' });
-    await store.deleteAdmin(am[1]);
-    await store.log(who, 'удалён админ', am[1]);
+    if (adminLogin === who) return json(res, 422, { error: 'Нельзя удалить себя' });
+    try{await store.deleteAdmin(adminLogin);}catch(e){return json(res,e.status||422,{error:e.message});}
+    await store.log(who, 'удалён админ', adminLogin);
     return json(res, 200, { ok: true });
   }
+  if(am&&method==='PATCH'){
+   if(adminLogin===who)return json(res,422,{error:'Для изменения своей роли обратитесь к другому администратору'});
+   const b=await readJson(req);try{await store.setRole(adminLogin,b.role);}catch(e){return json(res,e.status||422,{error:e.message});}
+   await store.log(who,'роль сотрудника изменена',`${adminLogin}: ${b.role}`);return json(res,200,{ok:true});
+  }
+  if(route==='/sales/summary'&&method==='GET')return json(res,200,await sales.summary(url.searchParams.get('days')));
+  if(route==='/sales/buyers'&&method==='GET')return json(res,200,{buyers:await sales.buyers(url.searchParams.get('q')||'')});
+  if(route==='/sales/mail'&&method==='GET')return json(res,200,{jobs:await sales.mails()});
+  if(route==='/sales/mail/retry'&&method==='POST'){const b=await readJson(req);try{return json(res,200,await sales.retry(b.id,who));}catch(e){return json(res,e.status||500,{error:e.message});}}
+  if(route==='/sales/subscriptions'&&method==='GET')return json(res,200,await sales.subscriptions(url.searchParams.get('q')||''));
+  if(route==='/sales/subscriptions'&&method==='PUT'){const b=await readJson(req);try{return json(res,200,await sales.grant(b,who));}catch(e){return json(res,e.status||500,{error:e.message});}}
+  if(route==='/sales/subscriptions/close'&&method==='POST'){const b=await readJson(req);try{return json(res,200,await sales.closeRequest(b.id,who));}catch(e){return json(res,e.status||500,{error:e.message});}}
   if (route === '/password' && method === 'POST') {
     const b = await readJson(req);
     try { await store.setPassword(who, String(b.password || '')); } catch (e) { return json(res, 422, { error: e.message }); }
@@ -415,14 +436,14 @@ async function adminApi(req, res, url, hooks) {
       if (o.status !== 'paid') return json(res, 409, { error: 'Заказ не оплачен' });
       if (!o.email) return json(res, 409, { error: 'Заказ из Telegram: покупатель получает файлы в боте («Мои уроки»).', link: `${config.publicUrl}/o/${o.token}` });
       const r = await orders.sendMail(o, 'resend');
-      await store.log(who, 'ссылка отправлена повторно', `${orders.shortId(o)} ${o.email}`);
-      return r.sent ? json(res, 200, { ok: true }) : json(res, 502, { error: 'Письмо не ушло: ' + r.error, link: `${config.publicUrl}/o/${o.token}` });
+      await store.log(who, r.sent?'письмо отправлено повторно':'письмо поставлено в очередь', `${orders.shortId(o)} ${o.email}`);
+      return json(res,200,{ok:true,queued:!r.sent,link:`${config.publicUrl}/o/${o.token}`});
     }
     if (om[2] === 'sync') return json(res, 200, { order: await orders.sync(o) });
     if (om[2] === 'refund') {
       try { await orders.refund(o.id); } catch (e) { return json(res, e.status || 502, { error: e.message }); }
       await store.log(who, 'возврат', `${orders.shortId(o)} ${o.email} ${o.amount_rub} ₽`);
-      return json(res, 200, { ok: true });
+      return json(res, 200, { ok: true, order: {status: (await orders.byId(o.id)).status} });
     }
   }
   if (route === '/orders/link' && method === 'POST') {

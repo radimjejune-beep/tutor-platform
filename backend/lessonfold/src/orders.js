@@ -7,6 +7,7 @@ const catalog = require('./catalog');
 const pay = require('./pay');
 const mail = require('./mail');
 const delivery = require('./delivery');
+const mailQueue = require('./mail-queue');
 
 const EMAIL_RE = /^[^\s@<>"',;]{1,64}@[^\s@<>"',;]{1,190}\.[a-zA-Zа-яА-Я]{2,24}$/;
 
@@ -36,6 +37,8 @@ async function migrate() {
     CREATE INDEX IF NOT EXISTS orders_email ON orders (lower(email));
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS tg_user_id BIGINT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS tg_name TEXT;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS yk_refund_id TEXT;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS refund_state TEXT;
     CREATE INDEX IF NOT EXISTS orders_tg ON orders (tg_user_id) WHERE tg_user_id IS NOT NULL;
     CREATE TABLE IF NOT EXISTS order_sent (
       order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -44,6 +47,7 @@ async function migrate() {
       PRIMARY KEY (order_id, sku)
     );
   `);
+  await mailQueue.ensure();
 }
 
 const shortId = o => o.id.slice(0, 8).toUpperCase();
@@ -133,6 +137,7 @@ async function createTg({ sku, from, botUsername }) {
 
 // Сверить заказ с ЮKassa. Данным из уведомления не доверяем: статус всегда запрашиваем сами.
 async function sync(order) {
+  if(order?.yk_refund_id&&order.refund_state==='pending')return syncRefund(order);
   if (!order || order.status !== 'pending' || !order.yk_payment_id) return order;
   await db.q('UPDATE orders SET checked_at = now() WHERE id = $1', [order.id]);
   const pmt = await pay.getPayment(order.yk_payment_id);
@@ -152,12 +157,13 @@ async function sync(order) {
 }
 
 async function markPaid(order) {
-  const r = await db.q(`UPDATE orders SET status = 'paid', paid_at = now() WHERE id = $1 AND status = 'pending' RETURNING *`, [order.id]);
-  const paid = r.rows[0];
-  if (!paid) return byId(order.id); // уже отмечен другим запросом
-  const { ready } = lessonsOf(paid);
-  for (const l of ready) await db.q('INSERT INTO order_sent (order_id, sku) VALUES ($1, $2) ON CONFLICT DO NOTHING', [paid.id, l.sku]);
-  if (paid.email) await sendMail(paid, 'paid');
+  const ready=lessonsOf(order).ready.map(l=>l.sku);
+  const r=await db.q(`WITH paid AS(UPDATE orders SET status='paid',paid_at=NOW() WHERE id=$1 AND status='pending' RETURNING *),
+   marked AS(INSERT INTO order_sent(order_id,sku) SELECT paid.id,unnest($2::text[]) FROM paid ON CONFLICT DO NOTHING),
+   queued AS(INSERT INTO order_mail_jobs(id,order_id,kind) SELECT 'paid:'||id,id,'paid' FROM paid WHERE email<>'' ON CONFLICT DO NOTHING)
+   SELECT * FROM paid`,[order.id,ready]);
+  const paid=r.rows[0];if(!paid)return byId(order.id);
+  if(paid.email)mailQueue.flush({orderId:paid.id}).catch(e=>console.error('mail queue',e.message));
   if (paid.tg_user_id && tgHandler) {
     try { await tgHandler(paid); } catch (e) { console.error('tg delivery after payment', paid.id, e.message); }
   }
@@ -171,7 +177,7 @@ async function webhook(body) {
   const paymentId = body.event && body.event.startsWith('refund.') ? obj.payment_id : obj.id;
   const r = await db.q('SELECT * FROM orders WHERE yk_payment_id = $1', [paymentId]);
   if (!r.rows[0]) return false;
-  await sync(r.rows[0]);
+  if(String(body.event||'').startsWith('refund.')){const response=await pay.getRefund(obj.id);await applyRefund(r.rows[0],response);}else await sync(r.rows[0]);
   return true;
 }
 
@@ -197,24 +203,35 @@ ${lines.map(l => `<p>${escapeHtml(l)}</p>`).join('')}
   return { subject, text, html };
 }
 
-async function sendMail(order, kind, extra) {
-  const m = letter(kind, order, extra);
-  const r = await mail.send({ to: order.email, ...m });
-  await db.q('UPDATE orders SET emailed_at = CASE WHEN $2 THEN now() ELSE emailed_at END, mail_error = $3 WHERE id = $1', [order.id, r.sent, r.sent ? null : r.error]);
-  return r;
+// PDF — дополнение к уроку. Большие подборки доступны на странице заказа,
+// чтобы размер письма не мешал доставке. HTML-урок открывается/скачивается по ссылке.
+async function attachmentsFor(order){
+ const budget=8*1024*1024,files=[];let total=0;
+ for(const p of lessonsOf(order).ready){
+  if(!p.files?.pdf)continue;
+  const data=await delivery.personalPdf(p,null,pdfLabel(order));
+  if(total+data.length>budget)continue;
+  total+=data.length;files.push({filename:`${p.fileName||p.sku}_Teacher.pdf`,data});
+ }
+ return files;
 }
 
-// Восстановить доступ: одно письмо со ссылками на все оплаченные заказы
-async function restore(email) {
-  email = String(email || '').trim().toLowerCase();
-  if (!EMAIL_RE.test(email)) return { ok: false };
-  const r = await db.q(`SELECT * FROM orders WHERE lower(email) = $1 AND status = 'paid' ORDER BY paid_at DESC LIMIT 50`, [email]);
-  if (!r.rows.length) return { ok: true, n: 0 };
-  const rows = r.rows;
-  const text = ['Ваши покупки в Lessonfold:', '', ...rows.map(o => `${o.title} (заказ ${shortId(o)}): ${orderUrl(o)}`), '', 'Ссылки личные, не передавайте их другим.', 'Если вы не запрашивали это письмо, просто удалите его.'].join('\n');
-  const html = `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.55;color:#141c2a;max-width:560px"><p>Ваши покупки в Lessonfold:</p><ul>${rows.map(o => `<li><a href="${orderUrl(o)}">${escapeHtml(o.title)}</a>, заказ ${shortId(o)}</li>`).join('')}</ul><p style="color:#5f6676;font-size:13px">Ссылки личные, не передавайте их другим. Если вы не запрашивали это письмо, просто удалите его.</p></div>`;
-  await mail.send({ to: email, subject: 'Ваши уроки Lessonfold', text, html });
-  return { ok: true, n: rows.length };
+async function sendMail(order,kind,extra){
+ if(!order||order.status!=='paid'||!order.email)return {sent:false,error:'Нет оплаченного заказа с почтой'};
+ const jobId=await mailQueue.enqueue(order,kind,extra),r=await mailQueue.flush({jobId});
+ const {rows}=await db.q('SELECT sent_at,last_error FROM order_mail_jobs WHERE id=$1',[jobId]);
+ return {sent:Boolean(rows[0]?.sent_at),queued:!rows[0]?.sent_at,error:rows[0]?.last_error||(!config.mailEnabled?'Почта не настроена':null)};
+}
+function restoreLetter(rows){
+ const text=['Ваши покупки в Lessonfold:','',...rows.map(o=>`${o.title} (заказ ${shortId(o)}): ${orderUrl(o)}`),'','Ссылки личные, не передавайте их другим.','Если вы не запрашивали это письмо, просто удалите его.'].join('\n');
+ const html=`<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.55"><p>Ваши покупки в Lessonfold:</p><ul>${rows.map(o=>`<li><a href="${orderUrl(o)}">${escapeHtml(o.title)}</a>, заказ ${shortId(o)}</li>`).join('')}</ul><p>Если вы не запрашивали это письмо, просто удалите его.</p></div>`;
+ return {subject:'Ваши покупки Lessonfold',text,html};
+}
+async function restore(email){
+ email=String(email||'').trim().toLowerCase();if(!EMAIL_RE.test(email))return {ok:false};
+ const r=await db.q("SELECT 1 FROM orders WHERE lower(email)=$1 AND status='paid' LIMIT 1",[email]);
+ if(r.rows.length){const jobId=await mailQueue.restore(email);await mailQueue.flush({jobId});}
+ return {ok:true};
 }
 
 // Вышедшие уроки из оплаченных пакетов: отправить письмо
@@ -224,18 +241,20 @@ async function releases() {
   for (const o of r.rows) {
     const { ready } = lessonsOf(o);
     for (const l of ready) {
-      const ins = await db.q('INSERT INTO order_sent (order_id, sku) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING sku', [o.id, l.sku]);
-      // заказы из бота: вышедшие уроки рассылает сам бот (syncReleases)
-      if (ins.rowCount && o.email) { await sendMail(o, 'release', productTitle(l)); n++; }
+      const ins=await db.q(`WITH marked AS(INSERT INTO order_sent(order_id,sku) VALUES($1,$2) ON CONFLICT DO NOTHING RETURNING order_id)
+       INSERT INTO order_mail_jobs(id,order_id,kind,extra) SELECT $3,order_id,'release',$4 FROM marked WHERE $5::boolean ON CONFLICT DO NOTHING RETURNING id`,
+       [o.id,l.sku,`release:${o.id}:${l.sku}`,productTitle(l),Boolean(o.email)]);
+      if(ins.rowCount)n++;
+
     }
   }
+  await mailQueue.flush();
   return n;
 }
 
 // Заказы, которые остались pending: сверить с ЮKassa (на случай, если уведомление не дошло)
 async function syncStale() {
-  const r = await db.q(`SELECT * FROM orders WHERE status = 'pending' AND yk_payment_id IS NOT NULL
-    AND created_at > now() - interval '2 days' AND (checked_at IS NULL OR checked_at < now() - interval '10 minutes')`);
+  const r = await db.q(`SELECT * FROM orders WHERE ((status='pending' AND yk_payment_id IS NOT NULL AND created_at>NOW()-INTERVAL '2 days') OR (status='paid' AND refund_state='pending')) AND (checked_at IS NULL OR checked_at<NOW()-INTERVAL '10 minutes')`);
   let n = 0;
   for (const o of r.rows) {
     try { const x = await sync(o); if (x && x.status === 'paid') n++; } catch (e) { console.error('sync order', o.id, e.message); }
@@ -246,24 +265,28 @@ async function syncStale() {
   return n;
 }
 
-async function refund(id) {
-  const o = await byId(id);
-  if (!o || o.status !== 'paid') throw Object.assign(new Error('Вернуть можно только оплаченный заказ'), { status: 409 });
-  await pay.refund({ paymentId: o.yk_payment_id, amountRub: o.amount_rub, key: 'refund-' + o.id });
-  await db.q(`UPDATE orders SET status = 'refunded', refunded_at = now() WHERE id = $1`, [o.id]);
-  if (o.tg_user_id) {
-    // после возврата урок перестаёт числиться за покупателем в боте
-    const pr = await db.q('SELECT id FROM purchases WHERE tg_charge_id = $1', ['yk:' + o.yk_payment_id]);
-    if (pr.rows[0]) {
-      await db.q('UPDATE deliveries SET via_purchase = NULL WHERE via_purchase = $1', [pr.rows[0].id]);
-      await db.q('DELETE FROM purchases WHERE id = $1', [pr.rows[0].id]);
-    }
-  }
-  return byId(o.id);
+async function applyRefund(order,refund){
+ if(!refund||refund.payment_id!==order.yk_payment_id||Number(refund.amount?.value)!==Number(order.amount_rub)||refund.amount?.currency!=='RUB')throw Error('Возврат не соответствует заказу');
+ if(!['pending','succeeded','canceled'].includes(refund.status)||!refund.id)throw Error('Неизвестный статус возврата');
+ await db.transaction(async c=>{
+  const o=(await c.query('SELECT * FROM orders WHERE id=$1 FOR UPDATE',[order.id])).rows[0];if(!o||o.status!=='paid')return;
+  await c.query('UPDATE orders SET yk_refund_id=$2,refund_state=$3,checked_at=NOW() WHERE id=$1',[o.id,refund.id,refund.status]);
+  if(refund.status!=='succeeded')return;
+  await c.query("UPDATE orders SET status='refunded',refunded_at=NOW() WHERE id=$1",[o.id]);
+  if(o.tg_user_id){const {rows:p}=await c.query('SELECT id FROM purchases WHERE tg_charge_id=$1',['yk:'+o.yk_payment_id]);if(p[0]){await c.query('UPDATE deliveries SET via_purchase=NULL WHERE via_purchase=$1',[p[0].id]);await c.query('DELETE FROM purchases WHERE id=$1',[p[0].id]);}}
+ });return byId(order.id);
+}
+async function syncRefund(order){return applyRefund(order,await pay.getRefund(order.yk_refund_id));}
+async function refund(id){
+ const o=await byId(id);if(!o||o.status!=='paid')throw Object.assign(Error('Вернуть можно только оплаченный заказ'),{status:409});
+ if(o.yk_refund_id){if(o.refund_state==='canceled')throw Object.assign(Error('Возврат отменён платёжным сервисом. Проверьте его в кабинете ЮKassa.'),{status:409});return syncRefund(o);}
+ const response=await pay.refund({paymentId:o.yk_payment_id,amountRub:o.amount_rub,key:'refund-'+o.id});return applyRefund(o,response);
 }
 
 async function list({ q = '', limit = 200 } = {}) {
-  const r = await db.q(`SELECT id, COALESCE(NULLIF(email, ''), tg_name, 'Telegram ' || tg_user_id) AS email, sku, title, amount_rub, status, news, created_at, paid_at, refunded_at, emailed_at, mail_error, opened, note
+  const r = await db.q(`SELECT id, COALESCE(NULLIF(email, ''), tg_name, 'Telegram ' || tg_user_id) AS email, sku, title, amount_rub, status, news, created_at, paid_at, refunded_at, refund_state, emailed_at, mail_error, opened, note,
+    (SELECT COUNT(*)::int FROM order_mail_jobs j WHERE j.order_id=orders.id AND j.sent_at IS NULL AND j.canceled_at IS NULL) AS mail_pending,
+    EXISTS(SELECT 1 FROM order_mail_jobs j WHERE j.order_id=orders.id AND j.sent_at IS NULL AND j.canceled_at IS NULL AND j.attempts>=12) AS mail_exhausted
     FROM orders WHERE ($1 = '' OR lower(email) LIKE '%' || lower($1) || '%' OR lower(COALESCE(tg_name, '')) LIKE '%' || lower($1) || '%' OR upper(id) LIKE upper($1) || '%')
     ORDER BY created_at DESC LIMIT $2`, [String(q).trim(), limit]);
   return r.rows;
@@ -285,4 +308,4 @@ async function opened(order) {
   await db.q('UPDATE orders SET opened = opened + 1 WHERE id = $1', [order.id]);
 }
 
-module.exports = { sellerReady, migrate, create, createTg, onTgPaid, sync, webhook, byToken, byId, lessonsOf, label, pdfLabel, shortId, sendMail, restore, releases, syncStale, refund, list, stats, opened, productTitle, EMAIL_RE };
+module.exports = { sellerReady, migrate, create, createTg, onTgPaid, sync, webhook, byToken, byId, lessonsOf, label, pdfLabel, shortId, sendMail, restore, releases, syncStale, refund, list, stats, opened, productTitle, EMAIL_RE, letter, restoreLetter, attachmentsFor };

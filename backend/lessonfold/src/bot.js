@@ -460,9 +460,9 @@ async function onMessage(msg) {
     return adminCommand(msg, cmd.replace(/@.*$/, ''), args);
   }
   if (text === MENU.free || text === '/free') return showFree(chatId, msg.from);
-  if (text === MENU.catalog || text === '/catalog') return showTextbooks(chatId);
+  if (text === MENU.catalog || text === 'Магазин материалов' || text === '/catalog') return showTextbooks(chatId);
   if (text === MENU.courses || text === '/courses') return showCourses(chatId);
-  if (text === MENU.mine || text === '/mine') return showMine(chatId, msg.from.id);
+  if (text === MENU.mine || text === 'Мои покупки' || text === '/mine') return showMine(chatId, msg.from.id);
   if (text === MENU.help || text === '/help') return showHelp(chatId);
   return send(chatId, 'Выберите действие кнопками внизу.', { reply_markup: mainKeyboard });
 }

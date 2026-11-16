@@ -488,10 +488,10 @@ footer{margin-top:96px}
 <dialog id="buyD" class="buy-d" aria-label="Покупка урока">
   <form class="box" id="buyF" novalidate>
     <div class="hd"><div><span class="where" id="buyWhere"></span><h3 id="buyT"></h3></div><button type="button" class="x" id="buyX" aria-label="Закрыть">×</button></div>
-    <label class="f" for="buyEmail">Почта для чека и ссылки на урок<input id="buyEmail" type="email" required autocomplete="email" placeholder="teacher@mail.ru"></label>
+    <label class="f" for="buyEmail">Почта для материалов и чека<input id="buyEmail" type="email" required autocomplete="email" maxlength="254" placeholder="teacher@mail.ru"></label>
     <label class="ck"><input type="checkbox" id="buyOffer" required><span>Принимаю условия <a href="/offer" target="_blank" rel="noopener">публичной оферты</a> и понимаю, что урок передаётся по лицензии для моих занятий</span></label>
     <label class="ck"><input type="checkbox" id="buyNews"><span>Присылать письма о новых уроках (<a href="/consent" target="_blank" rel="noopener">согласие</a>, необязательно)</span></label>
-    <p class="pay">Оплата на защищённой странице ЮKassa: карта или СБП. Данные карты к нам не попадают. Сразу после оплаты откроется страница со скачиванием, ссылка придёт и на почту. Данные обрабатываются по <a href="/privacy" target="_blank" rel="noopener">политике</a>.</p>
+    <p class="pay">Оплата на защищённой странице ЮKassa: карта или СБП. Данные карты к нам не попадают. Сразу после оплаты откроется страница со скачиванием, ссылка придёт и на почту. Небольшой PDF из комплекта приложим к письму. Данные обрабатываются по <a href="/privacy" target="_blank" rel="noopener">политике</a>.</p>
     <p class="err" id="buyErr" aria-live="polite"></p>
     <button class="btn btn-amber" type="submit" id="buyGo"></button>
   </form>
@@ -650,7 +650,7 @@ $("#buyD").addEventListener("click", e => { if (e.target === $("#buyD")) $("#buy
 $("#buyF").addEventListener("submit", async e => {
   e.preventDefault();
   const email = $("#buyEmail").value.trim(), err = $("#buyErr"), go = $("#buyGo");
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { err.textContent = "Проверьте адрес почты: на него придёт ссылка на урок."; return }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { err.textContent = "Проверьте адрес почты: на него придут ссылка на урок и PDF для преподавателя."; return }
   if (!$("#buyOffer").checked) { err.textContent = "Отметьте согласие с офертой, без него оплату не принять."; return }
   err.textContent = ""; go.disabled = true; const t = go.textContent; go.textContent = "Готовим оплату…";
   try {

@@ -57,7 +57,7 @@ const config = {
 };
 config.botEnabled = !!config.botToken;
 config.payEnabled = !!(config.ykShopId && config.ykSecret);
-config.mailEnabled = !!(config.smtpHost && config.mailFrom);
+config.mailEnabled = !!(config.smtpHost && config.mailFrom && config.smtpUser && config.smtpPass);
 
 function checkConfig() {
   const missing = [];
