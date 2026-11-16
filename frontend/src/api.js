@@ -64,6 +64,24 @@ const qs = (params) => {
 };
 
 export const api = {
+  grammarTopics: (q = '') => request('GET', `/learning/grammar${qs({ q })}`),
+  grammarTopic: (id) => request('GET', `/learning/grammar/${encodeURIComponent(id)}`),
+  grammarPractice: (id) => request('GET', `/learning/grammar/${encodeURIComponent(id)}/practice`),
+  checkGrammarPractice: (id, data) => request('POST', `/learning/grammar/${encodeURIComponent(id)}/practice`, data),
+  grammarBank: (id) => request('GET', `/learning/grammar/${encodeURIComponent(id)}/bank`),
+  studySections: (student_id) => request('GET', `/learning/sections${qs({ student_id })}`),
+  createStudySection: (data) => request('POST', '/learning/sections', data),
+  updateStudySection: (id, data) => request('PATCH', `/learning/sections/${id}`, data),
+  deleteStudySection: (id) => request('DELETE', `/learning/sections/${id}`),
+  coveredGrammar: (id) => request('GET', `/learning/covered/${id}`),
+  diagnostics: (student_id) => request('GET', `/learning/diagnostics${qs({ student_id })}`),
+  diagnosticPreview: (data) => request('POST', '/learning/diagnostics/preview', data),
+  createDiagnostic: (data) => request('POST', '/learning/diagnostics', data),
+  diagnosticTest: (id) => request('GET', `/learning/diagnostics/tests/${id}`),
+  diagnosticRun: (id) => request('GET', `/learning/diagnostics/runs/${id}`),
+  diagnosticDraft: (id, answers) => request('PUT', `/learning/diagnostics/runs/${id}/draft`, { answers }),
+  submitDiagnostic: (id, answers) => request('POST', `/learning/diagnostics/runs/${id}/submit`, { answers }),
+
   // Вход
   login: (login, password) => request('POST', '/auth/login', { login, password }),
   me: () => request('GET', '/auth/me'),

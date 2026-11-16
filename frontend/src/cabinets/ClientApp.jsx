@@ -12,6 +12,8 @@ import { ChangePassword } from '../pages/Login';
 import { NotFound } from './NotFound';
 import { AcceptDocuments } from '../pages/Legal';
 import LessonRoom from '../pages/LessonRoom';
+import Grammar from '../pages/learning/Grammar';
+import { DiagnosticsList, DiagnosticRun } from '../pages/learning/Diagnostics';
 import { TheoryList, TheoryView } from '../pages/client/Theory';
 import Words from '../pages/client/Words';
 import SetStudy from '../pages/client/SetStudy';
@@ -66,6 +68,9 @@ function ClientCabinet({ path }) {
   const clientNav = CLIENT_NAV.map((n) => (n.to === '/words' ? { ...n, label: subjectInfo(child.subject || user.subject).vocabTitle } : n));
   let page;
   if (parts.length === 0) page = <ClientHome {...props} />;
+  else if (parts[0] === 'grammar') page = <Grammar topic={parts[1]} />;
+  else if (parts[0] === 'diagnostics' && parts[1] === 'runs' && parts[2]) page = <DiagnosticRun id={Number(parts[2])} />;
+  else if (parts[0] === 'diagnostics') page = <DiagnosticsList key={child.id} {...props} />;
   else if (parts[0] === 'schedule') page = <ClientSchedule {...props} />;
   else if (parts[0] === 'homework' && parts[1]) page = <HomeworkPage id={Number(parts[1])} isParent={props.isParent} />;
   else if (parts[0] === 'homework') page = <ClientHomework {...props} />;

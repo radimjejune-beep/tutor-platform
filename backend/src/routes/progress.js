@@ -6,6 +6,8 @@ const { requireRole, requireStudentAccess, canAccessStudent, requireOwn } = requ
 const { validateBody, asyncHandler } = require('../middleware/validate');
 const { buildUpdate } = require('../utils');
 const notify = require('../services/notify');
+const grammar = require('../learning/grammar');
+const grammarKey = require('../learning/diagnostics').topicKey.nullable();
 const { recommendations } = require('../services/recommend');
 
 const router = express.Router();
@@ -140,7 +142,7 @@ const topicsSchema = z
     student_id: z.number().int().positive(),
     section: z.string().trim().max(255).nullable().optional(),
     items: z
-      .array(z.object({ title: z.string().trim().min(1).max(255), skill: skill.optional() }).strict())
+      .array(z.object({ title: z.string().trim().min(1).max(255), skill: skill.optional(), grammar_key: grammarKey.optional() }).strict())
       .min(1)
       .max(100),
   })
@@ -162,9 +164,9 @@ router.post(
     for (const it of items) {
       order += 10;
       const { rows } = await query(
-        `INSERT INTO progress_topics (student_id, section, title, skill, sort_order)
-         VALUES ($1, $2, $3, COALESCE($4, 'grammar'), $5) RETURNING *`,
-        [student_id, section || null, it.title, it.skill || null, order]
+        `INSERT INTO progress_topics (student_id, section, title, skill, sort_order, grammar_key)
+         VALUES ($1, $2, $3, COALESCE($4, 'grammar'), $5, $6) RETURNING *`,
+        [student_id, section || null, it.title, it.skill || null, order, it.grammar_key || ((it.skill || 'grammar') === 'grammar' ? grammar.matchTopic(it.title) : null)]
       );
       created.push(rows[0]);
     }
@@ -178,6 +180,7 @@ const topicUpdateSchema = z
     section: z.string().trim().max(255).nullable(),
     title: z.string().trim().min(1).max(255),
     skill,
+    grammar_key: grammarKey,
     status: z.enum(['planned', 'in_progress', 'done']),
     sort_order: z.number().int(),
     completed_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),

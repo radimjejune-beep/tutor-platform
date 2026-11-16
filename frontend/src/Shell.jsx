@@ -13,6 +13,8 @@ export const TUTOR_NAV = [
   { to: '/schedule', label: 'Расписание', short: 'Уроки', icon: 'calendar', group: 'Работа' },
   { to: '/students', label: 'Ученики', icon: 'users', group: 'Работа' },
   { to: '/homework', label: 'Задания', short: 'Задания', icon: 'book', countKey: 'homework', group: 'Работа' },
+  { to: '/diagnostics', label: 'Диагностика', icon: 'quiz', hideMobile: true, group: 'Работа' },
+  { to: '/grammar', label: 'Грамматика', icon: 'library', hideMobile: true, group: 'Материалы' },
   { to: '/library', label: 'Библиотека', short: 'Библ.', icon: 'library', group: 'Материалы' },
   { to: '/wordsets', label: 'Карточки', icon: 'cards', hideMobile: true, group: 'Материалы' },
   { to: '/courses', label: 'Курсы', icon: 'layers', hideMobile: true, group: 'Материалы' },
@@ -28,6 +30,8 @@ export const CLIENT_NAV = [
   { to: '/schedule', label: 'Расписание', short: 'Уроки', icon: 'calendar' },
   { to: '/homework', label: 'Задания', short: 'Задания', icon: 'book', countKey: 'homework' },
   { to: '/words', label: 'Словарь', icon: 'cards', countKey: 'words' },
+  { to: '/diagnostics', label: 'Диагностика', icon: 'quiz', hideMobile: true },
+  { to: '/grammar', label: 'Грамматика', icon: 'library', hideMobile: true },
   { to: '/theory', label: 'Теория', icon: 'library', hideMobile: true },
   { to: '/progress', label: 'Прогресс', short: 'Успехи', icon: 'chart' },
   { to: '/payments', label: 'Оплата', icon: 'wallet', hideMobile: true },
@@ -53,6 +57,7 @@ export function parentOf(rawPath) {
   if (s[0] === 'homework' && s.length > 2) return `/homework/${s[1]}`;
   if (s[0] === 'bank' && s.length > 2) return `/bank/${s[1]}`;
   if (s[0] === 'words') return '/words';
+  if (s[0] === 'diagnostics') return '/diagnostics';
   if (s[0] === 'reports') return '/progress';
   return `/${s[0]}`;
 }

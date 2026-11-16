@@ -29,6 +29,8 @@ import Students from '../pages/tutor/Students';
 import StudentPage from '../pages/tutor/StudentPage';
 import { AssignmentsList, AssignmentEditor, AssignmentPage, ReviewPage } from '../pages/tutor/Assignments';
 import Finance from '../pages/tutor/Finance';
+import Grammar from '../pages/learning/Grammar';
+import { DiagnosticsList, DiagnosticBuilder, DiagnosticTest, DiagnosticRun } from '../pages/learning/Diagnostics';
 import BankPage from '../pages/tutor/Bank';
 
 /* ---------- Кабинет преподавателя ---------- */
@@ -53,6 +55,11 @@ export default function TutorApp({ path, params }) {
   if (terms.data?.pending && !user.is_admin) return <AcceptPlatformTerms docs={terms.data.docs} onDone={terms.reload} />;
   let page;
   if (parts.length === 0) page = <TutorDashboard />;
+  else if (parts[0] === 'grammar') page = <Grammar topic={parts[1]} />;
+  else if (parts[0] === 'diagnostics' && parts[1] === 'new') page = <DiagnosticBuilder />;
+  else if (parts[0] === 'diagnostics' && parts[1] === 'tests' && parts[2]) page = <DiagnosticTest id={Number(parts[2])} />;
+  else if (parts[0] === 'diagnostics' && parts[1] === 'runs' && parts[2]) page = <DiagnosticRun id={Number(parts[2])} />;
+  else if (parts[0] === 'diagnostics') page = <DiagnosticsList />;
   else if (parts[0] === 'schedule') page = <TutorSchedule />;
   else if (parts[0] === 'students' && parts[1]) page = <StudentPage id={Number(parts[1])} tab={parts[2] || 'lessons'} />;
   else if (parts[0] === 'students') page = <Students />;

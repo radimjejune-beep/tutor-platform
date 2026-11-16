@@ -1,5 +1,6 @@
 // pages/client/Homework.jsx — список заданий ученика
 import { api } from '../../api';
+import HomeworkSections from '../../components/HomeworkSections';
 import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, navigate } from '../../ui';
 import { shortDate, HW_STATUS, todayISO } from '../../format';
 
@@ -38,16 +39,7 @@ export default function ClientHomework({ student }) {
   return (
     <>
       <div className="page-head"><h1 className="page-title">Задания</h1></div>
-      <section className="panel">
-        <div className="panel-head"><h2 className="section-title">Текущие</h2></div>
-        {!todo.length ? <Empty title="Всё сделано">Новое задание появится здесь.</Empty> : todo.map((h) => <Row key={h.id} h={h} />)}
-      </section>
-      {done.length > 0 && (
-        <section className="panel" style={{ marginTop: 20 }}>
-          <div className="panel-head"><h2 className="section-title">Проверенные</h2></div>
-          {done.map((h) => <Row key={h.id} h={h} />)}
-        </section>
-      )}
+      <HomeworkSections key={student.id} items={hw.data} studentId={student.id} renderRow={h=><Row key={h.id} h={h}/>}/>
     </>
   );
 }

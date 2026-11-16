@@ -31,7 +31,7 @@ app.use(helmet());
 // Обычные запросы — до 200 КБ; загрузка файлов (/api/files) разбирается отдельно, до 15 МБ
 const smallJson = express.json({ limit: '200kb' });
 // Большие запросы разбираются в своих маршрутах: файлы (до 15 МБ) и импорт библиотеки (до 2 МБ)
-const BIG_BODY = ['/api/files', '/api/library'];
+const BIG_BODY = ['/api/files', '/api/library', '/api/learning'];
 // Сравнение по целому сегменту пути: /api/library-folders и /api/library-books сюда не попадают
 app.use((req, res, next) => (BIG_BODY.some((p) => req.path === p || req.path.startsWith(`${p}/`)) ? next() : smallJson(req, res, next)));
 
@@ -118,6 +118,7 @@ protectedApi.use('/library', require('./routes/library').router);
 protectedApi.use('/telegram', require('./routes/telegram'));
 protectedApi.use('/games', require('./routes/games'));
 protectedApi.use('/legal', require('./routes/legal').protectedRouter);
+protectedApi.use('/learning', require('./routes/learning'));
 protectedApi.use('/progress', require('./routes/progress'));
 protectedApi.use('/courses', require('./routes/courses'));
 protectedApi.use('/vocab', require('./routes/vocab'));

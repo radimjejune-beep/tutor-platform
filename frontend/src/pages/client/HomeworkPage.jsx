@@ -75,6 +75,7 @@ function HomeworkView({ h, isParent, reload }) {
             <div className="assign-icon"><Icon name={h.questions.length ? 'quiz' : 'book'} /></div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <h1 className="assign-title">{h.title}</h1>
+              {h.section_title&&<p className="small muted">Раздел: {h.section_title} {h.section_grammar_key&&<Link to={`/grammar/${h.section_grammar_key}`}>· Вспомнить правило</Link>}</p>}
               <div className="assign-meta">{h.due_on ? `Сдать до ${shortDate(h.due_on)}` : 'Без срока'}</div>
             </div>
           </div>

@@ -12,9 +12,9 @@ test('audit: legacy migrations and atomic journal', { skip: !process.env.TEST_MI
   for (const f of fs.readdirSync(dir).filter((f) => /^\d{3}_/.test(f) && Number(f.slice(0, 3)) <= 13).sort()) {
     await pool.query(fs.readFileSync(path.join(dir, f), 'utf8'));
   }
-  await t.test('a manually initialized legacy database receives migrations 014–018', async () => {
+  await t.test('a manually initialized legacy database receives all migrations from 014 onwards', async () => {
     const applied = await migrate({ log: () => {} });
-    assert.equal(applied.length, 5);
+    assert.equal(applied.length, fs.readdirSync(dir).filter(f => /^\d{3}_/.test(f) && Number(f.slice(0,3)) >= 14).length);
     assert.ok(applied[0].startsWith('014_'));
     const { rows } = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='users' AND column_name='email'");
     assert.equal(rows.length, 1);
@@ -29,7 +29,7 @@ test('audit: legacy migrations and atomic journal', { skip: !process.env.TEST_MI
     assert.deepEqual(await migrate({ log: () => {} }), []);
   });
   await t.test('a failed historical SQL file does not partially commit its schema', async () => {
-    const filename = '019_audit_transaction.sql';
+    const filename = '999_audit_transaction.sql';
     const originalRead = fs.readFileSync;
     const originalList = fs.readdirSync;
     fs.readdirSync = function (target, ...rest) { const result = originalList.call(this, target, ...rest); return String(target) === dir ? [...result, filename] : result; };

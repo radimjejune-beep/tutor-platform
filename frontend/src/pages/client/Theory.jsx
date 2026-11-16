@@ -13,7 +13,7 @@ export function TheoryList() {
 
   return (
     <>
-      <div className="page-head"><h1 className="page-title">Теория</h1></div>
+      <div className="page-head"><h1 className="page-title">Теория</h1><Link className="btn" to="/grammar">Справочник грамматики</Link></div>
       <div className="lib-filters">
         <input className="input" placeholder="Поиск" value={q} onChange={(e) => setQ(e.target.value)} />
         {facets.data?.subjects.length > 1 && (

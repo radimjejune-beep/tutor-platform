@@ -1,4 +1,6 @@
 import { BackLink } from '../../Shell';
+import HomeworkSections from '../../components/HomeworkSections';
+import { SectionPicker } from '../../components/StudySections';
 // pages/tutor/Assignments.jsx — задания:
 // список → редактор → страница задания → проверка работы ученика
 import { MethodTip } from '../Method';
@@ -40,13 +42,7 @@ export function AssignmentsList() {
         <Link to="/homework/new" className="btn"><Icon name="plus" /> Задание</Link>
       </div>
 
-      <section className="panel">
-        {!list.data.length && (
-          <Empty title="Заданий пока нет" action={<Link to="/homework/new" className="btn">Создать первое задание</Link>}>
-            Одно задание можно выдать сразу нескольким ученикам, приложить материалы и тест с автопроверкой.
-          </Empty>
-        )}
-        {list.data.map((a) => (
+      <HomeworkSections items={list.data} tutor renderRow={(a) => (
           <div key={a.id} className="assign-row" onClick={() => navigate(`/homework/${a.id}`)}>
             <div className="assign-icon"><Icon name={a.question_count ? 'quiz' : 'book'} /></div>
             <div className="list-main">
@@ -61,8 +57,7 @@ export function AssignmentsList() {
             {a.overdue > 0 && <Badge tone="red">Просрочено: {a.overdue}</Badge>}
             <div className="counter"><b className="num">{a.submitted + a.checked}</b><span>сдали из {a.total}</span></div>
           </div>
-        ))}
-      </section>
+      )} />
     </>
   );
 }
@@ -87,6 +82,7 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
   const dkey = isNew ? 'assign:new' : `assign:${assignment.id}`;
   const [base] = useState(() => ({
     title: assignment?.title || '',
+    section_id: assignment?.section_id || null,
     description: assignment?.description || '',
     links: (assignment?.links || []).join('\n'),
     due_on: assignment?.due_on || '',
@@ -121,6 +117,7 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
   const { busy, error, submit } = useSubmit(async () => {
     const body = {
       title: f.title.trim(),
+      section_id: f.section_id || null,
       description: orNull(f.description),
       links: f.links.split(/\s+/).map((s) => s.trim()).filter(Boolean),
       due_on: f.due_on || null,
@@ -174,6 +171,7 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
               <input className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} required autoFocus={isNew}
                 placeholder={subj.isLang ? 'Workbook, Unit 4: упражнения 1–4' : 'Параграф 12: задачи 1–5'} />
             </Field>
+            <SectionPicker value={f.section_id} onChange={section_id=>setF({...f,section_id})}/>
             <Field label="Инструкция">
               <textarea className="textarea" style={{ minHeight: 140 }} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })}
                 placeholder="Что сделать и как сдать: например, сфотографировать страницу тетради" />

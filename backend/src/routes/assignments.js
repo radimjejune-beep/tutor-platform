@@ -8,6 +8,7 @@ const { validateBody, asyncHandler } = require('../middleware/validate');
 const { questionsSchema, grade } = require('../services/quiz');
 const { buildUpdate } = require('../utils');
 const notify = require('../services/notify');
+const { ownSection } = require('../learning/diagnostics');
 
 const router = express.Router();
 
@@ -29,6 +30,7 @@ router.use(requireRole('tutor'));
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Дата в формате ГГГГ-ММ-ДД');
 const fields = {
+  section_id: z.number().int().positive().nullable(),
   title: z.string().trim().min(1, 'Название не может быть пустым').max(255),
   description: z.string().max(10000).nullable(),
   links: z.array(z.string().trim().url().max(1000)).max(10),
@@ -61,7 +63,8 @@ router.get(
   '/',
   asyncHandler(async (req, res) => {
     const { rows } = await query(
-      `SELECT a.id, a.title, a.due_on, a.created_at,
+      `SELECT a.id, a.title, a.due_on, a.created_at, a.section_id,
+              (SELECT title FROM study_sections ss WHERE ss.id=a.section_id) AS section_title,
               jsonb_array_length(a.questions) AS question_count,
               cardinality(a.library_item_ids) AS task_count,
               COUNT(h.id)::int AS total,
@@ -90,7 +93,7 @@ const createSchema = z
     ...fields,
     student_ids: z.array(z.number().int().positive()).min(1, 'Выберите хотя бы одного ученика').max(100),
   })
-  .partial({ description: true, links: true, due_on: true, questions: true, library_item_ids: true, vocab_practice: true, word_set_id: true, answer_mode: true })
+  .partial({ section_id: true, description: true, links: true, due_on: true, questions: true, library_item_ids: true, vocab_practice: true, word_set_id: true, answer_mode: true })
   .strict();
 
 router.post(
@@ -101,14 +104,15 @@ router.post(
     const result = await transaction(async (client) => {
       const { rows: found } = await client.query('SELECT id FROM students WHERE id = ANY($1) AND tutor_id = $2', [b.student_ids, req.user.id]);
       if (found.length !== new Set(b.student_ids).size) return { error: 'Некоторые ученики не найдены' };
+      if (!(await ownSection(client,b.section_id,req.user.id))) return { error:'Раздел не найден' };
       const setId = await ownSet(client, b.word_set_id, req.user.id);
       if (setId === undefined) return { error: 'Набор карточек не найден' };
 
       const { rows } = await client.query(
-        `INSERT INTO assignments (title, description, links, due_on, questions, library_item_ids, vocab_practice, tutor_id, word_set_id, answer_mode)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+        `INSERT INTO assignments (title, description, links, due_on, questions, library_item_ids, vocab_practice, tutor_id, word_set_id, answer_mode, section_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
         [b.title, b.description || null, b.links || [], b.due_on || null, JSON.stringify(b.questions || []),
-          await ownItems(client, b.library_item_ids, req.user.id), b.vocab_practice ? JSON.stringify(b.vocab_practice) : null, req.user.id, setId, b.answer_mode || 'both']
+          await ownItems(client, b.library_item_ids, req.user.id), b.vocab_practice ? JSON.stringify(b.vocab_practice) : null, req.user.id, setId, b.answer_mode || 'both', b.section_id || null]
       );
       await shareSet(client, setId, [...new Set(b.student_ids)]);
       const given = [];
@@ -173,6 +177,7 @@ router.patch(
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const { add_student_ids, ...data } = req.body;
+    if (!(await ownSection({query},data.section_id,req.user.id))) return res.status(404).json({error:'Раздел не найден'});
     if (data.questions) data.questions = JSON.stringify(data.questions);
     if (data.library_item_ids) data.library_item_ids = await ownItems({ query }, data.library_item_ids, req.user.id);
     if (data.vocab_practice !== undefined) data.vocab_practice = data.vocab_practice ? JSON.stringify(data.vocab_practice) : null;

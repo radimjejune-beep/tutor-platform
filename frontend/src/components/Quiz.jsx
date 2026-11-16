@@ -26,7 +26,7 @@ export function cleanQuestions(questions) {
 /* ============================================================
    Редактор вопросов
    ============================================================ */
-export function QuizEditor({ questions, onChange }) {
+export function QuizEditor({ questions, onChange, renderMeta }) {
   const set = (i, patch) => onChange(questions.map((q, k) => (k === i ? { ...q, ...patch } : q)));
   const move = (i, dir) => {
     const next = [...questions];
@@ -60,6 +60,7 @@ export function QuizEditor({ questions, onChange }) {
             </div>
           </div>
 
+          {renderMeta?.(q, i, (patch) => set(i, patch))}
           <textarea className="textarea" style={{ minHeight: 60 }} placeholder={q.type === 'choice' ? 'She ___ a lawyer.' : 'Past Simple от go: I ___ home yesterday.'}
             value={q.prompt} onChange={(e) => set(i, { prompt: e.target.value })} />
 
