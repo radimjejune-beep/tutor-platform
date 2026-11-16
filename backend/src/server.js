@@ -37,10 +37,7 @@ app.use((req, res, next) => (BIG_BODY.some((p) => req.path === p || req.path.sta
 
 // CORS: только адреса из FRONTEND_ORIGINS (через запятую).
 // Разрешаем только точные адреса. Другие клиенты общего хостинга не являются нашими сайтами.
-const origins = String(process.env['FRONTEND_ORIGINS'] || 'https://lessonfold.ru,https://www.lessonfold.ru,http://localhost:5173')
-  .split(',')
-  .map((s) => s.trim().replace(/\/$/, ''))
-  .filter((s) => /^https?:\/\//.test(s));
+const origins = require('./middleware/cors').allowedOrigins();
 app.use(
   cors({
     origin: (origin, cb) => cb(null, !origin || origins.includes(origin)),
