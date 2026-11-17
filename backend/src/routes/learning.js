@@ -46,10 +46,18 @@ router.get('/sections',asyncHandler(async(req,res)=>{
 }));
 const sectionSchema=z.object({title:z.string().trim().min(1).max(160),grammar_key:d.topicKey.nullable().optional()}).strict();
 router.post('/sections',tutor,validateBody(sectionSchema),asyncHandler(async(req,res)=>{
-  const {rows}=await query(`INSERT INTO study_sections(tutor_id,title,grammar_key) VALUES($1,$2,$3)
-    ON CONFLICT(tutor_id,lower(title)) DO NOTHING RETURNING id,title,grammar_key`,[req.user.id,req.body.title,req.body.grammar_key||null]);
-  if(!rows[0])return res.status(409).json({error:'Раздел с таким названием уже есть'});
-  res.status(201).json(rows[0]);
+  const section=await transaction(async db=>{
+    const {rows}=await db.query(`INSERT INTO study_sections(tutor_id,title,grammar_key) VALUES($1,$2,$3)
+      ON CONFLICT(tutor_id,lower(title)) DO NOTHING RETURNING id,title,grammar_key`,[req.user.id,req.body.title,req.body.grammar_key||null]);
+    if(rows[0])return {created:true,value:rows[0]};
+    // Раздел — общая тема преподавателя; работы каждого ученика размещаются отдельно.
+    // Повторное использование не меняет название или объяснение уже созданной темы.
+    const existing=await db.query(`SELECT id,title,grammar_key FROM study_sections
+      WHERE tutor_id=$1 AND lower(title)=lower($2) FOR SHARE`,[req.user.id,req.body.title]);
+    if(!existing.rows[0])fail(409,'Раздел был удалён. Повторите создание.');
+    return {created:false,value:{...existing.rows[0],reused:true}};
+  });
+  res.status(section.created?201:200).json(section.value);
 }));
 router.patch('/sections/:id',tutor,validateBody(sectionSchema),asyncHandler(async(req,res)=>{
   try{

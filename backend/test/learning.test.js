@@ -47,7 +47,8 @@ test('обучение на PostgreSQL: доступ, назначения, от
   assert.equal((await call(route,'GET','/sections',{user:b})).body.length,0);
   assert.equal((await call(route,'GET','/sections',{user:parent,query:{student_id:s1}})).body.length,0);
   assert.equal((await call(route,'PATCH','/sections/:id',{user:b,params:{id:sectionId},body:{title:'Нельзя'}})).status,404);
-  assert.equal((await call(route,'POST','/sections',{user:a,body:{title:'present simple'}})).status,409);
+  const reused=await call(route,'POST','/sections',{user:a,body:{title:'  present simple  '}});
+  assert.equal(reused.status,200);assert.equal(reused.body.id,sectionId);assert.equal(reused.body.reused,true);assert.equal(reused.body.grammar_key,'present-simple');
   const ar=loadRoutes('routes/assignments.js').mod;
   assert.equal((await call(ar,'POST','/',{user:b,body:{title:'Чужой раздел',student_ids:[foreign],section_id:sectionId}})).status,400);
  });

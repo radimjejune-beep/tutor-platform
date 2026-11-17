@@ -44,21 +44,24 @@ export default function StudentHomework({student}) {
     <button type="button" className="btn btn-secondary btn-sm" aria-label={`Перенести задание «${h.title}»`} onClick={()=>setDialog({mode:'move',ids:[h.id],target:h.section_id})}>Перенести</button>
    </div>)}
   </>}
-  {creating&&<CreateSection onClose={()=>setCreating(false)} onCreated={s=>{setCreating(false);setActive(String(s.id));sections.reload();}}/>}
+  {creating&&<CreateSection sections={sections.data||[]} onClose={()=>setCreating(false)} onCreated={s=>{setCreating(false);setActive(String(s.id));setPicked([]);sections.reload();toast(s.reused?'Раздел выбран для этого ученика':'Раздел создан');}}/>}
   {dialog&&<MoveHomework key={`${dialog.mode}-${dialog.target}-${dialog.ids?.join(',')}`} student={student} items={items} dialog={dialog} onClose={()=>setDialog(null)} onDone={moved}/>}
  </section>;
 }
-function CreateSection({onClose,onCreated}) {
- const [title,setTitle]=useState(''),[grammar,setGrammar]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+function CreateSection({sections,onClose,onCreated}) {
+ const [title,setTitle]=useState(''),[grammar,setGrammar]=useState(''),[existingId,setExistingId]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const topics=useLoad(()=>api.grammarTopics(),[]);
- const save=async e=>{e.preventDefault();setBusy(true);setError('');try{onCreated(await api.createStudySection({title:title.trim(),grammar_key:grammar||null}));}catch(e){setError(e.message);}finally{setBusy(false);}};
+ const existing=sections.find(s=>existingId?String(s.id)===existingId:s.title.toLowerCase()===title.trim().toLowerCase());
+ const save=async e=>{e.preventDefault();setBusy(true);setError('');try{onCreated(await api.createStudySection({title:existing?.title||title.trim(),grammar_key:(existing?existing.grammar_key:grammar)||null}));}catch(e){setError(e.message);}finally{setBusy(false);}};
  return <Modal title="Новый раздел" onClose={onClose}><form className="form" onSubmit={save}>
-  <Field label="Название раздела"><input className="input" aria-label="Название раздела" value={title} maxLength={160} onChange={e=>setTitle(e.target.value)} placeholder="Например, Present Simple" autoFocus required/></Field>
-  <Field label="Объяснение грамматики"><select className="select" aria-label="Грамматика раздела" value={grammar} onChange={e=>setGrammar(e.target.value)}><option value="">Не привязывать</option>{(topics.data||[]).map(t=><option key={t.id} value={t.id}>{t.label||t.title}</option>)}</select></Field>
+  {sections.length>0&&<Field label="Использовать существующий раздел"><select className="select" aria-label="Существующий раздел" value={existingId} onChange={e=>{setExistingId(e.target.value);setError('');}}><option value="">Создать новый или ввести название</option>{sections.map(s=><option key={s.id} value={s.id}>{s.title}</option>)}</select></Field>}
+  {!existingId&&<Field label="Название раздела"><input className="input" aria-label="Название раздела" value={title} maxLength={160} onChange={e=>{setTitle(e.target.value);setError('');}} placeholder="Например, Present Simple" autoFocus required/></Field>}
+  {existing&&<p className="learning-note" role="status">Раздел «{existing.title}» уже создан. Можно использовать его у этого ученика: чужие задания и результаты сюда не добавятся. Привязанное объяснение сохранится.</p>}
+  <Field label="Объяснение грамматики"><select className="select" aria-label="Грамматика раздела" value={(existing?existing.grammar_key:grammar)||''} disabled={Boolean(existing)} onChange={e=>setGrammar(e.target.value)}><option value="">Не привязывать</option>{(topics.data||[]).map(t=><option key={t.id} value={t.id}>{t.label||t.title}</option>)}</select></Field>
   {topics.error&&<ErrorBox error={topics.error} onRetry={topics.reload}/>}
   <p className="small muted">После создания добавьте в раздел уже выданные задания. Ученик увидит раздел, когда в нём появятся его работы.</p>
   {error&&<div className="alert" role="alert">{error}</div>}
-  <div className="modal-actions"><button type="button" className="btn btn-secondary" onClick={onClose}>Отмена</button><button type="submit" className="btn" disabled={busy||!title.trim()}>Создать раздел</button></div>
+  <div className="modal-actions"><button type="button" className="btn btn-secondary" onClick={onClose}>Отмена</button><button type="submit" className="btn" disabled={busy||(!existing&&!title.trim())}>{busy?'Сохраняем…':existing?'Использовать раздел':'Создать раздел'}</button></div>
  </form></Modal>;
 }
 function MoveHomework({student,items,dialog,onClose,onDone}) {

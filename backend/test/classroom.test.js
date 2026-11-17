@@ -42,6 +42,25 @@ test('classroom: личные разделы и отдельные ссылки 
   assert.equal((await move(a,[h1,eh],personal)).updated,2);await req(a,'/learning/sections/'+personal,'DELETE');
   assert.equal((await req(s1,'/homework/'+h1)).section_id,null);assert.equal((await req(s1,'/homework/'+eh)).section_id,null);assert.equal((await req(s2,'/homework/'+h2)).section_id,third);
  });
+ await t.test('одинаковую тему можно использовать у двух учеников без дубликатов и смешивания работ',async()=>{
+  const title='Present Simple/to be';
+  const original=await req(a,'/learning/sections','POST',{title,grammar_key:'present-simple'},201);
+  const reused=await req(a,'/learning/sections','POST',{title:'  present simple/TO BE  ',grammar_key:'articles'});
+  assert.equal(reused.id,original.id);assert.equal(reused.reused,true);assert.equal(reused.title,title);assert.equal(reused.grammar_key,'present-simple');
+  const concurrent=await Promise.all([1,2,3].map(()=>req(a,'/learning/sections','POST',{title})));
+  assert.ok(concurrent.every(s=>s.id===original.id&&s.reused));
+  assert.equal((await query('SELECT COUNT(*)::int AS n FROM study_sections WHERE tutor_id=$1 AND lower(title)=lower($2)',[a.id,title])).rows[0].n,1);
+  const other=await req(b,'/learning/sections','POST',{title},201);assert.notEqual(other.id,original.id);
+  await req(s1,'/learning/sections','POST',{title},403);await req(parent,'/learning/sections','POST',{title},403);
+  const one=await req(a,'/assignments','POST',{title:'Anna private work',student_ids:[s1.sid]},201);
+  const two=await req(a,'/assignments','POST',{title:'Boris private work',student_ids:[s2.sid]},201);
+  const oneId=(await req(a,'/assignments/'+one.id)).submissions[0].id,twoId=(await req(a,'/assignments/'+two.id)).submissions[0].id;
+  await move(a,[oneId],original.id,s1.sid);await move(a,[twoId],reused.id,s2.sid);
+  assert.equal((await req(s1,'/homework/'+oneId)).section_id,original.id);assert.equal((await req(s2,'/homework/'+twoId)).section_id,original.id);
+  await req(s1,'/homework/'+twoId,'GET',undefined,404);await req(s2,'/homework/'+oneId,'GET',undefined,404);
+  await move(a,[oneId],null,s1.sid);assert.equal((await req(s2,'/homework/'+twoId)).section_id,original.id);
+  await req(a,'/learning/sections/'+third,'PATCH',{title},409);
+ });
  const {rows:[lib]}=await query(`INSERT INTO library_items(tutor_id,kind,subject,title,body,answer,tutor_note,game) VALUES($1,'game','Английский язык','Standalone exercise','Public instruction','PRIVATE_ANSWER','PRIVATE_NOTE',$2) RETURNING id`,[a.id,JSON.stringify({type:'gaps',text:'Nora [works] here.',mode:'type',distractors:[]})]);
  const {rows:[pic]}=await query("INSERT INTO files(library_item_id,filename,mime,size_bytes,data,uploaded_by) VALUES($1,'selected.png','image/png',3,$2,$3) RETURNING id",[lib.id,Buffer.from([1,2,3]),a.id]);
  const {rows:[other]}=await query("INSERT INTO library_items(tutor_id,kind,subject,title) VALUES($1,'task','Английский язык','Other private exercise') RETURNING id",[b.id]);
