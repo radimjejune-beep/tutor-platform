@@ -46,10 +46,17 @@ function roleCommands(user){
  return [{command:'menu',description:'Главное меню'},...(user.role==='tutor'?[{command:'today',description:'Уроки сегодня'},{command:'check',description:'Работы на проверку'}]:[{command:'lessons',description:'Ближайшие уроки'},{command:'homework',description:'Домашние работы и диагностики'},{command:'words',description:'Слова на повторение'}]),{command:'help',description:'Помощь'},{command:'stop',description:'Отключить уведомления'}];
 }
 async function linkedUser(chatId){
- const {rows}=await query(`SELECT u.id,u.role,u.full_name FROM telegram_links tl JOIN users u ON u.id=tl.user_id
+ const {rows}=await query(`SELECT u.id,u.role,u.full_name,u.tutor_id FROM telegram_links tl JOIN users u ON u.id=tl.user_id
  LEFT JOIN users owner ON owner.id=u.tutor_id WHERE tl.chat_id=$1 AND u.is_active
  AND (u.role='tutor' OR (owner.role='tutor' AND owner.is_active))`,[chatId]);return rows[0];
 }
+async function educationAllowed(userOrId){
+ let user=userOrId;
+ if(typeof userOrId!=='object'){const {rows:[u]}=await query(`SELECT u.id,u.role,u.tutor_id FROM users u LEFT JOIN users owner ON owner.id=u.tutor_id WHERE u.id=$1 AND u.is_active AND (u.role='tutor' OR(owner.role='tutor' AND owner.is_active))`,[userOrId]);user=u;}
+ if(!user)return false;
+ return (await require('./guardians').status({...user,tid:user.role==='tutor'?user.id:user.tutor_id})).can_use;
+}
+async function consentWaiting(chatId){await say(chatId,{text:'Для учебных данных необходимо подтверждение документов родителем в отдельном родительском аккаунте. Откройте кабинет; преподаватель поможет с привязкой. До подтверждения учебные данные в боте закрыты.',buttons:rows(btn('Открыть кабинет',cabinetUrl('/')))});}
 async function showMenu(chatId,user){
  await call('setMyCommands',{commands:roleCommands(user),scope:{type:'chat',chat_id:chatId}}).catch(()=>{});
  await say(chatId,helpText(user),{keyboard:roleKeyboard(user)});
@@ -121,6 +128,7 @@ async function handleUpdate(u) {
   // Ссылки конкретных покупок/бесплатных уроков сохраняют прежнюю маршрутизацию магазина.
   if(SHARED&&cmd==='/start'&&param)return false;
   if(SHARED&&((SHOP_TEXTS.has(text)&&text!==STUDY.help)||['/catalog','/mine','/free','/courses'].includes(cmd)))return false;
+  if(!await educationAllowed(user)){await consentWaiting(chatId);return true;}
   if(cmd==='/start'||cmd==='/menu'||text===STUDY.menu||text===STUDY.help||cmd==='/help'){await showMenu(chatId,user);return true;}
   const handlers={
    [TUTOR.today]:cmdToday,[TUTOR.check]:cmdCheck,[TUTOR.students]:cmdStudents,[TUTOR.materials]:cmdMaterials,
@@ -177,6 +185,7 @@ async function linkByCode(chatId, msg, code) {
   if(!userId){await say(chatId,'<b>Ссылка недоступна или устарела</b>\nПодключите Telegram заново из своего кабинета.');return;}
   const user=await linkedUser(chatId);
   if(!user){await onboarding(chatId);return;}
+  if(!await educationAllowed(user)){await consentWaiting(chatId);return;}
   await say(chatId,'<b>Бот подключён</b>\nУведомления будут приходить сюда. Учебные данные доступны только вашему привязанному аккаунту. Отключить уведомления можно командой /stop.');
   await showMenu(chatId,user);
   console.log(`✅ Telegram подключён (пользователь #${userId})`);
@@ -354,6 +363,7 @@ async function handleStudyCallback(cq){
  const chatId=cq.message.chat.id,user=await linkedUser(chatId);
  await call('answerCallbackQuery',{callback_query_id:cq.id}).catch(()=>{});
  if(!user){await onboarding(chatId);return true;}
+ if(!await educationAllowed(user)){await consentWaiting(chatId);return true;}
  const [,action,rawId]=cq.data.split(':'),sid=Number(rawId),kids=await studentsOf(user),child=kids.find(s=>s.id===sid);
  if(user.role!=='parent'||!child){await say(chatId,'Данные этого ученика недоступны. Откройте меню заново.');return true;}
  if(action==='child')await say(chatId,{text:`<b>${esc(child.full_name)}</b>\nЧто открыть?`,buttons:rows([{text:'Ближайшие уроки',callback_data:`lf:ls:${sid}`},{text:'Домашка и тесты',callback_data:`lf:hw:${sid}`}],[{text:'Слова',callback_data:`lf:words:${sid}`},{text:'Результаты',callback_data:`lf:progress:${sid}`}])});
@@ -383,10 +393,11 @@ function linkLabel(link) {
 async function byPlan(list) {
   const plans = require('./plans');
   const ok = new Map();
-  const out = [];
+  const out = [], access = new Map();
   for (const r of list) {
     if (!ok.has(r.tutor_id)) ok.set(r.tutor_id, await plans.allows(r.tutor_id, 'telegram').catch(() => true));
-    if (ok.get(r.tutor_id)) out.push(r);
+    if(!access.has(r.user_id))access.set(r.user_id,await educationAllowed(r.user_id).catch(()=>false));
+    if (ok.get(r.tutor_id)&&access.get(r.user_id)) out.push(r);
   }
   return out;
 }
@@ -516,7 +527,7 @@ async function lessonRecipients(studentId) {
          OR u.id = (SELECT user_id FROM students WHERE id = $1 AND category = 'adult'))`,
     [studentId]
   );
-  return rows;
+  const allowed=[];for(const r of rows)if(await educationAllowed(r.id).catch(()=>false))allowed.push(r);return allowed;
 }
 
 async function sendLessonSummary(lessonId) {

@@ -7,6 +7,7 @@ import { api } from '../api';
 import { useAuth } from '../auth';
 import { useLoad, Spinner, ErrorBox, Empty, Icon, Link, useToast } from '../ui';
 import LibraryItem from '../components/LibraryItem';
+import LiveLesson from '../components/LiveLesson';
 import { TaskPicker } from './tutor/Library';
 import { ResultLine, byItem } from '../components/GameResults';
 import { relativeDay, dayMonth, time, givenName } from '../format';
@@ -37,6 +38,7 @@ export default function LessonRoom({ id }) {
   const [picking, setPicking] = useState(false);
   const [boardOpen, setBoardOpen] = useState(true);
   const [finishing, setFinishing] = useState(false);
+  const [activeItem, setActiveItem] = useState(null);
 
   // Задачи (у ученика) и результаты упражнений (у преподавателя) обновляются каждые 15 секунд
   useEffect(() => {
@@ -117,6 +119,8 @@ export default function LessonRoom({ id }) {
         </section>
       )}
 
+      <div style={{marginTop:20}}><LiveLesson key={id} lesson={l} onActive={setActiveItem}/></div>
+
       {l.board_link && (
         <section className="panel" style={{ padding: 0, overflow: 'hidden', marginTop: 20 }}>
           <div className="row-between" style={{ padding: '12px 18px', borderBottom: boardOpen ? '1px solid var(--line)' : 0 }}>
@@ -148,8 +152,8 @@ export default function LessonRoom({ id }) {
         )}
         <div className="stack" style={{ gap: 14 }}>
           {l.items.map((it, i) => (
-            <LibraryItem key={it.id} item={it} index={i} showPrivate={isTutor}
-              onGameFinish={isTutor ? undefined : saveGame(it.id)}
+            <LibraryItem key={it.id} item={it} gameNotice={activeItem===it.id?"Это упражнение открыто в блоке совместного решения выше.":null} index={i} showPrivate={isTutor}
+              onGameFinish={user.role==='student' ? saveGame(it.id) : undefined}
               gameExtra={<ResultLine results={resultsByItem[it.id]} who={isTutor ? `${givenName(l.student_name)}:` : 'Ваш'} />}
               actions={isTutor && (
                 <button className="icon-btn" aria-label="Убрать из урока" onClick={() => saveItems(ids.filter((x) => x !== it.id))}>

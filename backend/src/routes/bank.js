@@ -34,6 +34,26 @@ router.get(
   })
 );
 
+// Поиск по разрешённым сборникам с ограниченной выдачей и фильтрами.
+router.get('/search', asyncHandler(async (req, res) => {
+  const parsed = z.object({q:z.string().trim().max(200).default(''),book:z.string().max(40).default(''),kind:z.enum(['','task','theory','game']).default(''),type:z.enum(['','match','order','gaps','groups','quick','sheet','board']).default(''),level:z.enum(['','A1','A2','B1','B2']).default(''),page:z.coerce.number().int().min(1).max(1000).default(1)}).strict().safeParse(req.query);
+  if (!parsed.success) return res.status(400).json({error:'Проверьте параметры поиска'});
+  const f=parsed.data,normal=v=>String(v||'').toLowerCase().replace(/ё/g,'е'),books=BOOKS.filter(b=>b.subject===bankSubject(req.user.subject));
+  const hasLevel=b=>{const order=['A1','A2','B1','B2','C1','C2'],parts=String(b.level||'').match(/[ABC][12]/g)||[],index=order.indexOf(f.level);return parts.length&&index>=order.indexOf(parts[0])&&index<=order.indexOf(parts.at(-1));};
+  const allowed=books.filter(b=>(!f.book||b.id===f.book)&&(!f.level||hasLevel(b))).map(b=>b.id);
+  if(f.book&&!books.some(b=>b.id===f.book))return res.status(404).json({error:'Сборник не найден'});
+  const grammar=require('../learning/grammar'),matched=grammar.search(f.q);
+  const phrase=normal(f.q).replace(/[-_]+/g,' ');
+  const topicMatches=new Set((matched.length<grammar.topics.length?matched:[]).filter(t=>t.book_id&&[t.title,...t.aliases,t.when].some(value=>normal(value).replace(/[-_]+/g,' ').includes(phrase))).map(t=>`${t.book_id}:${t.unit}`));
+  const units=books.flatMap(b=>b.units.filter(u=>topicMatches.has(`${b.id}:${u.code}`)||normal([b.title,b.short,u.title,u.topics,u.code].join(' ')).includes(normal(f.q))).map(u=>`${b.id}:${u.code}`));
+  const pattern='%'+normal(f.q).replace(/[\\%_]/g,'\\$&')+'%';
+  const where=`NOT b.hidden AND b.book=ANY($1::text[]) AND ($2='' OR b.kind=$2) AND ($3='' OR b.game->>'type'=$3) AND ($4='' OR replace(lower(concat_ws(' ',b.title,b.body,array_to_string(b.tags,' '),b.game::text)),'ё','е') LIKE $5 ESCAPE E'\\\\' OR b.book||':'||b.unit=ANY($6::text[]))`;
+  const args=[allowed,f.kind,f.type,f.q,pattern,units],{rows:[count]}=await query(`SELECT COUNT(*)::int AS n FROM bank_items b WHERE ${where}`,args);
+  const page=f.page,limit=24;
+  const {rows}=await query(`SELECT ${ITEM_FIELDS},t.library_id AS taken_id FROM bank_items b LEFT JOIN users u ON u.id=b.author_id LEFT JOIN bank_takes t ON t.item_id=b.id AND t.tutor_id=$7 WHERE ${where} ORDER BY (b.author_id=$7) DESC NULLS LAST,b.uses DESC,b.id LIMIT $8 OFFSET $9`,[...args,req.user.id,limit,(page-1)*limit]);
+  res.json({items:rows.map(r=>({...r,mine:r.author_id===req.user.id,book_title:bookById(r.book)?.short,book_level:bookById(r.book)?.level||null})),total:count.n,page,pages:Math.ceil(count.n/limit)});
+}));
+
 // Слова юнита: подборка Lessonfold по теме юнита (из неё можно сделать набор карточек)
 router.get(
   '/vocab',

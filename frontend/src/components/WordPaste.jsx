@@ -68,7 +68,7 @@ export default function WordPaste({ onWords, autoFocus, rows = 8, placeholder, s
   return (
     <div className="paste">
       <textarea
-        className="textarea paste-area"
+        className="textarea paste-area" aria-label="Список слов и переводов для вставки"
         rows={rows}
         value={text}
         autoFocus={autoFocus}

@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const { z } = require('zod');
 const { query, transaction } = require('../db');
-const { authenticate, signToken } = require('../middleware/auth');
+const { authenticate, signToken, requirePasswordChanged } = require('../middleware/auth');
 const { validateBody, asyncHandler } = require('../middleware/validate');
 
 const router = express.Router();
@@ -174,23 +174,29 @@ router.get(
   authenticate,
   asyncHandler(async (req, res) => {
     let students = [];
-    if (req.user.role === 'student') {
+    if (req.user.role === 'parent' || req.user.account_role === 'parent') {
+      ({rows:students}=await query(`SELECT DISTINCT s.id,s.full_name,s.level,s.board_link,s.call_link,s.category,s.subject,(s.user_id=$1) AS is_self
+       FROM students s LEFT JOIN parent_students ps ON ps.student_id=s.id AND ps.parent_user_id=$1
+       WHERE s.tutor_id=$2 AND s.status<>'archived' AND (ps.parent_user_id=$1 OR(s.user_id=$1 AND s.category='adult')) ORDER BY is_self DESC,s.full_name`,[req.user.id,req.user.tid]));
+    } else if (req.user.role === 'student') {
       ({ rows: students } = await query(
         'SELECT id, full_name, level, board_link, call_link, category, subject FROM students WHERE user_id = $1',
         [req.user.id]
       ));
-    } else if (req.user.role === 'parent') {
-      ({ rows: students } = await query(
-        `SELECT s.id, s.full_name, s.level, s.board_link, s.call_link, s.category, s.subject
-           FROM students s JOIN parent_students ps ON ps.student_id = s.id
-          WHERE ps.parent_user_id = $1 AND s.status <> 'archived'
-          ORDER BY s.full_name`,
-        [req.user.id]
-      ));
     }
+    const guardian=await require('../services/guardians').status(req.user);
+    students=students.map(s=>(req.user.context==='self'&&!s.is_self)||guardian.children.some(c=>c.id===s.id&&!c.confirmed)?{id:s.id,full_name:s.full_name,category:s.category,subject:s.subject,is_self:s.is_self}:s);
     res.json({ user: req.user, students });
   })
 );
+
+// Контекст меняется только у того же пользователя; JWT не даёт отвечать за ребёнка.
+router.post('/profile',authenticate,requirePasswordChanged,validateBody(z.object({mode:z.enum(['self','parent'])}).strict()),asyncHandler(async(req,res)=>{
+ const {rows:[u]}=await query("SELECT * FROM users WHERE id=$1 AND role='parent' AND is_active",[req.user.id]);
+ if(!u)return res.status(403).json({error:'Семейный профиль недоступен'});
+ if(req.body.mode==='self'&&!(await query("SELECT 1 FROM students WHERE user_id=$1 AND tutor_id=$2 AND category='adult' AND status<>'archived'",[u.id,u.tutor_id])).rowCount)return res.status(404).json({error:'Личный учебный профиль не привязан'});
+ res.json({token:signToken(u,req.body.mode==='self'?'self':undefined)});
+}));
 
 const passwordSchema = z.object({
   current_password: z.string().min(1),

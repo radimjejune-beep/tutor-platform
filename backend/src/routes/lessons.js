@@ -362,6 +362,11 @@ router.put(
     // У группового занятия задачи общие: меняем их у всех учеников этого занятия
     const lessonIds = await sameSession(id);
     await transaction(async (client) => {
+      await client.query('SELECT pg_advisory_xact_lock(727003,$1)', [Math.min(...lessonIds)]);
+      await client.query('SELECT id FROM lessons WHERE id=ANY($1::int[]) ORDER BY id FOR UPDATE', [lessonIds]);
+      const owned = await client.query('SELECT id FROM library_items WHERE id=ANY($1::int[]) AND tutor_id=$2 FOR SHARE', [ids, req.user.id]);
+      if (owned.rows.length !== ids.length) throw Object.assign(new Error('Некоторые материалы не найдены'), {status:404});
+      await client.query("UPDATE live_sessions SET status='ended',ended_at=NOW() WHERE lesson_id=ANY($1::int[]) AND status='active' AND NOT(item_id=ANY($2::int[]))", [lessonIds, ids]);
       for (const lid of lessonIds) {
         await client.query('DELETE FROM lesson_items WHERE lesson_id = $1', [lid]);
         for (const [pos, itemId] of ids.entries()) {
@@ -376,6 +381,23 @@ router.put(
     res.json({ ok: true, count: ids.length });
   })
 );
+
+// Атомарное добавление из банка: не заменяет параллельно добавленные материалы.
+router.post('/:id/append-items', tutorOnly, requireOwn('lessons','id','Занятие не найдено'),
+ validateBody(z.object({item_ids:z.array(z.number().int().positive()).min(1).max(60)}).strict()),
+ asyncHandler(async(req,res)=>{
+  const id=Number(req.params.id),ids=[...new Set(req.body.item_ids)],lessonIds=await sameSession(id);
+  const added=await transaction(async client=>{
+   await client.query('SELECT pg_advisory_xact_lock(727003,$1)',[Math.min(...lessonIds)]);
+   const ownedLessons=await client.query("SELECT id FROM lessons WHERE id=ANY($1::int[]) AND status='scheduled' ORDER BY id FOR UPDATE",[lessonIds]);
+   if(ownedLessons.rows.length!==lessonIds.length)throw Object.assign(Error('Выберите запланированное занятие'),{status:409});
+   const owned=await client.query('SELECT id FROM library_items WHERE id=ANY($1::int[]) AND tutor_id=$2 FOR SHARE',[ids,req.user.id]);
+   if(owned.rowCount!==ids.length)throw Object.assign(Error('Материал не найден'),{status:404});
+   let count=0;
+   for(const lid of lessonIds){const {rows:existing}=await client.query('SELECT item_id,position FROM lesson_items WHERE lesson_id=$1',[lid]);const fresh=ids.filter(i=>!existing.some(x=>x.item_id===i));if(existing.length+fresh.length>60)throw Object.assign(Error('В одном занятии можно разместить до 60 материалов'),{status:422});let pos=Math.max(-1,...existing.map(x=>x.position))+1;for(const itemId of fresh){await client.query('INSERT INTO lesson_items(lesson_id,item_id,position) VALUES($1,$2,$3) ON CONFLICT DO NOTHING',[lid,itemId,pos++]);if(lid===id)count++;}}
+   return count;
+  });res.json({ok:true,added});
+ }));
 
 // Итоги урока → в Telegram родителям (и взрослому ученику)
 router.post(

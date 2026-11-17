@@ -2127,3 +2127,44 @@ details.panel>summary { cursor:pointer; padding:4px 0; }
 .activity-footnote { margin-top:20px; }
 .activity-page.embedded .activity-header { padding:8px 16px; }
 @media(max-width:600px) { .activity-content { padding:12px; } .activity-header { padding:12px; } }
+
+/* Совместный урок и подготовка следующего занятия */
+.live-panel { border-top: 3px solid var(--brass, #a18653); }
+.live-panel .row.wrap, .planner .row.wrap { gap: 10px; }
+.live-choice { display: grid; gap: 5px; min-width: 0; flex: 1 1 240px; font-size: 13px; }
+.live-inspector, .live-student { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+.live-answer { padding: 12px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.live-answer div { margin: 5px 0; white-space: pre-wrap; }
+.planner-stage { margin: 16px 0; padding: 18px; border: 1px solid var(--line); border-radius: 12px; }
+.planner-fields { display: grid; grid-template-columns: minmax(0, 1fr) 95px; gap: 12px; margin-top: 12px; }
+.live-panel .select, .planner .select { max-width: 100%; }
+@media(max-width:600px) { .planner-stage { padding: 12px; } .live-panel .btn, .planner .btn { white-space: normal; } .live-inspector select { width: 100%; } .planner-fields { grid-template-columns: minmax(0, 1fr) 75px; } }
+
+/* Поиск и быстрые действия банка */
+.bank-search { margin-bottom: 24px; }
+.bank-search form { display: grid; gap: 14px; }
+.bank-search-fields { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
+.bank-search .row, .bank-use .row, .bank-search-results .row { gap: 8px; }
+.bank-search-results { margin-top: 20px; }
+.bank-search-results > .row-between { margin-bottom: 14px; }
+.bank-pagination { justify-content: center; margin-top: 20px; }
+.bank-use { margin-top: 12px; }
+.bank-navigation { min-width: 0; position: sticky; top: 16px; }
+.bank-navigation summary { cursor: pointer; padding: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.bank-navigation .bank-units { position: static; max-height: 75dvh; overflow-y: auto; }
+@media(min-width:901px) { .bank-navigation > summary { display: none; } .bank-navigation:not([open]) > .bank-units { display:flex; } }
+@media(max-width:900px) { .bank-navigation { position:static; } .bank-navigation .bank-units { max-height:50dvh; } .bank-search-fields { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:600px) {
+ .bank-search-fields { grid-template-columns:1fr; }
+ .btn { max-width:100%; white-space:normal; height:auto; min-height:44px; padding-top:9px; padding-bottom:9px; }
+ .icon-btn { min-width:40px; min-height:40px; flex-shrink:0; }
+ .btn-sm { min-height:40px; }
+ .modal-head h2 { overflow-wrap:anywhere; }
+}
+/* Настройка уменьшения движения действует и на поздние компоненты. */
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
+.family-child { padding:16px 0; border-bottom:1px solid var(--line); gap:12px; }
+.family-document { margin:18px 0; padding:14px; border:1px solid var(--line); border-radius:8px; }
+.family-document-body { max-height:50vh; overflow:auto; padding:12px; margin-top:12px; border-top:1px solid var(--line); }
+.bank-advanced > summary { cursor:pointer; font-size:14px; padding:10px 0; }
+@media(min-width:901px) { .bank-advanced > summary { display:none; } .bank-advanced:not([open]) > .bank-search-fields { display:grid; } }

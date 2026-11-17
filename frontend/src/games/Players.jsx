@@ -1,7 +1,7 @@
 // games/Players.jsx — прохождение упражнений
 // Управление нажатиями (без перетаскивания), чтобы одинаково работало на телефоне и компьютере:
 // выбрать карточку → нажать, куда её поставить.
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { GAME_TYPES, grade, parseGaps, shuffle, shuffleChanged, tokenize } from './logic';
 import { Icon, readDraft, writeDraft, clearDraft } from '../ui';
 import { SheetBoard, sheetProgress } from './Sheet';
@@ -12,29 +12,31 @@ import { QuickBoard, quickProgress, QUICK_TEMPLATES } from './Quick';
    Обёртка: заголовок, кнопка «Проверить», итог, «Ещё раз»
    onFinish(answers, result, durationSec) — сохранить результат (если не передан — режим тренировки)
    ============================================================ */
-export default function GamePlayer({ game, onFinish, footer, draftKey }) {
+export default function GamePlayer({ game, onFinish, footer, draftKey, initialAnswers, initialResult, onDraft, allowRetry = true }) {
   const [round, setRound] = useState(0);
   // Страница периодически обновляет данные — без этого слова перемешивались бы заново посреди игры
   const key = JSON.stringify(game);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const stable = useMemo(() => game, [key]);
-  return <Round key={`${round}-${key.length}`} game={stable} onFinish={onFinish} footer={footer} draftKey={draftKey} onRetry={() => { if (draftKey) clearDraft(draftKey); setRound((r) => r + 1); }} />;
+  return <Round key={`${round}-${key}`} game={stable} onFinish={onFinish} footer={footer} draftKey={draftKey} initialAnswers={initialAnswers} initialResult={initialResult} onDraft={onDraft} allowRetry={allowRetry} onRetry={() => { if (draftKey) clearDraft(draftKey); setRound((r) => r + 1); }} />;
 }
 
 // Ответы листа с заданиями сохраняются как черновик: ушли со страницы, вернулись и продолжили
 const DRAFTABLE = new Set(['sheet', 'board']);
 const QuickWithMatch = (p) => <QuickBoard {...p} MatchBoard={MatchBoard} />;
-function Round({ game, onFinish, footer, onRetry, draftKey }) {
+function Round({ game, onFinish, footer, onRetry, draftKey, initialAnswers, initialResult, onDraft, allowRetry }) {
   const started = useRef(Date.now());
   const useDraft = Boolean(draftKey && onFinish && DRAFTABLE.has(game.type));
   const [restored] = useState(() => (useDraft ? readDraft(draftKey) : null));
-  const [answers, setAnswersRaw] = useState(() => restored?.value || {});
+  const [answers, setAnswersRaw] = useState(() => initialAnswers || restored?.value || {});
+  useEffect(() => { onDraft?.(answers); }, [answers, onDraft]);
   const setAnswers = (next) => setAnswersRaw((prev) => {
     const value = typeof next === 'function' ? next(prev) : next;
     if (useDraft) writeDraft(draftKey, value);
     return value;
   });
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState(initialResult || null);
+  useEffect(() => { if (initialResult) setResult(initialResult); }, [initialResult]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const checked = Boolean(result);
@@ -43,12 +45,15 @@ function Round({ game, onFinish, footer, onRetry, draftKey }) {
   if (!Board) return null;
 
   const check = async () => {
+    if (saving) return;
+    setSaveError('');
     const r = grade(game, answers);
     setResult(r);
     if (onFinish) {
       setSaving(true);
       try {
-        await onFinish(answers, r, Math.round((Date.now() - started.current) / 1000));
+        const saved = await onFinish(answers, r, Math.round((Date.now() - started.current) / 1000));
+        if (saved?.result) setResult(saved.result);
         if (useDraft) clearDraft(draftKey);
       } catch (err) {
         setSaveError(err.message);
@@ -78,7 +83,8 @@ function Round({ game, onFinish, footer, onRetry, draftKey }) {
               {onFinish && (saving ? ' Сохраняем…' : saveError ? ` Не сохранилось: ${saveError}` : ' Результат сохранён.')}
             </div>
           </div>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onRetry}>Ещё раз</button>
+          {saveError && <button type="button" className="btn btn-sm" disabled={saving} onClick={check}>Повторить отправку</button>}
+          {allowRetry && <button type="button" className="btn btn-secondary btn-sm" disabled={saving} onClick={onRetry}>Ещё раз</button>}
         </div>
       ) : (
         <div className="game-foot">
@@ -189,7 +195,10 @@ function OrderBoard({ game, answers, setAnswers, result }) {
     () => game.sentences.map((s) => shuffleChanged(tokenize(s).map((w, k) => ({ id: k, w })), (a, b) => a.w === b.w)),
     [game]
   );
-  const [built, setBuilt] = useState(() => game.sentences.map(() => []));
+  const [built, setBuilt] = useState(() => game.sentences.map((_, i) => {
+    const unused = [...pools[i]];
+    return (answers.sentences?.[i] || []).map(w => { const n = unused.findIndex(t => t.w === w); return n < 0 ? null : unused.splice(n, 1)[0].id; }).filter(n => n !== null);
+  }));
   const checked = Boolean(result);
 
   const update = (i, ids) => {
@@ -248,7 +257,7 @@ function GapsBoard({ game, answers, setAnswers, result }) {
     () => (game.mode === 'bank' ? shuffle([...gaps.map((g) => g[0]), ...(game.distractors || [])].map((w, id) => ({ id, w }))) : []),
     [game, gaps]
   );
-  const [slots, setSlots] = useState(() => gaps.map(() => null)); // id из банка для режима bank
+  const [slots, setSlots] = useState(() => { const unused = [...bank]; return gaps.map((_, i) => { const n = unused.findIndex(b => b.w === answers.gaps?.[i]); return n < 0 ? null : unused.splice(n, 1)[0].id; }); });
   const [selected, setSelected] = useState(null);
   const values = answers.gaps || [];
   const checked = Boolean(result);

@@ -246,7 +246,7 @@ export function Comments({ homeworkId }) {
         </div>
       ))}
       <form className="comment-form" onSubmit={send}>
-        <textarea className="textarea" rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="Написать комментарий"
+        <textarea className="textarea" aria-label="Личный комментарий к работе" rows={2} value={text} onChange={(e) => setText(e.target.value)} placeholder="Написать комментарий"
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send(e); }} />
         <button className="btn btn-sm" disabled={busy || !text.trim()}><Icon name="send" /> Отправить</button>
       </form>

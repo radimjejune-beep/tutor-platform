@@ -333,12 +333,12 @@ export default function Generator() {
       <section className="panel">
         <h2 className="section-title">Вопросы на понимание</h2>
         <p className="small muted" style={{ margin: '6px 0 10px' }}>По одному на строку. {subj.isLang ? <><b>T:</b> верное утверждение, <b>F:</b> неверное.</> : <><b>В:</b> верное утверждение, <b>Н:</b> неверное.</>} Вопрос с вариантами: <b>? Вопрос | *верный | неверный | неверный</b></p>
-        <textarea className="textarea" rows={5} value={questions} onChange={(e) => setQuestions(e.target.value)} placeholder={subj.isLang ? 'T: Most teenagers need about nine hours of sleep.\nF: Phones help us fall asleep faster.\n? Why do teenagers go to bed late? | *Their body clock changes | They drink coffee | They have no homework' : 'В: Крепостное право отменили в 1861 году.\nН: Реформу провёл Николай I.\n? Как назывался документ об отмене? | *Манифест | Указ о вольных хлебопашцах | Судебник'} />
+        <textarea className="textarea" aria-label="Вопросы для проверки понимания текста" rows={5} value={questions} onChange={(e) => setQuestions(e.target.value)} placeholder={subj.isLang ? 'T: Most teenagers need about nine hours of sleep.\nF: Phones help us fall asleep faster.\n? Why do teenagers go to bed late? | *Their body clock changes | They drink coffee | They have no homework' : 'В: Крепостное право отменили в 1861 году.\nН: Реформу провёл Николай I.\n? Как назывался документ об отмене? | *Манифест | Указ о вольных хлебопашцах | Судебник'} />
         {q.errors.map((e) => <div key={e} className="small" style={{ color: 'var(--danger)', marginTop: 4 }}>{e}</div>)}
         {q.out.length > 0 && !q.errors.length && <div className="small muted" style={{ marginTop: 6 }}>Вопросов: {q.out.length}</div>}
         <h2 className="section-title" style={{ marginTop: 22 }}>Обсуждение</h2>
         <p className="small muted" style={{ margin: '6px 0 10px' }}>Открытые вопросы, ученик отвечает письменно, вы проверяете.</p>
-        <textarea className="textarea" rows={3} value={discussion} onChange={(e) => setDiscussion(e.target.value)} placeholder={subj.isLang ? 'What time do you usually go to bed?\nDo you agree that schools should start later? Why?' : 'Почему реформу называют великой?\nКакие последствия реформы вы считаете главными?'} />
+        <textarea className="textarea" aria-label="Вопросы для обсуждения" rows={3} value={discussion} onChange={(e) => setDiscussion(e.target.value)} placeholder={subj.isLang ? 'What time do you usually go to bed?\nDo you agree that schools should start later? Why?' : 'Почему реформу называют великой?\nКакие последствия реформы вы считаете главными?'} />
         <label className="check" style={{ marginTop: 12 }}><input type="checkbox" checked={retell} onChange={(e) => setRetell(e.target.checked)} /> Пересказ голосом в конце</label>
       </section>
 

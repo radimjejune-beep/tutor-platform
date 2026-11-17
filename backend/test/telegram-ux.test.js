@@ -37,6 +37,20 @@ test('Telegram UX: роли, привязка, дети и отключённы�
   assert.equal(await tg.handleUpdate(msg(71002,'/start p_demo-lesson')),false);assert.equal(await tg.handleUpdate(callback(71003,'cat')),false);
   await tg.handleUpdate(msg(79999,'/start'));assert.match(sent(79999).at(-1).text,/Подключить Telegram/);
  });
+ await t.test('до подтверждения за ребёнка закрыты команды, callback и исходящие учебные сообщения',async()=>{
+  await query("UPDATE students SET category='child' WHERE id=$1",[student.sid]);
+  await query("UPDATE users SET plan='tutor',plan_until=NOW()+INTERVAL '1 year' WHERE id=$1",[tutor.id]);require('../src/services/plans').forget(tutor.id);
+  await tg.handleUpdate(msg(71002,'Домашка'));assert.match(sent(71002).at(-1).text,/подтверждение документов/);assert.ok(!sent(71002).at(-1).text.includes('Monthly test'));
+  await tg.handleUpdate(callback(71003,`lf:hw:${student.sid}`));assert.match(sent(71003).at(-1).text,/подтверждение документов/);
+  assert.equal((await tg.byPlan([{user_id:student.id,tutor_id:tutor.id},{user_id:parent.id,tutor_id:tutor.id}])).length,0);
+  const before=calls.filter(c=>c.method==='sendMessage').length;assert.equal(await tg.forward([student.id,parent.id],{title:'PRIVATE_PENDING_RESULT'}),0);assert.equal(calls.filter(c=>c.method==='sendMessage').length,before);assert.deepEqual(await tg.lessonRecipients(student.sid),[]);
+  for(const kind of ['offer','privacy','consent_parent']){const {rows:[doc]}=await query("INSERT INTO legal_documents(tutor_id,kind,version,title,body) VALUES($1,$2,1,'Fixture document','Fixture body') RETURNING id",[tutor.id,kind]);await query("INSERT INTO guardian_acceptances(parent_user_id,student_id,document_id,relationship) VALUES($1,$2,$3,'parent')",[parent.id,student.sid,doc.id]);}
+  await tg.handleUpdate(msg(71002,'Домашка'));assert.match(sent(71002).at(-1).text,/Monthly test/);
+  assert.equal((await tg.byPlan([{user_id:student.id,tutor_id:tutor.id},{user_id:parent.id,tutor_id:tutor.id}])).length,2);
+  assert.equal((await tg.lessonRecipients(student.sid)).length,1);
+  await query('UPDATE guardian_acceptances SET revoked_at=NOW() WHERE student_id=$1',[student.sid]);assert.equal((await tg.byPlan([{user_id:student.id,tutor_id:tutor.id}])).length,0);
+  await query("UPDATE students SET category='adult' WHERE id=$1",[student.sid]);
+ });
  await t.test('одноразовую привязку нельзя погасить дважды; отключённый владелец закрывает учебные данные',async()=>{
   const link=await tg.createLinkCode(second.id),code=new URL(link).searchParams.get('start');
   await Promise.all([tg.handleUpdate(msg(72001,'/start '+code)),tg.handleUpdate(msg(72002,'/start '+code))]);

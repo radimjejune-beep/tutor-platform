@@ -47,7 +47,7 @@ export default function Students() {
             </button>
           ))}
         </div>
-        <input className="input" style={{ maxWidth: 260, height: 38 }} placeholder="Поиск по имени" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="input" style={{ maxWidth: 260, height: 38 }} aria-label="Поиск по имени ученика" placeholder="Поиск по имени" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
 
       <div className="panel">

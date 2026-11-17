@@ -160,7 +160,7 @@ export function QuizForm({ questions, answers = {}, onChange, mode = 'answer', r
                 );
               })
             ) : (
-              <input className="input" value={given ?? ''} disabled={!editable} placeholder="Ваш ответ"
+              <input className="input" aria-label={q.prompt} value={given ?? ''} disabled={!editable} placeholder="Ваш ответ"
                 onChange={(e) => setAnswer(q.id, e.target.value)}
                 style={res === false ? { borderColor: 'var(--danger)' } : res === true ? { borderColor: 'var(--green)' } : undefined} />
             )}

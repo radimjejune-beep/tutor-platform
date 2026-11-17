@@ -25,7 +25,7 @@ function htmlResult(a = {}) {
 }
 
 // ------------------------------------------------------------
-// Ученик (или родитель за ребёнка) прошёл упражнение
+// Ученик прошёл упражнение; родитель смотрит результаты, свой профиль открывает отдельно.
 // Ответы проверяются здесь, на сервере — оценка с телефона не принимается на веру
 // ------------------------------------------------------------
 const resultSchema = z
@@ -40,7 +40,7 @@ const resultSchema = z
 
 router.post(
   '/:itemId/results',
-  requireRole('student', 'parent'),
+  requireRole('student'),
   validateBody(resultSchema),
   asyncHandler(async (req, res) => {
     const itemId = Number(req.params.itemId);
@@ -78,10 +78,10 @@ router.post(
     const g = item.kind === 'game' ? grade(item.game, b.answers) : htmlResult(b.answers);
     if (!g.total && !g.manual) return res.status(400).json({ error: 'В результате нет ни одного задания' });
     const { rows: saved } = await query(
-      `INSERT INTO game_results (item_id, student_id, user_id, homework_id, lesson_id, correct, total, score, details, duration_sec)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, score, correct, total, created_at`,
+      `INSERT INTO game_results (item_id, student_id, user_id, homework_id, lesson_id, correct, total, score, details, duration_sec, grammar_key)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, score, correct, total, created_at`,
       [item.id, b.student_id, req.user.id, b.homework_id || null, b.lesson_id || null, g.correct, g.total, g.score,
-        JSON.stringify(g.details), b.duration_sec ?? null]
+        JSON.stringify(g.details), b.duration_sec ?? null, await require('../learning/coaching').libraryTopic(item.id)]
     );
     // Слова, в которых ошибся, сразу попадают в личный словарь на повторение
     let vocabAdded = 0;

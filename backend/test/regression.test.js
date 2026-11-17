@@ -115,15 +115,15 @@ test('audit: security and subscription regressions', { skip: !process.env.TEST_D
     const u = await tutor();
     assert.equal((await request('GET', '/finance/summary', u)).status, 402);
   });
-  await t.test('a parent cannot submit a task assigned only to a different child', async () => {
+  await t.test('a parent cannot submit learning results on behalf of a child', async () => {
     const u = await tutor(); const a = await student(u); const b = await student(u);
     const { rows: [p] } = await query(`INSERT INTO users (role, login, full_name, password_hash, tutor_id) VALUES ('parent', $1, 'Parent', 'hash', $2) RETURNING *`, [`audit_${crypto.randomUUID()}`, u.id]);
     await query('INSERT INTO parent_students (parent_user_id,student_id) VALUES ($1,$2),($1,$3)', [p.id,a.id,b.id]);
     const { rows: [item] } = await query(`INSERT INTO library_items (kind,subject,title,html,tutor_id) VALUES ('html','English','Audit HTML','<p>Test</p>',$1) RETURNING id`, [u.id]);
     const { rows: [l] } = await query(`INSERT INTO lessons (student_id, starts_at) VALUES ($1,NOW()) RETURNING id`, [a.id]);
     await query('INSERT INTO lesson_items (lesson_id,item_id) VALUES ($1,$2)', [l.id,item.id]);
-    assert.equal((await request('POST', `/games/${item.id}/results`, p, { student_id:b.id,answers:{correct:1,total:1} })).status, 404);
-    assert.equal((await request('POST', `/games/${item.id}/results`, p, { student_id:a.id, lesson_id:l.id,answers:{correct:1,total:1} })).status, 201);
+    assert.equal((await request('POST', `/games/${item.id}/results`, p, { student_id:b.id,answers:{correct:1,total:1} })).status, 403);
+    assert.equal((await request('POST', `/games/${item.id}/results`, p, { student_id:a.id, lesson_id:l.id,answers:{correct:1,total:1} })).status, 403);
   });
   await t.test('one tutor cannot read another tutor’s student', async () => {
     const a = await tutor(); const b = await tutor(); const s = await student(a);

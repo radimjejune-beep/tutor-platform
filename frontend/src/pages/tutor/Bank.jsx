@@ -1,3 +1,4 @@
+import {BankSearch,BankSearchResults,BankUseActions,useDesktopBank,BankPreview as Preview} from '../../components/BankTools';
 import ActivityActions from '../../components/ActivityActions';
 import { BackLink } from '../../Shell';
 // pages/tutor/Bank.jsx — банк заданий по учебникам: учебник → юнит → задания.
@@ -21,8 +22,11 @@ function labels(book) {
 }
 const kindLabel = (it) => (it.kind === 'game' && it.game ? GAME_TYPES[it.game.type]?.label || 'Упражнение' : KIND[it.kind]);
 
-export default function BankPage({ book, unit }) {
+export default function BankPage({ book, unit, params = new URLSearchParams() }) {
+  const wide=useDesktopBank();
   const wordsView = unit === 'words';
+  const filters={q:params.get('q')||'',book:params.get('collection')||'',kind:params.get('kind')||'',type:params.get('type')||'',level:params.get('level')||'',page:Number(params.get('page'))||1,search:params.get('search')||''};
+  const search=next=>{const q=new URLSearchParams();if(next)for(const [k,v]of Object.entries(next)){if(v&&k!=='book')q.set(k,v);if(k==='book'&&v)q.set('collection',v);}navigate(`/bank${book?'/'+book:''}${unit?'/'+encodeURIComponent(unit):''}${q.size?'?'+q:''}`);};
   const books = useLoad(() => api.bankBooks(), []);
   const [sharing, setSharing] = useState(false);
   const [unitQuery,setUnitQuery]=useState('');
@@ -65,8 +69,9 @@ export default function BankPage({ book, unit }) {
         ))}
       </div>
 
-      <div className="bank-layout">
-        <nav className="panel bank-units" aria-label={L.Unit}>
+      <BankSearch books={books.data} filters={filters} onSearch={search}/>
+      {filters.search?<BankSearchResults filters={filters} onSearch={search}/>:<div className="bank-layout">
+        <details className="bank-navigation" open={wide}><summary>Выбрать раздел · {wordsView?L.vocab:u.code+'. '+u.title}</summary><nav className="panel bank-units" aria-label={L.Unit}>
           <div className="meta-label" style={{ marginBottom: 8 }}>{b.title}</div>
           {totalWords > 0 && (
             <Link to={`/bank/${b.id}/words`} className={`bank-unit ${wordsView ? 'active' : ''}`}>
@@ -83,7 +88,7 @@ export default function BankPage({ book, unit }) {
               <span className="bank-count">{x.count || ''}</span>
             </Link>
           ))}
-        </nav>
+        </nav></details>
         {wordsView ? <BookWords key={b.id} book={b} /> : (
           <div className="stack">
             {u.grammar_key&&<div className="panel"><p className="small muted">{b.notice}</p><Link className="btn btn-secondary" to={`/grammar/${u.grammar_key}`}>Объяснение и короткая практика</Link></div>}
@@ -91,7 +96,7 @@ export default function BankPage({ book, unit }) {
             <UnitItems key={`${b.id}/${u.code}`} book={b} unit={u} onShare={() => setSharing(true)} />
           </div>
         )}
-      </div>
+      </div>}
       <p className="small muted" style={{ marginTop: 18 }}>
         Названия учебников указаны только для удобства поиска. Банк не связан с издательствами: все задания авторские,
         тексты и упражнения из учебников сюда не загружаются.
@@ -161,32 +166,13 @@ function UnitItems({ book, unit, onShare }) {
               {it.taken_id ? <Link to={`/library/${it.taken_id}`} className="btn btn-quiet btn-sm">В библиотеке</Link>
                 : <button className="btn btn-sm" disabled={busy === it.id} onClick={() => take(it)}>Взять себе</button>}
             </div>
-            <ActivityActions source="bank" id={it.id} compact/>
+            <BankUseActions item={it} onTaken={list.reload} includeTake={false}/><ActivityActions source="bank" id={it.id} compact/>
             {(it.mine || user.is_admin) && <button type="button" className="btn btn-quiet btn-sm" style={{ alignSelf: 'flex-start', marginLeft: -10 }} onClick={() => hide(it)}>Убрать из банка</button>}
           </article>
         ))}
       </div>
-      {open && <Preview id={open.id} onClose={() => setOpen(null)} onTake={() => { take(open); setOpen(null); }} taken={open.taken_id} />}
+      {open && <Preview id={open.id} onClose={() => setOpen(null)} onTaken={list.reload} taken={open.taken_id} />}
     </section>
-  );
-}
-
-function Preview({ id, onClose, onTake, taken }) {
-  const item = useLoad(() => api.bankItem(id), [id]);
-  return (
-    <Modal title="Задание из банка" onClose={onClose} wide>
-      {item.loading ? <Spinner /> : item.error ? <ErrorBox error={item.error} /> : (
-        <>
-          <p className="small muted" style={{ marginTop: 0 }}>Можно пройти задание прямо здесь: так его увидит ученик. Результат никуда не сохраняется.</p>
-          <LibraryItem item={item.data} />
-          <ActivityActions source="bank" id={id}/>
-          <div className="modal-actions">
-            <button className="btn btn-secondary" onClick={onClose}>Закрыть</button>
-            {taken ? <Link to={`/library/${taken}`} className="btn">Открыть в библиотеке</Link> : <button className="btn" onClick={onTake}>Взять себе</button>}
-          </div>
-        </>
-      )}
-    </Modal>
   );
 }
 

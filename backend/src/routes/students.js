@@ -124,7 +124,8 @@ router.get(
       accounts = acc;
     }
 
-    res.json({ ...student, finance, accounts });
+    const guardian_confirmed=isTutor&&student.category!=='adult'?await require('../services/guardians').studentStatus(student.id,req.user.id):undefined;
+    res.json({ ...student, finance, accounts, guardian_confirmed });
   })
 );
 
@@ -238,11 +239,14 @@ router.post(
 
       if (req.body.parent_user_id) {
         const { rows } = await client.query(
-          "SELECT id, role, login, full_name FROM users WHERE id = $1 AND role = 'parent' AND tutor_id = $2",
-          [req.body.parent_user_id, req.user.id]
+          "SELECT u.id,u.role,u.login,u.full_name FROM users u WHERE u.id=$1 AND u.tutor_id=$2 AND u.is_active AND (u.role='parent' OR(u.role='student' AND EXISTS(SELECT 1 FROM students s WHERE s.user_id=u.id AND s.tutor_id=$2 AND s.category='adult' AND s.id<>$3))) FOR UPDATE",
+          [req.body.parent_user_id, req.user.id, req.studentId]
         );
         if (!rows[0]) return { error: 'Родитель не найден' };
         parent = rows[0];
+        const own = await client.query('SELECT 1 FROM students WHERE id=$1 AND user_id=$2',[req.studentId,parent.id]);
+        if(own.rowCount)return {error:'Нельзя назначить человека представителем самого себя'};
+        if(parent.role==='student'){await client.query("UPDATE users SET role='parent' WHERE id=$1",[parent.id]);parent.role='parent';}
       } else {
         const acc = await createAccount(client, {
           role: 'parent',
@@ -267,6 +271,24 @@ router.post(
     res.status(201).json({ ...result.parent, password: result.password });
   })
 );
+
+// Возможные семейные входы, включая взрослого ученика, который также является родителем.
+router.get('/accounts/family',tutorOnly,asyncHandler(async(req,res)=>{
+ const {rows}=await query(`SELECT u.id,u.role,u.login,u.full_name,(SELECT s.id FROM students s WHERE s.user_id=u.id LIMIT 1) AS own_student_id,
+ COALESCE((SELECT json_agg(json_build_object('id',s.id,'full_name',s.full_name)) FROM parent_students ps JOIN students s ON s.id=ps.student_id WHERE ps.parent_user_id=u.id AND s.tutor_id=$1),'[]') AS children
+ FROM users u WHERE u.tutor_id=$1 AND u.is_active AND (u.role='parent' OR(u.role='student' AND EXISTS(SELECT 1 FROM students s WHERE s.user_id=u.id AND s.category='adult' AND s.status<>'archived'))) ORDER BY u.full_name`,[req.user.id]);res.json(rows);
+}));
+router.post('/:studentId/family-login',tutorOnly,requireStudentAccess(),validateBody(z.object({parent_user_id:z.number().int().positive()}).strict()),asyncHandler(async(req,res)=>{
+ const out=await transaction(async db=>{
+  const {rows:[s]}=await db.query('SELECT * FROM students WHERE id=$1 AND tutor_id=$2 FOR UPDATE',[req.studentId,req.user.id]);
+  if(!s||s.category!=='adult')throw Object.assign(Error('Общий семейный вход можно привязать только к взрослому ученику'),{status:422});
+  const {rows:[u]}=await db.query("SELECT id,role,login,full_name FROM users WHERE id=$1 AND tutor_id=$2 AND role='parent' AND is_active FOR UPDATE",[req.body.parent_user_id,req.user.id]);
+  if(!u)throw Object.assign(Error('Родительский вход не найден'),{status:404});
+  const {rows:other}=await db.query('SELECT id FROM students WHERE user_id=$1 AND id<>$2',[u.id,s.id]);
+  if((s.user_id&&s.user_id!==u.id)||other.length)throw Object.assign(Error('К этому входу уже привязан личный учебный профиль'),{status:409});
+  await db.query('UPDATE students SET user_id=$2 WHERE id=$1',[s.id,u.id]);return {...u,password:null};
+ });res.json(out);
+}));
 
 // Все родители (чтобы привязать второго ребёнка к уже существующему родителю)
 router.get(

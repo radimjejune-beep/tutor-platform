@@ -378,8 +378,9 @@ export function StudentModal({ student, onClose, onSaved }) {
         )}
         <label className="check">
           <input type="checkbox" checked={f.consent} onChange={(e) => setF({ ...f, consent: e.target.checked })} />
-          Согласие на обработку персональных данных получено
+          Согласие на обработку персональных данных получено вне платформы
         </label>
+        {f.category!=='adult' && <p className="small muted">Для доступа ребёнка родитель должен подтвердить документы в своём отдельном аккаунте. Отметка преподавателя этого подтверждения не заменяет.</p>}
         {error && <div className="alert">{error}</div>}
         <Actions onClose={onClose} busy={busy} label={student ? 'Сохранить' : 'Добавить ученика'} />
       </form>
@@ -437,7 +438,7 @@ export function CredentialsCard({ login, password, who, role }) {
    ============================================================ */
 export function AccountModal({ student, kind, onClose, onSaved }) {
   const isParent = kind === 'parent';
-  const parents = useLoad(() => (isParent ? api.parents() : Promise.resolve([])), []);
+  const parents = useLoad(() => api.familyAccounts(), []);
   const [mode, setMode] = useState('new');
   const [f, setF] = useState({ full_name: '', login: '', password: '', parent_user_id: '' });
   const [result, setResult] = useState(null);
@@ -445,7 +446,7 @@ export function AccountModal({ student, kind, onClose, onSaved }) {
   const { busy, error, submit } = useSubmit(async () => {
     const extra = { login: orNull(f.login) || undefined, password: orNull(f.password) || undefined };
     let res;
-    if (!isParent) res = await api.createStudentLogin(student.id, extra);
+    if (!isParent) res = mode==='existing'?await api.attachFamilyLogin(student.id,Number(f.parent_user_id)):await api.createStudentLogin(student.id, extra);
     else if (mode === 'existing') res = await api.addParent(student.id, { parent_user_id: Number(f.parent_user_id) });
     else res = await api.addParent(student.id, { full_name: f.full_name.trim(), ...extra });
     onSaved();
@@ -462,20 +463,20 @@ export function AccountModal({ student, kind, onClose, onSaved }) {
     );
   }
 
-  const otherParents = (parents.data || []).filter((p) => !p.children.some((c) => c.id === student.id));
+  const otherParents = (parents.data || []).filter(p=>isParent?!p.children.some(c=>c.id===student.id)&&p.own_student_id!==student.id:student.category==='adult'&&p.role==='parent'&&!p.own_student_id);
 
   return (
     <Modal title={isParent ? 'Вход для родителя' : 'Вход для ученика'} onClose={onClose}>
       <form className="form" onSubmit={submit}>
-        {isParent && otherParents.length > 0 && (
+        {otherParents.length > 0 && (
           <div className="row" style={{ gap: 8 }}>
-            <button type="button" className={`btn btn-sm ${mode === 'new' ? '' : 'btn-secondary'}`} onClick={() => setMode('new')}>Новый родитель</button>
+            <button type="button" className={`btn btn-sm ${mode === 'new' ? '' : 'btn-secondary'}`} onClick={() => setMode('new')}>{isParent?'Новый родитель':'Отдельный учебный вход'}</button>
             <button type="button" className={`btn btn-sm ${mode === 'existing' ? '' : 'btn-secondary'}`} onClick={() => setMode('existing')}>Уже есть вход</button>
           </div>
         )}
 
-        {isParent && mode === 'existing' ? (
-          <Field label="Родитель" hint="Например, если второй ребёнок тоже занимается">
+        {mode === 'existing' ? (
+          <Field label="Семейный вход" hint={isParent?"Подойдёт родительский вход или вход взрослого ученика":"Один вход для собственного обучения и просмотра детей"}>
             <select className="select" value={f.parent_user_id} onChange={(e) => setF({ ...f, parent_user_id: e.target.value })} required>
               <option value="">Выберите</option>
               {otherParents.map((p) => (

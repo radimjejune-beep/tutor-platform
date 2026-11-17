@@ -27,6 +27,7 @@ import TutorDashboard from '../pages/tutor/Dashboard';
 import TutorSchedule from '../pages/tutor/Schedule';
 import Students from '../pages/tutor/Students';
 import StudentPage from '../pages/tutor/StudentPage';
+import {CoachReview} from '../pages/learning/Coach';
 import { AssignmentsList, AssignmentEditor, AssignmentPage, ReviewPage } from '../pages/tutor/Assignments';
 import Finance from '../pages/tutor/Finance';
 import Grammar from '../pages/learning/Grammar';
@@ -55,6 +56,7 @@ export default function TutorApp({ path, params }) {
   if (terms.data?.pending && !user.is_admin) return <AcceptPlatformTerms docs={terms.data.docs} onDone={terms.reload} />;
   let page;
   if (parts.length === 0) page = <TutorDashboard />;
+  else if (parts[0] === 'coach' && parts[1]==='reviews' && parts[2]) page=<CoachReview id={Number(parts[2])}/>;
   else if (parts[0] === 'grammar') page = <Grammar topic={parts[1]} />;
   else if (parts[0] === 'diagnostics' && parts[1] === 'new') page = <DiagnosticBuilder />;
   else if (parts[0] === 'diagnostics' && parts[1] === 'tests' && parts[2]) page = <DiagnosticTest id={Number(parts[2])} />;
@@ -73,7 +75,7 @@ export default function TutorApp({ path, params }) {
   else if (parts[0] === 'finance' && parts[1] === 'pricing') page = <Pricing />;
   else if (parts[0] === 'finance') page = <Finance />;
   else if (parts[0] === 'leads') page = <Leads />;
-  else if (parts[0] === 'bank') page = <BankPage key={parts.slice(1, 3).join('/')} book={parts[1]} unit={parts[2] ? decodeURIComponent(parts[2]) : undefined} />;
+  else if (parts[0] === 'bank') page = <BankPage params={params} key={parts.slice(1, 3).join('/')} book={parts[1]} unit={parts[2] ? decodeURIComponent(parts[2]) : undefined} />;
   else if (parts[0] === 'market') page = <MarketPage key={parts[1] || 'all'} tab={parts[1] === 'mine' ? 'mine' : 'all'} />;
   else if (parts[0] === 'settings') page = <Settings tab={parts[1] || 'booking'} />;
   else if (parts[0] === 'more') page = <MoreMenu nav={tutorNav} counts={counts} />;

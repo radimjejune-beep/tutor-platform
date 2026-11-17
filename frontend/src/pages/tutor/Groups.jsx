@@ -218,7 +218,7 @@ export function GroupPage({ id }) {
           </div>
           {others.length > 0 && (
             <div className="row" style={{ marginTop: 12, gap: 8 }}>
-              <select className="select" value={adding} onChange={(e) => setAdding(e.target.value)} style={{ flex: 1 }}>
+              <select className="select" aria-label="Добавить ученика в группу" value={adding} onChange={(e) => setAdding(e.target.value)} style={{ flex: 1 }}>
                 <option value="">Добавить ученика</option>
                 {others.map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
               </select>

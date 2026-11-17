@@ -540,7 +540,7 @@ function BlockEditor({ b, onChange, upload }) {
     const n = parseGaps(b.text).gaps.length;
     return (
       <>
-        <textarea className="textarea" style={{ minHeight: 90 }} value={b.text} placeholder={'Ответ в квадратных скобках:\nShe [goes] to school by bus.\nThey [don\'t|do not] like pizza.'} onChange={(e) => onChange({ text: e.target.value })} />
+        <textarea className="textarea" style={{ minHeight: 90 }} value={b.text} aria-label="Текст упражнения с пропусками" placeholder={'Ответ в квадратных скобках:\nShe [goes] to school by bus.\nThey [don\'t|do not] like pizza.'} onChange={(e) => onChange({ text: e.target.value })} />
         <div className="small muted">Пропусков: {n}. Несколько верных ответов через |</div>
         <MediaRow b={b} onChange={onChange} upload={upload} />
       </>
@@ -697,12 +697,12 @@ function ChoiceEditor({ b, onChange, upload }) {
     const setOpt = (j, v) => onChange({ options: opts.map((o, k) => (k === j ? v : o)) });
     return (
       <>
-        <input className="input" value={b.q} placeholder="Вопрос или утверждение" onChange={(e) => onChange({ q: e.target.value })} />
+        <input className="input" value={b.q} aria-label="Вопрос или утверждение" placeholder="Вопрос или утверждение" onChange={(e) => onChange({ q: e.target.value })} />
         <div className="stack" style={{ gap: 6 }}>
           {opts.map((o, j) => (
             <div key={j} className="row" style={{ gap: 8 }}>
               <input type="radio" name={group} checked={b.correct === j} onChange={() => onChange({ correct: j })} aria-label="Верный ответ" />
-              <input className="input" value={o} placeholder={`Вариант ${j + 1}`} onChange={(e) => setOpt(j, e.target.value)} />
+              <input className="input" value={o} aria-label={`Вариант ответа ${j + 1}`} placeholder={`Вариант ${j + 1}`} onChange={(e) => setOpt(j, e.target.value)} />
               {opts.length > 2 && (
                 <button type="button" className="icon-btn" aria-label="Убрать вариант"
                   onClick={() => onChange({ options: opts.filter((_, k) => k !== j), correct: b.correct === j ? 0 : b.correct > j ? b.correct - 1 : b.correct })}>

@@ -1,5 +1,5 @@
 // ui.jsx — общие компоненты: роутер, иконки, модальные окна, уведомления, загрузка данных
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { Children, cloneElement, isValidElement, useId, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 /* ============================================================
    Простой роутер на #хэше: #/students/5 → ['students', '5']
@@ -104,26 +104,39 @@ export function ToastProvider({ children }) {
 /* ============================================================
    Модальное окно
    ============================================================ */
+const modalStack = [];
+let originalBodyOverflow = '';
 export function Modal({ title, onClose, children, wide }) {
+  const dialog = useRef(null), close = useRef(onClose), opener = useRef(document.activeElement);
+  close.current = onClose;
   useEffect(() => {
-    const onKey = (e) => e.key === 'Escape' && onClose();
-    document.addEventListener('keydown', onKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
+    const node = dialog.current, previous = opener.current;
+    if (!modalStack.length) { originalBodyOverflow = document.body.style.overflow; document.body.style.overflow = 'hidden'; }
+    modalStack.push(node);
+    const controls = () => [...node.querySelectorAll('button,a[href],input,select,textarea,[tabindex]')].filter(e => !e.disabled && e.tabIndex >= 0 && e.getClientRects().length);
+    const frame = requestAnimationFrame(() => { if (modalStack.at(-1) === node) (node.querySelector('input:not([type=hidden]):not([disabled]),textarea:not([disabled]),select:not([disabled])') || controls()[0] || node).focus(); });
+    const onKey = e => {
+      if (modalStack.at(-1) !== node) return;
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close.current(); }
+      if (e.key === 'Tab') {
+        const items = controls(), first = items[0], last = items.at(-1);
+        if (!items.length) { e.preventDefault(); node.focus(); }
+        else if (e.shiftKey && (document.activeElement === first || !node.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && (document.activeElement === last || !node.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
+      }
     };
-  }, [onClose]);
-
+    document.addEventListener('keydown', onKey);
+    return () => {
+      cancelAnimationFrame(frame); document.removeEventListener('keydown', onKey);
+      const index = modalStack.indexOf(node); if (index >= 0) modalStack.splice(index, 1);
+      if (!modalStack.length) document.body.style.overflow = originalBodyOverflow;
+      if (previous?.isConnected && (!modalStack.length || modalStack.at(-1).contains(previous))) previous.focus();
+    };
+  }, []);
   return (
-    <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`modal ${wide ? 'modal-wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
-        <div className="modal-head">
-          <h2>{title}</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Закрыть">
-            <Icon name="close" />
-          </button>
-        </div>
+    <div className="overlay" onMouseDown={e => e.target === e.currentTarget && close.current()}>
+      <div ref={dialog} tabIndex={-1} className={`modal ${wide ? 'modal-wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
+        <div className="modal-head"><h2>{title}</h2><button type="button" className="icon-btn" onClick={onClose} aria-label="Закрыть"><Icon name="close" /></button></div>
         {children}
       </div>
     </div>
@@ -134,8 +147,11 @@ export function Modal({ title, onClose, children, wide }) {
 export function useSubmit(fn) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const submitting = useRef(false);
   const submit = async (e) => {
     e?.preventDefault();
+    if (submitting.current) return;
+    submitting.current = true;
     setBusy(true);
     setError('');
     try {
@@ -143,6 +159,7 @@ export function useSubmit(fn) {
     } catch (err) {
       setError(err.message);
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   };
@@ -169,13 +186,19 @@ export function Badge({ tone, children }) {
 }
 
 export function Field({ label, hint, children }) {
-  return (
-    <div className="field">
-      {label && <label>{label}</label>}
-      {children}
-      {hint && <div className="hint">{hint}</div>}
-    </div>
-  );
+  const generated = useId();
+  let controlId = null;
+  const attach = nodes => Children.map(nodes, child => {
+    if (!isValidElement(child) || controlId) return child;
+    if (((typeof child.type === 'string' && ['input','select','textarea'].includes(child.type)) || child.type.fieldControl) && child.props.type !== 'hidden') {
+      controlId = child.props.id || `field-${generated}`;
+      return cloneElement(child, {id: controlId, ...(hint ? {'aria-describedby': [child.props['aria-describedby'], `hint-${generated}`].filter(Boolean).join(' ')} : {})});
+    }
+    if (typeof child.type === 'string' && child.props.children) return cloneElement(child, {}, attach(child.props.children));
+    return child;
+  });
+  const content = attach(children);
+  return <div className="field">{label && <label htmlFor={controlId || undefined}>{label}</label>}{content}{hint && <div className="hint" id={`hint-${generated}`}>{hint}</div>}</div>;
 }
 
 export function ErrorBox({ error, onRetry }) {

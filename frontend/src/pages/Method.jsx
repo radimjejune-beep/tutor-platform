@@ -157,7 +157,7 @@ function Index({ title, lead, groups, articles, base, tutor }) {
       </div>
       <div className="m-search">
         <Icon name="search" size={18} />
-        <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tutor ? 'Например: первый урок, ошибки, монолог' : 'Например: слова, домашка'} />
+        <input className="input" aria-label="Поиск по методическим материалам" value={q} onChange={(e) => setQ(e.target.value)} placeholder={tutor ? 'Например: первый урок, ошибки, монолог' : 'Например: слова, домашка'} />
       </div>
       {tutor && (
         <div className="seg seg-wrap" style={{ marginBottom: 18 }}>

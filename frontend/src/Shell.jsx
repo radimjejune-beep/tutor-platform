@@ -31,6 +31,8 @@ export const CLIENT_NAV = [
   { to: '/homework', label: 'Задания', short: 'Задания', icon: 'book', countKey: 'homework' },
   { to: '/words', label: 'Словарь', icon: 'cards', countKey: 'words' },
   { to: '/diagnostics', label: 'Диагностика', icon: 'quiz', hideMobile: true },
+  { to: '/family', label: 'Семья и согласия', icon: 'shield', hideMobile: true },
+  { to: '/coach', label: 'Повторение', icon: 'quiz', hideMobile: true },
   { to: '/grammar', label: 'Грамматика', icon: 'library', hideMobile: true },
   { to: '/theory', label: 'Теория', icon: 'library', hideMobile: true },
   { to: '/progress', label: 'Прогресс', short: 'Успехи', icon: 'chart' },

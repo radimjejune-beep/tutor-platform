@@ -40,7 +40,7 @@ function useFilters(kind, withFolder = false) {
 function Filters({ f, setF, facets }) {
   return (
     <div className="lib-filters">
-      <input className="input" placeholder="Поиск по названию, тексту и заметкам" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} />
+      <input className="input" aria-label="Поиск по библиотеке" placeholder="Поиск по названию, тексту и заметкам" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} />
       {f.kind !== 'theory' && (
         <button type="button" className={`btn btn-sm fav-filter ${f.fav ? 'on' : ''}`} aria-pressed={f.fav} onClick={() => setF({ ...f, fav: !f.fav })}>
           <Icon name="star" size={16} /> Избранное

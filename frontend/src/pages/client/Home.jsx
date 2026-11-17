@@ -8,6 +8,7 @@ import TelegramCard from '../../components/TelegramCard';
 import { ClientAnnouncements } from '../../components/Announcements';
 import { SelfStudyStrip } from './SelfStudy';
 import Recommendations from '../../components/Recommendations';
+import {CoachSummary} from '../learning/Coach';
 import { MotivationCard, WarmupBanner } from '../../components/Motivation';
 import { time, dayMonth, relativeDay, rub, shortDate, monthName, lessonsWord, HW_STATUS, plural, givenName } from '../../format';
 
@@ -48,6 +49,7 @@ export default function ClientHome({ student, isParent }) {
         </Link>
       )}
 
+      <CoachSummary key={student.id} studentId={student.id}/>
       <SelfStudyStrip studentId={student.id} />
       <Recommendations studentId={student.id} compact />
 

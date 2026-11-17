@@ -28,7 +28,7 @@ async function currentDocs(tutorId) {
   await ensureDefaults(tutorId);
   const { rows } = await query(
     `SELECT DISTINCT ON (kind) id, kind, version, title, body, published_at
-       FROM legal_documents WHERE tutor_id = $1 ORDER BY kind, version DESC`,
+       FROM legal_documents WHERE tutor_id = $1 ORDER BY kind, version DESC, id DESC`,
     [tutorId]
   );
   return rows;
@@ -51,7 +51,7 @@ async function requiredKinds(user) {
   if (user.role === 'student') {
     const { rows } = await query('SELECT category FROM students WHERE user_id = $1', [user.id]);
     // Взрослый ученик сам заключает договор; за несовершеннолетнего — родитель
-    return rows[0]?.category === 'adult' ? ['offer', 'privacy', 'consent_adult'] : ['privacy'];
+    return rows[0]?.category === 'adult' ? ['offer', 'privacy', 'consent_adult'] : [];
   }
   return [];
 }
@@ -98,6 +98,27 @@ protectedRouter.get(
   })
 );
 
+protectedRouter.get('/family',asyncHandler(async(req,res)=>{
+ const docs=await currentDocs(req.user.tid),state=await require('../services/guardians').status(req.user);
+ res.json({...state,documents:req.user.role==='parent'?docs.filter(d=>['offer','privacy','consent_parent'].includes(d.kind)):[]});
+}));
+protectedRouter.post('/guardian-accept',requireRole('parent'),validateBody(z.object({student_ids:z.array(z.number().int().positive()).min(1).max(30),document_ids:z.array(z.number().int().positive()).length(3),relationship:z.enum(['parent','guardian']),declaration:z.literal(true)}).strict()),asyncHandler(async(req,res)=>{
+ const docs=(await currentDocs(req.user.tid)).filter(d=>['offer','privacy','consent_parent'].includes(d.kind));
+ const ids=[...new Set(req.body.document_ids)],students=[...new Set(req.body.student_ids)];
+ if(ids.length!==3||docs.length!==3||!docs.every(d=>ids.includes(d.id)))return res.status(409).json({error:'Редакция документов изменилась. Обновите страницу.'});
+ await transaction(async db=>{
+  const {rows:owned}=await db.query("SELECT s.id FROM students s JOIN parent_students ps ON ps.student_id=s.id WHERE s.id=ANY($1::int[]) AND ps.parent_user_id=$2 AND s.tutor_id=$3 AND s.category<>'adult' FOR SHARE OF s",[students,req.user.id,req.user.tid]);
+  if(owned.length!==students.length)throw Object.assign(Error('Ребёнок не привязан к вашему аккаунту'),{status:404});
+  for(const sid of students)for(const id of ids)await db.query(`INSERT INTO guardian_acceptances(parent_user_id,student_id,document_id,relationship,ip,user_agent) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(parent_user_id,student_id,document_id) WHERE revoked_at IS NULL DO NOTHING`,[req.user.id,sid,id,req.body.relationship,String(req.ip||'').slice(0,64),String(req.get('user-agent')||'').slice(0,300)]);
+  for(const id of ids)await db.query('INSERT INTO document_acceptances(user_id,document_id,ip,user_agent) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING',[req.user.id,id,String(req.ip||'').slice(0,64),String(req.get('user-agent')||'').slice(0,300)]);
+  await db.query('UPDATE students SET pd_consent_at=NOW() WHERE id=ANY($1::int[])',[students]);
+ });res.json({ok:true});
+}));
+protectedRouter.post('/guardian-revoke',requireRole('parent'),validateBody(z.object({student_id:z.number().int().positive()}).strict()),asyncHandler(async(req,res)=>{
+ const {rows:[s]}=await query('SELECT s.id FROM students s JOIN parent_students ps ON ps.student_id=s.id WHERE s.id=$1 AND ps.parent_user_id=$2 AND s.tutor_id=$3',[req.body.student_id,req.user.id,req.user.tid]);if(!s)return res.status(404).json({error:'Ребёнок не найден'});
+ await query('UPDATE guardian_acceptances SET revoked_at=NOW() WHERE parent_user_id=$1 AND student_id=$2 AND revoked_at IS NULL',[req.user.id,s.id]);res.json({ok:true});
+}));
+
 protectedRouter.post(
   '/accept',
   validateBody(z.object({ document_ids: z.array(z.number().int().positive()).min(1).max(10) }).strict()),
@@ -118,13 +139,7 @@ protectedRouter.post(
       }
       // Принято согласие на обработку ПДн → отмечаем в карточках учеников
       const kindsAccepted = ids.map((id) => allowed.get(id).kind);
-      if (kindsAccepted.includes('consent_parent')) {
-        await client.query(
-          `UPDATE students SET pd_consent_at = NOW()
-            WHERE pd_consent_at IS NULL AND id IN (SELECT student_id FROM parent_students WHERE parent_user_id = $1)`,
-          [req.user.id]
-        );
-      }
+      // Подтверждение за ребёнка записывается только отдельным действием /guardian-accept.
       if (kindsAccepted.includes('consent_adult')) {
         await client.query('UPDATE students SET pd_consent_at = NOW() WHERE pd_consent_at IS NULL AND user_id = $1', [req.user.id]);
       }

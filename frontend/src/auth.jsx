@@ -35,7 +35,9 @@ export function AuthProvider({ children }) {
       setSession(null);
     });
     if (getToken()) refresh().catch(() => {});
-    return () => setUnauthorizedHandler(() => {});
+    const changed=e=>{if(e.key!=='tp_token')return;if(getToken())refresh().catch(()=>{});else setSession(null);};
+    window.addEventListener('storage',changed);
+    return () => {window.removeEventListener('storage',changed);setUnauthorizedHandler(() => {});};
   }, []);
 
   const login = async (loginName, password) => {
@@ -51,6 +53,12 @@ export function AuthProvider({ children }) {
     window.location.hash = '/';
   };
 
+  const switchProfile = async mode => {
+    const {token} = await api.switchProfile(mode);
+    setToken(token);
+    await refresh();
+  };
+
   const logout = () => {
     setError(null);
     setToken(null);
@@ -61,7 +69,7 @@ export function AuthProvider({ children }) {
   setDraftUser(session?.user?.id); // черновики форм хранятся отдельно для каждого пользователя
   if (session === undefined && error) return <main className="page"><ErrorBox error={error} onRetry={() => refresh().catch(() => {})} /><button type="button" className="btn btn-secondary" onClick={logout}>На страницу входа</button></main>;
   return (
-    <AuthContext.Provider value={{ session, user: session?.user, students: session?.students || [], login, register, logout, refresh }}>
+    <AuthContext.Provider value={{ session, user: session?.user, students: session?.students || [], login, register, logout, refresh, switchProfile }}>
       {children}
     </AuthContext.Provider>
   );

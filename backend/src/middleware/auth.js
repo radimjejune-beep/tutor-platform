@@ -7,8 +7,8 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 // Отпечаток пароля в токене: после смены или сброса пароля старые входы перестают работать
 const pwStamp = (hash) => crypto.createHash('sha256').update(String(hash)).digest('base64url').slice(0, 12);
-const signToken = (user) =>
-  jwt.sign({ userId: user.id, pv: pwStamp(user.password_hash) }, JWT_SECRET, { expiresIn: process.env['JWT_EXPIRES_IN'] || '7d' });
+const signToken = (user, context) =>
+  jwt.sign({ userId: user.id, pv: pwStamp(user.password_hash), ...(context ? {context} : {}) }, JWT_SECRET, { expiresIn: process.env['JWT_EXPIRES_IN'] || '7d' });
 
 // Проверяем токен и каждый раз берём пользователя из базы:
 // роль и статус берутся из базы, а не из токена (заблокированный пользователь сразу теряет доступ)
@@ -38,6 +38,11 @@ async function authenticate(req, res, next) {
     // Без отпечатка нельзя гарантировать отзыв сессии после смены пароля.
     if (payload.pv !== pwStamp(user.password_hash)) {
       return res.status(401).json({ error: 'Пароль изменён, войдите снова' });
+    }
+    if (payload.context === 'self') {
+      const own = user.role === 'parent' && await query("SELECT 1 FROM students WHERE user_id=$1 AND tutor_id=$2 AND category='adult' AND status<>'archived'",[user.id,user.tutor_id]);
+      if (!own?.rowCount) return res.status(401).json({error:'Личный учебный профиль недоступен'});
+      user.account_role = 'parent'; user.role = 'student'; user.context = 'self';
     }
     delete user.password_hash;
 

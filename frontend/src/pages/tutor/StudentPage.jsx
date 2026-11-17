@@ -13,6 +13,7 @@ import LessonsByDay from '../../components/LessonsByDay';
 import { CourseTab, WordsTab } from './StudentCourse';
 import Recommendations from '../../components/Recommendations';
 import StudentHomework from '../../components/StudentHomework';
+import Coach from '../learning/Coach';
 import {
   CATEGORY, HW_STATUS, SKILLS, METHOD, rub, shortDate, fullDate, monthName, currentMonth, prevMonth,
   lessonsWord, relativeDay, time,
@@ -23,6 +24,7 @@ const TABS = [
   { key: 'course', label: 'Курс' },
   { key: 'words', label: 'Словарь' },
   { key: 'homework', label: 'Задания' },
+  { key: 'coach', label: 'Помощник' },
   { key: 'progress', label: 'Прогресс' },
   { key: 'reports', label: 'Отчёты' },
   { key: 'finance', label: 'Оплаты' },
@@ -104,6 +106,7 @@ export default function StudentPage({ id, tab }) {
       {tab === 'words' && <WordsTab student={s} />}
       {tab === 'homework' && <HomeworkTab student={s} />}
       {(tab === 'progress' || tab === 'lessons') && <Recommendations studentId={s.id} tutor compact={tab === 'lessons'} />}
+      {tab === 'coach' && <Coach key={s.id} student={s} tutor/>}
       {tab === 'progress' && <ProgressTab student={s} />}
       {tab === 'reports' && <ReportsTab student={s} />}
       {tab === 'finance' && <FinanceTab student={s} onChange={student.reload} />}
@@ -380,8 +383,8 @@ function AccessTab({ student, onChange }) {
   const [modal, setModal] = useState(null);
   const toast = useToast();
   const accounts = student.accounts || [];
-  const own = accounts.find((a) => a.role === 'student');
-  const parents = accounts.filter((a) => a.role === 'parent');
+  const own = accounts.find((a) => a.id === student.user_id);
+  const parents = accounts.filter((a) => a.role === 'parent' && a.id !== student.user_id);
   const saved = () => { onChange(); };
 
   const toggle = async (a) => {
@@ -427,6 +430,7 @@ function AccessTab({ student, onChange }) {
       <p className="muted" style={{ marginTop: -6 }}>
         Для входа нужны только логин и пароль. Ученик видит расписание, задания, прогресс и опубликованные отчёты; родитель видит то же самое по своим детям.
       </p>
+      {student.category!=='adult'&&<p className="learning-note">{student.guardian_confirmed?'Родитель подтвердил действующие документы за этого ребёнка.':'Для доступа ребёнка требуется подтверждение действующих документов в отдельном родительском аккаунте. Отметка преподавателя в карточке его не заменяет.'}</p>}
       <div className="list">
         {own ? (
           <Row a={own} label="Ученик" />

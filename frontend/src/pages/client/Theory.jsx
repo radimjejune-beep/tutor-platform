@@ -15,7 +15,7 @@ export function TheoryList() {
     <>
       <div className="page-head"><h1 className="page-title">Теория</h1><Link className="btn" to="/grammar">Справочник грамматики</Link></div>
       <div className="lib-filters">
-        <input className="input" placeholder="Поиск" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="input" aria-label="Поиск объяснений" placeholder="Поиск" value={q} onChange={(e) => setQ(e.target.value)} />
         {facets.data?.subjects.length > 1 && (
           <select className="select" value={subject} onChange={(e) => setSubject(e.target.value)} aria-label="Предмет">
             <option value="">Все предметы</option>

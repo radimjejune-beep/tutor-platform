@@ -8,6 +8,7 @@ import HtmlLesson from './HtmlLesson';
 import { GAME_TYPES, gameSize } from '../games/logic';
 import { DeckPlayer, parseDeck } from './Deck';
 import { useAuth } from '../auth';
+import MaterialTopic from './MaterialTopic';
 
 export const examLabel = (i) => (i.exam ? `${i.exam}${i.exam_task ? `, задание ${i.exam_task}` : ''}` : null);
 
@@ -28,7 +29,7 @@ export function ItemMeta({ item, showTags }) {
 }
 
 // onGameFinish — сохранить результат упражнения; gameExtra — что показать под упражнением (результаты)
-export default function LibraryItem({ item, index, showPrivate, actions, onGameFinish, gameExtra, draftKey }) {
+export default function LibraryItem({ item, index, showPrivate, actions, onGameFinish, gameExtra, draftKey, gameNotice }) {
   // Фото и аудио, которые уже стоят внутри листа с заданиями, отдельным списком не дублируем
   const user = useAuth()?.user;
   const deck = item.kind === 'deck' ? parseDeck(item.html) : null;
@@ -44,7 +45,8 @@ export default function LibraryItem({ item, index, showPrivate, actions, onGameF
         {actions}
       </div>
       {item.body && <MathText as="div" className="instructions" style={{ marginTop: 14 }}>{item.body}</MathText>}
-      {item.kind === 'game' && item.game && (
+      {gameNotice && <p className="learning-note">{gameNotice}</p>}
+      {item.kind === 'game' && item.game && !gameNotice && (
         <div style={{ marginTop: 14 }}>
           <GamePlayer game={item.game} onFinish={onGameFinish} footer={gameExtra} draftKey={draftKey} />
         </div>
@@ -69,6 +71,7 @@ export default function LibraryItem({ item, index, showPrivate, actions, onGameF
         </div>
       )}
       {files.length > 0 && <div style={{ marginTop: 12 }}><FileList files={files} /></div>}
+      {showPrivate && user?.role==='tutor' && item.kind==='game' && <MaterialTopic id={item.id}/>}
       {showPrivate && (item.answer || item.tutor_note) && (
         <div className="lib-private">
           {item.tutor_note && (

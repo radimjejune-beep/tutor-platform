@@ -104,6 +104,7 @@ const limiter = (windowMin, limit, error) => rateLimit({
   keyGenerator: (req) => (req.user ? `u${req.user.id}` : req.ip), message: { error },
 });
 protectedApi.use(limiter(5, 1500, 'Слишком много запросов, подождите пару минут'));
+protectedApi.use(require('./services/guardians').middleware);
 protectedApi.use('/pronounce', limiter(1, 120, 'Слишком часто, подождите минуту'));
 protectedApi.use('/files', limiter(10, 120, 'Слишком много загрузок, подождите 10 минут'));
 protectedApi.use('/library-books', limiter(10, 400, 'Слишком много загрузок, подождите 10 минут'));
@@ -123,6 +124,8 @@ protectedApi.use('/games', require('./routes/games'));
 protectedApi.use('/legal', require('./routes/legal').protectedRouter);
 protectedApi.use('/activity-links', require('./routes/activities').router);
 protectedApi.use('/learning', require('./routes/learning'));
+protectedApi.use('/live', require('./routes/live'));
+protectedApi.use('/coaching', require('./routes/coaching'));
 protectedApi.use('/progress', require('./routes/progress'));
 protectedApi.use('/courses', require('./routes/courses'));
 protectedApi.use('/vocab', require('./routes/vocab'));

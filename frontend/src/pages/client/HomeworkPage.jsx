@@ -89,7 +89,7 @@ function HomeworkView({ h, isParent, reload }) {
           )}
 
           {h.library_item_ids?.length > 0 && (
-            <AssignmentTasks ids={h.library_item_ids} homework={h} canPlay={h.status !== 'checked'} />
+            <AssignmentTasks ids={h.library_item_ids} homework={h} canPlay={!isParent && h.status !== 'checked'} />
           )}
 
           {h.word_set_id && <HomeworkCards h={h} isParent={isParent} />}
