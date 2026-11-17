@@ -45,7 +45,7 @@ router.get(
     const { rows } = await query(
       `SELECT c.*,
               (SELECT COUNT(*)::int FROM course_units u WHERE u.course_id = c.id) AS unit_count,
-              (SELECT COUNT(*)::int FROM students s WHERE s.course_id = c.id AND s.status = 'active') AS student_count
+              (SELECT COUNT(*)::int FROM students s WHERE s.tutor_id=c.tutor_id AND s.status = 'active' AND (s.course_id=c.id OR EXISTS(SELECT 1 FROM supplementary_enrollments e WHERE e.student_id=s.id AND e.course_id=c.id AND e.active))) AS student_count
          FROM courses c WHERE c.tutor_id = $1 ORDER BY c.title`,
       [req.user.id]
     );
@@ -80,8 +80,11 @@ router.get(
       ? await query("SELECT id, kind, title, game->>'type' AS game_type FROM library_items WHERE id = ANY($1::int[])", [allIds])
       : { rows: [] };
     const { rows: students } = await query(
-      `SELECT id, full_name, course_unit_id FROM students WHERE course_id = $1 AND status <> 'archived' ORDER BY full_name`,
-      [id]
+      `SELECT s.id,s.full_name,CASE WHEN s.course_id=$1 THEN s.course_unit_id ELSE NULL END course_unit_id,
+         s.course_id IS DISTINCT FROM $1 AS supplementary
+         FROM students s WHERE s.tutor_id=$2 AND s.status<>'archived' AND
+         (s.course_id=$1 OR EXISTS(SELECT 1 FROM supplementary_enrollments e WHERE e.student_id=s.id AND e.course_id=$1 AND e.active)) ORDER BY s.full_name`,
+      [id,req.user.id]
     );
     res.json({ ...rows[0], units, items, students });
   })

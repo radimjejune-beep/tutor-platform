@@ -1,0 +1,12 @@
+'use strict';
+const router=require('express').Router(),{z}=require('zod');
+const {requireRole,requireStudentAccess}=require('../middleware/auth'),{asyncHandler,validateBody}=require('../middleware/validate');
+const c=require('../learning/language-catalog'),service=require('../learning/language-progress');
+const path='/students/:studentId/language',tutor=requireRole('tutor'),access=requireStudentAccess();
+const version=z.number().int().min(0).max(2147483646),basis=z.string().trim().min(5,'Опишите основание оценки').max(1500);
+const subject=z.string().trim().min(1).max(255);
+router.get(path,access,asyncHandler(async(req,res)=>res.json(await service.view(req.studentId,req.user.tid))));
+router.put(path,tutor,access,validateBody(z.object({version,subject,current_level:z.enum(c.levels).nullable(),target_level:z.enum(c.levels.slice(1)),basis}).strict()),asyncHandler(async(req,res)=>{await service.configure(req.studentId,req.user.id,req.body);res.json(await service.view(req.studentId,req.user.tid));}));
+router.patch(path+'/goals/:key',tutor,access,validateBody(z.object({version,subject,state:z.enum(['unassessed','working','confirmed']),evidence:z.string().trim().max(1500)}).strict()),asyncHandler(async(req,res)=>{await service.assess(req.studentId,req.user.id,req.params.key,req.body);res.json(await service.view(req.studentId,req.user.tid));}));
+router.post(path+'/confirm',tutor,access,validateBody(z.object({version,subject,basis}).strict()),asyncHandler(async(req,res)=>{await service.confirm(req.studentId,req.user.id,req.body);res.json(await service.view(req.studentId,req.user.tid));}));
+module.exports=router;

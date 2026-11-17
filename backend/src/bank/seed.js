@@ -11,6 +11,7 @@ const S = 'solutions-elem-3';
 const P = 'speakout-a1-3';
 
 const SEED = [
+  ...require('./elementary-vocabulary').bank,
   // ---------------- Solutions Elementary ----------------
   { key: 'sol-i-words', book: S, unit: 'I', title: 'Личная информация и инструменты: слова', game: match(`
     surname - фамилия

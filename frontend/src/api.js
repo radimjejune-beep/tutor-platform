@@ -64,6 +64,15 @@ const qs = (params) => {
 };
 
 export const api = {
+  courseTemplates: () => request('GET','/supplementary-courses/templates'),
+  installVocabularyCourse: () => request('POST','/supplementary-courses/templates/elementary-vocabulary/install',{}),
+  supplementaryCourses: id => request('GET',`/supplementary-courses/students/${id}`),
+  enrollSupplementary: (id,data) => request('PUT',`/supplementary-courses/students/${id}`,data),
+  assignSupplementary: (id,data) => request('POST',`/supplementary-courses/students/${id}/assign`,data),
+  languageProgress: id => request('GET', `/progress/students/${id}/language`),
+  configureLanguage: (id,data) => request('PUT', `/progress/students/${id}/language`, data),
+  assessLanguageGoal: (id,key,data) => request('PATCH', `/progress/students/${id}/language/goals/${encodeURIComponent(key)}`, data),
+  confirmLanguageLevel: (id,data) => request('POST', `/progress/students/${id}/language/confirm`, data),
   switchProfile: mode => request('POST','/auth/profile',{mode}),
   familyAccounts: () => request('GET','/students/accounts/family'),
   attachFamilyLogin: (id,parent_user_id) => request('POST',`/students/${id}/family-login`,{parent_user_id}),

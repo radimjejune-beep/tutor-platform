@@ -14,6 +14,8 @@ import { CourseTab, WordsTab } from './StudentCourse';
 import Recommendations from '../../components/Recommendations';
 import StudentHomework from '../../components/StudentHomework';
 import Coach from '../learning/Coach';
+import LanguageProgress from '../../components/LanguageProgress';
+import SupplementaryCourses from '../../components/SupplementaryCourses';
 import {
   CATEGORY, HW_STATUS, SKILLS, METHOD, rub, shortDate, fullDate, monthName, currentMonth, prevMonth,
   lessonsWord, relativeDay, time,
@@ -102,12 +104,12 @@ export default function StudentPage({ id, tab }) {
       </div>
 
       {tab === 'lessons' && <LessonsTab student={s} onChange={student.reload} />}
-      {tab === 'course' && <CourseTab student={s} onChange={student.reload} />}
+      {tab === 'course' && <><CourseTab student={s} onChange={student.reload} /><SupplementaryCourses key={s.id} student={s} tutor/></>}
       {tab === 'words' && <WordsTab student={s} />}
       {tab === 'homework' && <HomeworkTab student={s} />}
       {(tab === 'progress' || tab === 'lessons') && <Recommendations studentId={s.id} tutor compact={tab === 'lessons'} />}
       {tab === 'coach' && <Coach key={s.id} student={s} tutor/>}
-      {tab === 'progress' && <ProgressTab student={s} />}
+      {tab === 'progress' && <><LanguageProgress key={s.id} student={s} tutor/><ProgressTab student={s} /></>}
       {tab === 'reports' && <ReportsTab student={s} />}
       {tab === 'finance' && <FinanceTab student={s} onChange={student.reload} />}
       {tab === 'access' && <AccessTab student={s} onChange={student.reload} />}
@@ -228,7 +230,7 @@ function ProgressTab({ student }) {
         ))}
       </section>
       <section className="panel">
-        <h2 className="section-title">Пройдено</h2>
+        <h2 className="section-title">Пройдено тем программы</h2>
         <div className="big-number num" style={{ margin: '12px 0 10px' }}>{d.completion}%</div>
         <Bar value={d.completion} />
         <div className="stack" style={{ gap: 12, marginTop: 22 }}>

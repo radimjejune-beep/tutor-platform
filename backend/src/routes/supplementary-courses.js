@@ -1,0 +1,10 @@
+'use strict';
+const router=require('express').Router(),{z}=require('zod'),{requireRole,requireStudentAccess}=require('../middleware/auth');
+const {validateBody,asyncHandler}=require('../middleware/validate'),s=require('../services/supplementary-courses'),tutor=requireRole('tutor'),access=requireStudentAccess();
+const id=z.number().int().positive(),date=require('../learning/diagnostics').date;
+router.get('/templates',tutor,asyncHandler(async(req,res)=>res.json(await s.template(req.user.id,req.user.subject))));
+router.post('/templates/elementary-vocabulary/install',tutor,validateBody(z.object({}).strict()),asyncHandler(async(req,res)=>res.json(await s.install(req.user.id,req.user.subject))));
+router.get('/students/:studentId',access,asyncHandler(async(req,res)=>res.json(await s.list(req.studentId,req.user.tid,req.user.role==='tutor'))));
+router.put('/students/:studentId',tutor,access,validateBody(z.object({course_id:id,active:z.boolean()}).strict()),asyncHandler(async(req,res)=>res.json(await s.enroll(req.studentId,req.user.id,req.body.course_id,req.body.active))));
+router.post('/students/:studentId/assign',tutor,access,validateBody(z.object({course_id:id,unit_id:id,stage:z.enum(['learn','practice','check','all']),due_on:date.nullable(),request_key:z.string().uuid()}).strict()),asyncHandler(async(req,res)=>res.json(await s.assign(req.studentId,req.user.id,req.body))));
+module.exports=router;

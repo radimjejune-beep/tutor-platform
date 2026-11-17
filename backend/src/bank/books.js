@@ -3,6 +3,7 @@
 // Тексты и упражнения учебников в банк не копируются: все задания авторские.
 const { MURPHY_BOOKS } = require('./murphy-books');
 const BOOKS = [
+  require('./elementary-vocabulary').book,
   ...MURPHY_BOOKS,
   {
     id: 'spotlight-6',

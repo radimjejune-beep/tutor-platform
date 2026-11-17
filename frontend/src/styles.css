@@ -2168,3 +2168,32 @@ details.panel>summary { cursor:pointer; padding:4px 0; }
 .family-document-body { max-height:50vh; overflow:auto; padding:12px; margin-top:12px; border-top:1px solid var(--line); }
 .bank-advanced > summary { cursor:pointer; font-size:14px; padding:10px 0; }
 @media(min-width:901px) { .bank-advanced > summary { display:none; } .bank-advanced:not([open]) > .bank-search-fields { display:grid; } }
+/* Language route: counts describe teaching goals, never a CEFR test score. */
+.language-route { margin-bottom:24px; }
+.language-route .panel-head { flex-wrap:wrap; gap:14px; }
+.language-route-hero { display:flex; justify-content:space-between; align-items:center; gap:20px; flex-wrap:wrap; padding:18px 0 8px; }
+.language-route-level { font-family:var(--font-serif, Georgia, serif); font-size:clamp(30px,6vw,48px); line-height:1.3; overflow-wrap:anywhere; }
+.language-route-level span { color:var(--brass); }
+.language-route-count { font-size:32px; font-variant-numeric:tabular-nums; }
+.language-route-count span { font-size:18px; color:var(--ink-2); font-weight:400; }
+.language-route-track { height:10px; background:var(--paper-2, #eee9de); border-radius:20px; overflow:hidden; }
+.language-route-track > span { display:block; height:100%; background:var(--green); border-radius:20px; }
+.language-route-skills { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin:22px 0; }
+.language-route-skill { padding:16px; border:1px solid var(--line); border-radius:14px; min-width:0; }
+.language-route-skill h3 { margin:0; font-size:18px; }
+.language-route-skill ul { list-style:none; padding:0; margin:12px 0 0; }
+.language-route-skill li { border-top:1px solid var(--line); padding:14px 0 4px; }
+.language-goal-title { margin-bottom:9px; line-height:1.55; }
+.language-evidence { white-space:pre-wrap; overflow-wrap:anywhere; }
+.language-route .badge { white-space:normal; }
+.language-history { margin-top:18px; }
+.language-history summary { cursor:pointer; padding:12px 0; }
+.language-history li { padding:8px 0; overflow-wrap:anywhere; }
+.supplemental-enroll { align-items:flex-end; margin:18px 0; }
+.supplemental-enroll .field { flex:1; min-width:180px; margin-bottom:0; }
+.supplemental-enrollment { padding:18px 0; border-top:1px solid var(--line); margin-top:18px; }
+.supplemental-enrollment h3 { margin:0; overflow-wrap:anywhere; }
+.supplemental-enrollment .field { margin-top:16px; }
+.supplemental-courses .select { max-width:100%; }
+.supplemental-courses .list-item { text-decoration:none; color:inherit; }
+@media(max-width:650px) { .language-route-skills { grid-template-columns:1fr; } .language-route-hero { align-items:flex-start; gap:4px; } }

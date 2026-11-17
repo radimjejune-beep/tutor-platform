@@ -126,6 +126,8 @@ protectedApi.use('/activity-links', require('./routes/activities').router);
 protectedApi.use('/learning', require('./routes/learning'));
 protectedApi.use('/live', require('./routes/live'));
 protectedApi.use('/coaching', require('./routes/coaching'));
+protectedApi.use('/progress', require('./routes/language-progress'));
+protectedApi.use('/supplementary-courses', require('./routes/supplementary-courses'));
 protectedApi.use('/progress', require('./routes/progress'));
 protectedApi.use('/courses', require('./routes/courses'));
 protectedApi.use('/vocab', require('./routes/vocab'));

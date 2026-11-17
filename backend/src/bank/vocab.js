@@ -23,6 +23,7 @@ function parse(text) {
 
 const cache = new Map();
 function vocabOf(book, unit) {
+  if(book===require('./elementary-vocabulary').id)return (require('./elementary-vocabulary').units.find(u=>u.code===String(unit))?.words||[]).map(({term,translation,example})=>({term,translation,example,topic:'Слова темы'}));
   const key = `${book}/${unit}`;
   if (!cache.has(key)) {
     const text = SOURCES[book] && SOURCES[book][unit];

@@ -1,0 +1,660 @@
+# 1|Семья и близкие
+parent|родитель|A {parent} can help a young child read.
+sister|сестра|My {sister} and I share a room.
+brother|брат|Her {brother} plays chess with me.
+aunt|тётя|My mother's sister is my {aunt}.
+uncle|дядя|My father's brother is my {uncle}.
+cousin|двоюродный брат или сестра|My aunt's child is my {cousin}.
+grandmother|бабушка|My {grandmother} tells wonderful stories.
+grandfather|дедушка|My {grandfather} repairs old clocks.
+husband|муж|Her {husband} works in a library.
+wife|жена|His {wife} teaches music.
+# 2|Важные события жизни
+birthday|день рождения|My {birthday} is in September.
+wedding|свадьба|Their {wedding} is next Saturday.
+married|состоящий в браке|My aunt is {married} to a chef.
+single|не состоящий в браке|Alex is {single} and lives alone.
+baby|младенец|The {baby} is sleeping in the next room.
+be born|родиться|Their child will {be born} in spring.
+grow up|расти, взрослеть|Children {grow up} very quickly.
+move house|переезжать в другой дом|We plan to {move house} in July.
+celebrate|праздновать|We {celebrate} together every year.
+invitation|приглашение|I received an {invitation} to the party.
+# 3|Тело и движения
+head|голова|Put a warm hat on your {head}.
+shoulder|плечо|The bag hangs from her left {shoulder}.
+arm|рука от плеча до кисти|He raised his {arm} to ask a question.
+hand|кисть руки|Hold the ticket in your {hand}.
+finger|палец руки|There is a ring on her {finger}.
+knee|колено|My left {knee} hurts after running.
+foot|ступня|This shoe is too small for my {foot}.
+back|спина|Carry the bag on your {back}.
+neck|шея|This scarf keeps my {neck} warm.
+tooth|зуб|One {tooth} hurts when I drink cold water.
+# 4|Что надеть
+jacket|куртка|Take a {jacket} because it is windy.
+shirt|рубашка|He wears a white {shirt} to work.
+trousers|брюки|These {trousers} have four pockets.
+skirt|юбка|Her blue {skirt} reaches her knees.
+dress|платье|She chose a green {dress} for dinner.
+jumper|джемпер|This wool {jumper} is very warm.
+boots|ботинки, сапоги|Wear your {boots} on the muddy path.
+scarf|шарф|I left my {scarf} on the bus.
+gloves|перчатки|My {gloves} keep both hands warm.
+size|размер|Do you have this coat in a smaller {size}?
+# 5|Как описать человека
+tall|высокий ростом|My cousin is very {tall} and plays basketball.
+short|невысокий ростом|The boy is too {short} to reach the shelf.
+curly|кудрявый|Her {curly} hair is difficult to brush.
+straight|прямой, о волосах|His hair is dark and {straight}.
+slim|стройный|This actor is {slim} and very fit.
+friendly|дружелюбный|Our new neighbour is {friendly} to everyone.
+quiet|тихий, немногословный|Leo is {quiet} in large groups.
+funny|смешной|Your story is really {funny}.
+kind|добрый|It was {kind} of you to help us.
+beard|борода|His {beard} is longer than his hair.
+# 6|Самочувствие и помощь
+headache|головная боль|I have a {headache} and need some rest.
+cough|кашель|This {cough} keeps me awake at night.
+cold|простуда|I have a {cold}, so I am staying home.
+fever|повышенная температура|The child has a {fever} of 38 degrees.
+sore throat|боль в горле|Warm water may help my {sore throat}.
+medicine|лекарство|Keep this {medicine} away from children.
+appointment|запись на приём|My doctor's {appointment} is at ten.
+rest|отдых|You need some {rest} after a busy week.
+better|лучше, о самочувствии|I feel much {better} this morning.
+hurt|болеть, причинять боль|Do your shoes {hurt} your feet?
+# 7|Эмоции и потребности
+happy|счастливый|I am {happy} to see my old friends.
+sad|грустный|She feels {sad} when her friend leaves.
+angry|сердитый|He is {angry} because someone broke his bike.
+worried|обеспокоенный|We are {worried} about the missing cat.
+excited|взволнованный от радости|The children are {excited} about the trip.
+bored|испытывающий скуку|I feel {bored} when there is nothing to do.
+tired|уставший|After the long walk, we were {tired}.
+hungry|голодный|Are you {hungry}, or can lunch wait?
+thirsty|испытывающий жажду|I am {thirsty}; may I have some water?
+proud|гордый|Her parents are {proud} of her work.
+# 8|Приветствия и добрые пожелания
+good afternoon|добрый день|We say {good afternoon} after lunch.
+good evening|добрый вечер|The host said {good evening} to the guests.
+see you soon|до скорой встречи|Thanks for visiting; {see you soon}!
+nice to meet you|приятно познакомиться|I'm Pavel; {nice to meet you}.
+welcome|добро пожаловать|Please come inside; {welcome} to our home.
+congratulations|поздравляю|You passed your exam; {congratulations}!
+good luck|удачи|Your test starts soon; {good luck}!
+well done|молодец, отлично сделано|You solved a difficult problem; {well done}!
+happy birthday|с днём рождения|Here is your present; {happy birthday}!
+take care|береги себя|Have a safe journey and {take care}.
+# 9|Реплики для живого разговора
+excuse me|извините, чтобы привлечь внимание|Please say {excuse me} before asking a stranger for help.
+never mind|ничего страшного|You cannot come today? {never mind}, we can meet tomorrow.
+of course|конечно|You can borrow my pen, {of course}.
+I agree|я согласен|That sounds like a good plan; {I agree}.
+I don't mind|я не против|Tea or coffee? {I don't mind}; either is fine.
+let's|давай, давайте|We have an hour, so {let's} take a walk.
+by the way|кстати|Nice photo; {by the way}, where was it taken?
+actually|на самом деле|I look tired, but {actually} I feel fine.
+anyway|в любом случае, возвращаясь к теме|It may rain; {anyway}, we still need to leave.
+perhaps|возможно|I am not sure; {perhaps} we can go on Friday.
+# 10|Еда на каждый день
+rice|рис|We eat {rice} with vegetables.
+potato|картофелина|There is one baked {potato} on my plate.
+carrot|морковь|Cut the {carrot} into small pieces.
+chicken|курятина|We are cooking {chicken} for dinner.
+cheese|сыр|Would you like some {cheese} on your toast?
+bread|хлеб|This bakery sells fresh {bread} every morning.
+egg|яйцо|I need one {egg} for this recipe.
+juice|сок|She drinks orange {juice} with breakfast.
+tea|чай|Would you like a cup of {tea}?
+water|вода|Please fill my bottle with {water}.
+# 11|Готовим на кухне
+fridge|холодильник|Keep the milk in the {fridge}.
+oven|духовка|The bread is baking in the {oven}.
+saucepan|кастрюля|Heat the soup in a small {saucepan}.
+frying pan|сковорода|We cook eggs in a {frying pan}.
+knife|нож|Use a sharp {knife} to cut the bread.
+fork|вилка|There is a {fork} beside your plate.
+spoon|ложка|Take a {spoon} for your soup.
+plate|тарелка|Put the sandwich on a clean {plate}.
+bowl|миска|Mix the ingredients in a large {bowl}.
+cupboard|кухонный шкаф|The cups are in the {cupboard} above the sink.
+# 12|Спальня и ванная
+pillow|подушка|This soft {pillow} helps me sleep.
+blanket|одеяло|Take another {blanket} if you feel cold.
+wardrobe|платяной шкаф|Hang your coat in the {wardrobe}.
+drawer|выдвижной ящик|My socks are in the bottom {drawer}.
+mirror|зеркало|She looked in the {mirror} before leaving.
+towel|полотенце|Dry your hands with this {towel}.
+shower|душ|I take a {shower} after exercise.
+toothbrush|зубная щётка|I keep my {toothbrush} beside the sink.
+soap|мыло|Wash your hands with {soap}.
+shampoo|шампунь|This {shampoo} is for dry hair.
+# 13|Уютная гостиная
+sofa|диван|Three people can sit on this {sofa}.
+armchair|кресло|Grandpa reads in his favourite {armchair}.
+carpet|ковёр|The children play on the soft {carpet}.
+curtains|шторы|Close the {curtains} when it gets dark.
+lamp|лампа|This {lamp} gives enough light for reading.
+bookshelf|книжная полка|Put the dictionary back on the {bookshelf}.
+remote control|пульт управления|I cannot change the channel without the {remote control}.
+cushion|диванная подушка|Put a {cushion} behind your back on the sofa.
+ceiling|потолок|The light hangs from the {ceiling}.
+floor|пол|Please pick your bag up from the {floor}.
+# 14|Люди и профессии
+nurse|медсестра или медбрат|A {nurse} helps look after patients.
+builder|строитель|The {builder} is repairing our roof.
+engineer|инженер|An {engineer} designs this kind of machine.
+receptionist|администратор на стойке|Ask the {receptionist} for your room key.
+shop assistant|продавец-консультант|The {shop assistant} helped me find my size.
+waiter|официант|The {waiter} brought us the menu.
+chef|шеф-повар|The {chef} prepares the restaurant's meals.
+driver|водитель|The bus {driver} waited for the last passenger.
+farmer|фермер|A {farmer} grows food and looks after animals.
+office|офис|Our {office} is on the third floor.
+# 15|Учёба и занятия
+subject|учебный предмет|History is my favourite {subject}.
+lesson|урок|Our next {lesson} starts at eleven.
+notebook|тетрадь|Write the new words in your {notebook}.
+homework|домашняя работа|I finish my {homework} before dinner.
+exam|экзамен|The final {exam} is in June.
+mark|оценка за работу|She got a good {mark} for her project.
+timetable|расписание занятий|Check the {timetable} to find your classroom.
+classmate|одноклассник|My {classmate} helped me with the task.
+library|библиотека|You can borrow books from the {library}.
+degree|университетская степень|He is studying for a {degree} in history.
+# 16|Компьютер и связь
+keyboard|клавиатура|Some letters on my {keyboard} do not work.
+screen|экран|The text on this {screen} is too small.
+password|пароль|Choose a strong {password} for your account.
+file|файл|Save the {file} before closing the program.
+folder|папка на компьютере|Put the photos in a new {folder}.
+attachment|вложение к письму|The email has a photo as an {attachment}.
+printer|принтер|The {printer} needs more paper.
+website|веб-сайт|Visit our {website} for more information.
+email address|адрес электронной почты|Please send me your {email address}.
+message|сообщение|I left a {message} for you yesterday.
+# 17|Телефон в повседневной жизни
+charger|зарядное устройство|My battery is low; where is my {charger}?
+app|мобильное приложение|This {app} shows the bus times.
+contact|контакт в телефоне|Save her number as a new {contact}.
+voicemail|голосовая почта|He did not answer, so I left a {voicemail}.
+ringtone|мелодия звонка|I changed my phone's {ringtone}.
+text|отправлять текстовое сообщение|Please {text} me when you arrive.
+signal|сигнал мобильной сети|There is no phone {signal} in this tunnel.
+mobile data|мобильный интернет|Turn off {mobile data} when you use Wi-Fi.
+missed call|пропущенный звонок|My phone shows a {missed call} from Anna.
+charge|заряжать|I need to {charge} my phone tonight.
+# 18|Планируем отпуск
+holiday|отпуск, каникулы|We are going on {holiday} in August.
+suitcase|чемодан|My {suitcase} is too heavy to lift.
+passport|паспорт для поездки|Check that your {passport} is still valid.
+visa|виза|You need a {visa} to enter that country.
+currency|валюта|What {currency} do people use there?
+travel insurance|туристическая страховка|We bought {travel insurance} before the trip.
+book|бронировать|We need to {book} our flights today.
+guidebook|путеводитель|This {guidebook} has a useful city map.
+sightseeing|осмотр достопримечательностей|We spent the morning {sightseeing}.
+beach|пляж|The hotel is five minutes from the {beach}.
+# 19|Покупки в городе
+bakery|булочная|The {bakery} opens early and sells warm rolls.
+chemist's|аптека в британском английском|You can buy this medicine at the {chemist's}.
+supermarket|супермаркет|We buy most of our food at the {supermarket}.
+receipt|кассовый чек|Keep your {receipt} if you want to return the item.
+cash|наличные|This small shop only accepts {cash}.
+change|сдача|Here is your {change}: two pounds.
+price|цена|The {price} includes delivery.
+sale|распродажа|I bought this coat in the winter {sale}.
+try on|примерять|May I {try on} these shoes?
+queue|очередь|There is a long {queue} at the checkout.
+# 20|Заказываем в интернете
+basket|корзина интернет-магазина|Add the headphones to your {basket}.
+checkout|оформление покупки|Enter your address at the online {checkout}.
+delivery|доставка|The {delivery} should arrive on Thursday.
+review|отзыв о товаре|Read a customer {review} before you order.
+refund|возврат денег|You can ask for a {refund} if the item is broken.
+return|возвращать товар|Can I {return} this shirt if it does not fit?
+order number|номер заказа|Please quote your {order number} when you contact us.
+in stock|в наличии|The blue model is {in stock} today.
+sold out|полностью распроданный|The tickets are {sold out}; none are left.
+address|почтовый адрес|Check your {address} before paying for delivery.
+# 21|Останавливаемся в гостинице
+reservation|бронирование|I have a {reservation} for two nights.
+single room|одноместный номер|A {single room} is enough for one guest.
+double room|номер с двуспальной кроватью|We booked a {double room} with one large bed.
+reception|стойка регистрации|Please leave your key at {reception}.
+key card|карта-ключ|Use your {key card} to open the room.
+luggage|багаж|We can leave our {luggage} here until noon.
+breakfast included|завтрак включён|The offer says {breakfast included}, so we need not pay extra.
+check in|регистрироваться при заселении|You can {check in} after two o'clock.
+check out|выезжать из гостиницы|We must {check out} before eleven.
+lift|лифт|Take the {lift} to the sixth floor.
+# 22|Обедаем вне дома
+menu|меню|Could we see the {menu}, please?
+starter|закуска перед основным блюдом|I chose soup as a {starter}.
+main course|основное блюдо|The fish is my {main course}.
+dessert|десерт|Would you like ice cream for {dessert}?
+bill|счёт в ресторане|Could we have the {bill}, please?
+tip|чаевые|We left a small {tip} for the waiter.
+still water|негазированная вода|I would like {still water}, without bubbles.
+sparkling water|газированная вода|She prefers {sparkling water} with lemon.
+table for two|столик на двоих|Do you have a {table for two} by the window?
+vegetarian|вегетарианский|Do you serve any {vegetarian} dishes without meat?
+# 23|Спорт и тренировки
+swimming|плавание|We go {swimming} at the indoor pool.
+cycling|езда на велосипеде|She enjoys {cycling} along the river.
+volleyball|волейбол|We play {volleyball} on the beach.
+tennis|теннис|You need a racket to play {tennis}.
+team|команда|Our {team} practises every Tuesday.
+match|спортивный матч|The football {match} starts at seven.
+score|счёт в игре|What is the {score} at half-time?
+win|побеждать|Both players want to {win} the game.
+lose|проигрывать|We sometimes {lose}, but we still enjoy playing.
+train|тренироваться|They {train} three times a week.
+# 24|Кино и истории на экране
+actor|актёр|The lead {actor} plays a young doctor.
+director|режиссёр|The {director} chose a quiet village for the film.
+comedy|комедия|This {comedy} made everyone laugh.
+thriller|триллер|The {thriller} was exciting and a little frightening.
+cartoon|мультфильм|My little cousin watches a {cartoon} after lunch.
+subtitles|субтитры|I watch films with English {subtitles}.
+plot|сюжет|The {plot} follows two friends on a journey.
+character|персонаж|My favourite {character} is the friendly robot.
+cinema|кинотеатр|The new film is showing at our local {cinema}.
+ticket|билет|You can buy a {ticket} at the door.
+# 25|Занятия для свободного вечера
+read|читать|I like to {read} before going to sleep.
+listen to music|слушать музыку|We often {listen to music} while cooking.
+gardening|садоводство|My aunt enjoys {gardening} on warm weekends.
+board game|настольная игра|Let's play a {board game} after dinner.
+paint|рисовать красками|She likes to {paint} landscapes.
+bake|печь|We sometimes {bake} biscuits together.
+knit|вязать|My friend can {knit} warm socks.
+relax|расслабляться|I need to {relax} after a busy day.
+programme|телепередача|There is a nature {programme} on tonight.
+hobby|хобби|Photography is my favourite {hobby}.
+# 26|Музыка и инструменты
+guitar|гитара|He plays the {guitar} in a small band.
+piano|пианино|There is an old {piano} in the music room.
+violin|скрипка|She practises the {violin} every evening.
+drums|ударная установка|The {drums} are too loud for this room.
+singer|певец|The {singer} has a clear, warm voice.
+band|музыкальная группа|Our {band} is playing at the school concert.
+concert|концерт|The {concert} finishes at nine.
+song|песня|I know the words to this {song}.
+classical music|классическая музыка|He listens to {classical music} while studying.
+jazz|джаз|This café plays {jazz} on Friday evenings.
+# 27|Страны, языки и национальности
+country|страна|Which {country} would you like to visit?
+capital|столица|Lisbon is the {capital} of Portugal.
+continent|континент|Africa is a large {continent}.
+language|язык общения|What {language} do you speak at home?
+British|британский|This {British} writer lives in Scotland.
+French|французский|We ordered bread from a {French} bakery.
+German|немецкий|She is learning {German} at school.
+Spanish|испанский|He can read a simple text in {Spanish}.
+Italian|итальянский|We had dinner at an {Italian} restaurant.
+Chinese|китайский|This book introduces some {Chinese} characters.
+# 28|Говорим о погоде
+sunny|солнечный|It is {sunny}, so we can eat outside.
+cloudy|облачный|The sky is {cloudy}, but it is not raining.
+windy|ветреный|It is too {windy} to use an umbrella.
+foggy|туманный|It was {foggy}, and we could not see the bridge.
+rain|дождь|The heavy {rain} stopped our picnic.
+snow|снег|Fresh {snow} covered the garden.
+storm|буря|The {storm} brought strong winds.
+temperature|температура воздуха|The {temperature} fell below zero last night.
+forecast|прогноз погоды|Check the weather {forecast} before leaving.
+freezing|морозный, очень холодный|It is {freezing}; put on a warm coat.
+# 29|Находим нужное место в городе
+post office|почтовое отделение|You can send the parcel from the {post office}.
+bank|банк|I need to visit the {bank} before it closes.
+station|станция|The train leaves from the central {station}.
+town hall|ратуша, здание администрации|The meeting is at the {town hall}.
+traffic lights|светофор|Turn left at the {traffic lights}.
+crossing|пешеходный переход|Use the {crossing} to get across the road.
+square|городская площадь|There is a fountain in the main {square}.
+corner|угол улицы|The café is on the {corner} of these two streets.
+straight ahead|прямо вперёд|Go {straight ahead} until you reach the park.
+opposite|напротив|The pharmacy is {opposite} the supermarket.
+# 30|За городом
+field|поле|There are sheep in that {field}.
+forest|лес|A narrow path runs through the {forest}.
+hill|холм|We climbed the small {hill} behind the village.
+river|река|The {river} flows into a large lake.
+lake|озеро|People sail on the {lake} in summer.
+path|тропинка|Follow this {path} to the picnic area.
+farm|ферма|They keep cows and chickens on their {farm}.
+village|деревня|Our {village} has only two shops.
+bridge|мост|Cross the wooden {bridge} over the stream.
+fresh air|свежий воздух|We opened the window to get some {fresh air}.
+# 31|Животные вокруг нас
+rabbit|кролик|The {rabbit} is eating a carrot.
+horse|лошадь|She rides a {horse} every weekend.
+sheep|овца|One {sheep} is standing beside the gate.
+cow|корова|The {cow} gives milk every day.
+duck|утка|A {duck} is swimming on the pond.
+fox|лиса|We saw a {fox} near the woods.
+giraffe|жираф|A {giraffe} has a very long neck.
+elephant|слон|The {elephant} picked up food with its trunk.
+pet|домашний питомец|Do you have a {pet} at home?
+wild|дикий|Please do not feed the {wild} animals.
+# 32|Дорога и транспорт
+platform|платформа на вокзале|Our train leaves from {platform} four.
+departure|отправление|The {departure} time is printed on your ticket.
+arrival|прибытие|Our {arrival} in Rome is at noon.
+flight|авиарейс|The morning {flight} to Oslo is delayed.
+boarding pass|посадочный талон|Show your {boarding pass} at the gate.
+return ticket|билет туда и обратно|A {return ticket} covers both journeys.
+seat|место для сидения|Is this {seat} beside the window free?
+journey|поездка из одного места в другое|The train {journey} takes three hours.
+change trains|делать пересадку на другой поезд|We need to {change trains} in York.
+delay|задержка|There is a twenty-minute {delay} because of the weather.
+# 33|Традиции и события в Британии
+public holiday|официальный нерабочий праздничный день|The banks are closed because it is a {public holiday}.
+fireworks|фейерверк|We watched the {fireworks} from the park.
+parade|парад, шествие|The {parade} moved slowly through the town.
+Christmas Eve|канун Рождества|Their family meets on {Christmas Eve}.
+pancake|блин|Would you like a {pancake} with lemon?
+roast dinner|ужин с запечённым мясом и гарниром|They cook a {roast dinner} on Sundays.
+tradition|традиция|Giving small gifts is a family {tradition}.
+celebration|празднование|The whole town joined the {celebration}.
+charity|благотворительная организация|The event raises money for a local {charity}.
+festival|фестиваль|There is a music {festival} in the town this weekend.
+# 34|Безопасность и закон
+thief|вор|The {thief} took a wallet from the bag.
+steal|красть|It is wrong to {steal} someone else's belongings.
+police officer|полицейский|Ask the {police officer} for help.
+report|сообщать о происшествии|Please {report} the lost passport to the police.
+witness|свидетель|A {witness} saw the whole accident.
+guilty|виновный|The court found the man {guilty}.
+innocent|невиновный|The woman was {innocent} of the crime.
+prison|тюрьма|The man spent a year in {prison}.
+lock|запирать|Remember to {lock} the door before leaving.
+safe|безопасный|Keep your money in a {safe} place.
+# 35|Новости и медиа
+newspaper|газета|He reads a {newspaper} with breakfast.
+magazine|журнал|This {magazine} has useful travel ideas.
+headline|новостной заголовок|The {headline} tells you the main news.
+journalist|журналист|A {journalist} interviewed the new mayor.
+channel|телеканал|Which {channel} shows the football match?
+news|новости|The evening {news} starts at six.
+advertisement|рекламное объявление|I saw an {advertisement} for this course.
+interview|интервью|The {interview} lasted about twenty minutes.
+article|статья|She wrote an {article} about local schools.
+weather report|выпуск прогноза погоды|The {weather report} comes after the news.
+# 36|Небольшие проблемы и решения
+broken|сломанный|This chair is {broken}; please do not sit on it.
+repair|ремонтировать|Can you {repair} my bicycle?
+leak|протечка|There is a {leak} under the kitchen sink.
+lost|потерянный|I found my {lost} keys in my coat.
+late|опоздавший|The bus was {late}, so I missed the start.
+untidy|неопрятный, неубранный|Your room is {untidy}; please put your clothes away.
+noise|шум|The loud {noise} woke the baby.
+stuck|застрявший|The key is {stuck} in the lock.
+run out of|исчерпать запас чего-либо|We must buy milk before we {run out of} it.
+solve|решать проблему|Let's try to {solve} the problem together.
+# 37|Мир и окружающая среда
+pollution|загрязнение|Heavy traffic causes air {pollution}.
+flood|наводнение|The {flood} covered several streets with water.
+earthquake|землетрясение|The {earthquake} damaged many buildings.
+drought|засуха|The long {drought} left the fields dry.
+rubbish|мусор|Please put your {rubbish} in the bin.
+recycle|перерабатывать отходы|We {recycle} glass and paper at home.
+energy|энергия|Turn off unused lights to save {energy}.
+protect|защищать|We need to {protect} the local forests.
+peace|мир, отсутствие войны|Everyone hopes for {peace}.
+homeless|бездомный|The charity helps {homeless} people find a safe place to sleep.
+# 38|Полезные сочетания с have
+have breakfast|завтракать|I usually {have breakfast} before eight.
+have lunch|обедать|We {have lunch} at a small café.
+have dinner|ужинать|They {have dinner} together after work.
+have a shower|принимать душ|I {have a shower} after swimming.
+have a rest|отдыхать некоторое время|You can {have a rest} on this bench.
+have a look|взглянуть|Please {have a look} at this photo.
+have a good time|хорошо проводить время|We always {have a good time} with our cousins.
+have a problem|иметь проблему|I {have a problem} with my laptop.
+have time|располагать временем|Do you {have time} for a quick call?
+have a cold|быть простуженным|I {have a cold}, so I cannot sing today.
+# 39|Полезные сочетания с go
+go home|идти домой|I want to {go home} before it gets dark.
+go shopping|ходить за покупками|We {go shopping} on Saturday mornings.
+go swimming|ходить плавать|Let's {go swimming} after class.
+go abroad|ездить за границу|They often {go abroad} in winter.
+go out|выходить куда-либо ради досуга|We sometimes {go out} for dinner.
+go away|уезжать на время|I want to {go away} for a few days.
+go for a walk|ходить на прогулку|We {go for a walk} after lunch.
+go by bus|ездить на автобусе|I {go by bus} when it rains.
+go to bed|ложиться спать|The children {go to bed} at nine.
+go on holiday|отправляться в отпуск|We {go on holiday} every summer.
+# 40|Полезные сочетания с do
+do homework|делать домашнюю работу|I prefer to {do homework} in the afternoon.
+do the washing-up|мыть посуду|We take turns to {do the washing-up} after dinner.
+do the shopping|делать необходимые покупки|Can you {do the shopping} on your way home?
+do exercise|заниматься физическими упражнениями|I try to {do exercise} every morning.
+do a course|проходить курс|She wants to {do a course} in photography.
+do your best|стараться изо всех сил|Just {do your best}; nobody expects a perfect answer.
+do a job|выполнять работу|It takes two people to {do a job} like this.
+do the cleaning|делать уборку|We {do the cleaning} on Friday afternoons.
+do nothing|ничего не делать|Sometimes I want to {do nothing} for an hour.
+do well|хорошо справляться|You can {do well} if you practise regularly.
+# 41|Полезные сочетания с make
+make breakfast|готовить завтрак|I {make breakfast} while my brother gets dressed.
+make coffee|готовить кофе|Can you {make coffee} for our guests?
+make a mistake|допускать ошибку|It is normal to {make a mistake} when you learn.
+make a noise|шуметь|Please do not {make a noise} near the sleeping baby.
+make friends|заводить друзей|Joining a club can help you {make friends}.
+make a plan|составлять план|Let's {make a plan} for the weekend.
+make a decision|принимать решение|We need to {make a decision} before Friday.
+make a cake|печь торт|I want to {make a cake} for her birthday.
+make money|зарабатывать деньги|They {make money} by repairing bicycles.
+make the bed|застилать кровать|I {make the bed} before leaving my room.
+# 42|Приходить, возвращаться, присоединяться
+come in|входить|The door is open; please {come in}.
+come back|возвращаться сюда|Will you {come back} after lunch?
+come from|быть родом из|Where do your grandparents {come from}?
+come home|приходить домой|I usually {come home} before six.
+come here|подойти сюда|Please {come here} and look at this map.
+come with us|пойти вместе с нами|Would you like to {come with us} to the café?
+come to visit|приезжать в гости|Our cousins often {come to visit} in summer.
+come early|приходить рано|Can you {come early} to help us prepare?
+come along|присоединяться, идти вместе|You can {come along} if you want to join us.
+come out|выходить наружу|The cat will {come out} when it is hungry.
+# 43|Полезные сочетания с take
+take a photo|делать фотографию|May I {take a photo} of this building?
+take the bus|ехать на автобусе|We can {take the bus} to the museum.
+take a break|делать перерыв|Let's {take a break} after this task.
+take an exam|сдавать экзамен|I will {take an exam} next week.
+take notes|делать записи|Please {take notes} during the talk.
+take a seat|присаживаться|Please {take a seat} by the window.
+take an umbrella|брать с собой зонт|You should {take an umbrella} today.
+take medicine|принимать лекарство|Always follow the instructions when you {take medicine}.
+take your time|не торопиться|You can {take your time}; we are not in a hurry.
+take a taxi|ехать на такси|We need to {take a taxi} to the airport.
+# 44|Приносить и уносить
+bring a friend|приводить друга|You can {bring a friend} to my party.
+bring lunch|приносить обед с собой|Please {bring lunch} to the workshop here tomorrow.
+bring a coat|приносить пальто с собой|It is cold here; {bring a coat} when you visit.
+bring it back|принести это обратно|Borrow my book, but {bring it back} on Friday.
+bring a bottle|приносить бутылку|Could you {bring a bottle} of water to our table?
+bring some food|приносить немного еды|Come to my flat and {bring some food} to share.
+take it away|унести это|I do not need this box; please {take it away}.
+take it home|унести это домой|You can {take it home} when you leave the office.
+bring your ticket|приносить с собой билет|When you come to our theatre, {bring your ticket}.
+take the rubbish out|выносить мусор|Please {take the rubbish out} before you go to bed.
+# 45|Полезные сочетания с get
+get up|вставать с постели|I {get up} early on weekdays.
+get dressed|одеваться|The children {get dressed} before breakfast.
+get tired|уставать|I {get tired} after a long day.
+get better|поправляться|I hope you {get better} soon.
+get lost|заблудиться|Take a map so that you do not {get lost}.
+get home|добираться домой|What time do you usually {get home}?
+get a job|получать работу|He hopes to {get a job} at the new café.
+get a message|получать сообщение|Did you {get a message} from Olga?
+get married|вступать в брак|They plan to {get married} in June.
+get on the bus|садиться в автобус|We can {get on the bus} at the next stop.
+# 46|Фразовые глаголы в быту
+turn on|включать|Please {turn on} the light; it is dark.
+turn off|выключать|Remember to {turn off} the oven.
+turn down|делать тише|Could you {turn down} the music?
+put on|надевать|Please {put on} your coat before going outside.
+take off|снимать с себя|You can {take off} your shoes at the door.
+pick up|поднимать|Please {pick up} that pen from the floor.
+look for|искать|I need to {look for} my missing keys.
+look after|присматривать за|Can you {look after} my cat this weekend?
+find out|выяснять|Let's {find out} when the museum opens.
+give up|бросать привычку или занятие|Learning is difficult, but do not {give up}.
+# 47|Повседневные дела
+wash clothes|стирать одежду|We {wash clothes} at the weekend.
+brush your teeth|чистить зубы|Remember to {brush your teeth} before bed.
+catch the bus|успевать на автобус|Hurry, or we will not {catch the bus}.
+walk the dog|выгуливать собаку|I {walk the dog} before breakfast.
+feed the cat|кормить кошку|Please {feed the cat} while I am away.
+water the plants|поливать растения|We {water the plants} twice a week.
+check emails|проверять электронную почту|I {check emails} when I arrive at work.
+watch TV|смотреть телевизор|We sometimes {watch TV} after dinner.
+meet friends|встречаться с друзьями|I like to {meet friends} at the weekend.
+go to work|идти на работу|I {go to work} at half past eight.
+# 48|Говорить, спрашивать, объяснять
+say hello|говорить «привет»|Always {say hello} when you enter the classroom.
+say thank you|говорить «спасибо»|Remember to {say thank you} for the gift.
+tell a story|рассказывать историю|Can you {tell a story} about your holiday?
+tell the truth|говорить правду|Please {tell the truth} about what happened.
+ask a question|задавать вопрос|You can {ask a question} at any time.
+ask for help|просить о помощи|Do not be afraid to {ask for help}.
+speak clearly|говорить чётко|Please {speak clearly} so everyone can hear.
+talk about|обсуждать, говорить о|Let's {talk about} our plans for tomorrow.
+explain|объяснять|Can you {explain} this word to me?
+answer|отвечать|You can {answer} the question in one sentence.
+# 49|Как мы перемещаемся
+walk|идти пешком|We can {walk} to the station in ten minutes.
+run|бежать|Do not {run} across the busy road.
+drive|водить автомобиль|Can you {drive} a car with a manual gearbox?
+ride a bike|ездить на велосипеде|I learned to {ride a bike} when I was seven.
+fly|лететь на самолёте|We plan to {fly} to Madrid next month.
+sail|плавать под парусом|They {sail} on the lake every summer.
+climb|взбираться|Do not {climb} that tree; the branches are weak.
+jump|прыгать|The dog can {jump} over this low fence.
+arrive|прибывать|What time will the guests {arrive}?
+leave|уезжать, покидать место|We need to {leave} before the last bus goes.
+# 50|Связываем мысли
+because|потому что|We stayed inside {because} it was raining.
+but|но|The bag is small, {but} it holds many books.
+and|и|I bought bread {and} cheese.
+or|или|Would you like tea {or} coffee?
+so|поэтому|I was tired, {so} I went to bed early.
+although|хотя|We went for a walk {although} it was cold.
+before|прежде чем|Check the address {before} you send the parcel.
+after|после того как|We can eat {after} everyone arrives.
+when|когда|Call me {when} you get home.
+if|если|We will eat outside {if} the weather is good.
+# 51|Календарь и времена года
+Monday|понедельник|The shop is closed on {Monday}.
+Wednesday|среда|Our next lesson is on {Wednesday}.
+Friday|пятница|We usually meet after work on {Friday}.
+January|январь|The new year begins in {January}.
+April|апрель|Her birthday is in {April}.
+August|август|Many people take a holiday in {August}.
+spring|весна|Flowers start to grow in {spring}.
+summer|лето|The days are long in {summer}.
+autumn|осень|The leaves turn yellow in {autumn}.
+winter|зима|We sometimes go skiing in {winter}.
+# 52|Частота и время
+always|всегда|I {always} lock the door when I leave.
+usually|обычно|We {usually} have lunch at one, but not today.
+often|часто|I {often} visit this café during the week.
+sometimes|иногда|We {sometimes} eat outside when it is warm.
+never|никогда|He {never} drinks coffee because he dislikes it.
+once a week|раз в неделю|Our club meets {once a week}, every Tuesday.
+twice a month|дважды в месяц|I visit my grandparents {twice a month}.
+yesterday|вчера|I finished the book {yesterday}.
+tomorrow|завтра|The next lesson is {tomorrow}.
+next year|в следующем году|We plan to move house {next year}.
+# 53|Где находится предмет
+in the middle|в середине|Put the vase {in the middle} of the table.
+at the front|в передней части|The driver sits {at the front} of the bus.
+at the back|в задней части|There are empty seats {at the back} of the classroom.
+inside|внутри|It is raining, so wait {inside} the building.
+outside|снаружи|The children are playing {outside} in the garden.
+upstairs|на верхнем этаже|The bedrooms are {upstairs}.
+downstairs|на нижнем этаже|The kitchen is {downstairs}.
+near|рядом с|The hotel is {near} the station.
+between|между|The bank is {between} the café and the library.
+abroad|за границей|She is studying {abroad} this year.
+# 54|Как выполняется действие
+slowly|медленно|Please speak {slowly}; I am still learning.
+quickly|быстро|We must finish {quickly} before the shop closes.
+carefully|осторожно, внимательно|Read the instructions {carefully} before starting.
+quietly|тихо|Please close the door {quietly}; the baby is asleep.
+loudly|громко|He spoke {loudly} because the room was noisy.
+well|хорошо, об умении|She plays the piano very {well}.
+badly|плохо, о выполнении действия|Our team played {badly} yesterday.
+together|вместе|We cooked dinner {together}.
+alone|в одиночку|I prefer not to walk home {alone} at night.
+on purpose|намеренно|It was an accident; I did not do it {on purpose}.
+# 55|Слова, которые не считают поштучно
+information|информация|Where can I find more {information} about the course?
+advice|совет, советы как неисчисляемое слово|Could you give me some {advice} about this problem?
+furniture|мебель|The room has very little {furniture}.
+luggage|багаж|How much {luggage} can we take on the plane?
+money|деньги|I need to save some {money} for the trip.
+news|новости как неисчисляемое слово|I have some good {news} for you.
+homework|домашняя работа как неисчисляемое слово|We have a lot of {homework} tonight.
+traffic|дорожное движение|There is heavy {traffic} near the station.
+rice|рис как неисчисляемое слово|Would you like some {rice} with your vegetables?
+equipment|оборудование|The gym has some new {equipment}.
+# 56|Оцениваем и сравниваем
+excellent|отличный|Your presentation was {excellent}; everyone understood it.
+awful|ужасный|The weather was {awful}, with heavy rain all day.
+lovely|прекрасный, милый|We had a {lovely} afternoon in the garden.
+boring|скучный|The film was so {boring} that I nearly fell asleep.
+interesting|интересный|That is an {interesting} question about language.
+difficult|трудный|This exercise is {difficult}, but I want to try.
+easy|лёгкий по сложности|The first task is {easy}; it takes one minute.
+useful|полезный|This map is very {useful} in a new city.
+expensive|дорогой по цене|The jacket is too {expensive} for me.
+cheap|дешёвый|The tickets were {cheap}, so we bought two.
+# 57|Сочетания с предлогами
+wait for|ждать кого-либо|I will {wait for} you by the entrance.
+listen to|слушать что-либо|Please {listen to} the instructions.
+look at|смотреть на|Can you {look at} this photo?
+ask for|просить что-либо|You can {ask for} a different table.
+belong to|принадлежать кому-либо|These keys {belong to} my neighbour.
+good at|хорошо умеющий что-либо|She is {good at} drawing animals.
+interested in|интересующийся чем-либо|I am {interested in} local history.
+afraid of|боящийся чего-либо|The dog is {afraid of} loud noises.
+proud of|гордящийся чем-либо|We are {proud of} our team's work.
+different from|отличающийся от|Your answer is {different from} mine.
+# 58|Меняем значение приставкой
+unhappy|несчастный|He felt {unhappy} when his friend moved away.
+unusual|необычный|That is an {unusual} colour for a kitchen.
+unfriendly|недружелюбный|The receptionist was {unfriendly} and did not smile.
+uncomfortable|неудобный|This chair is {uncomfortable} for long meetings.
+unsafe|небезопасный|The old bridge is {unsafe}; do not cross it.
+impossible|невозможный|Finishing all this work in one minute is {impossible}.
+incorrect|неправильный|The number on the form is {incorrect}.
+disagree|не соглашаться|I {disagree} with that opinion.
+dislike|не любить|I {dislike} very hot weather.
+rewrite|переписывать заново|Please {rewrite} the last sentence more clearly.
+# 59|Собираем новые слова суффиксом
+teacher|учитель|Our {teacher} explains new words clearly.
+swimmer|пловец|She is a strong {swimmer}.
+worker|работник|Each {worker} has a separate locker.
+useful|полезный|This small bag is {useful} for short trips.
+useless|бесполезный|A broken umbrella is {useless} in the rain.
+careful|осторожный, внимательный|Be {careful} with that hot pan.
+careless|небрежный|A {careless} mistake changed the answer.
+sunny|солнечный|We chose a {sunny} spot for our picnic.
+cloudy|облачный|It was {cloudy}, so we could not see the stars.
+reader|читатель|A good {reader} checks unfamiliar words in context.
+# 60|Похожие слова: выбираем точное
+borrow|брать взаймы|May I {borrow} your dictionary until tomorrow?
+lend|давать взаймы|Could you {lend} me a pen for a minute?
+teach|обучать кого-либо|She wants to {teach} young children.
+learn|учиться чему-либо|I want to {learn} a new language.
+quiet|тихий|Please be {quiet} in the library.
+quite|довольно, достаточно|This room is {quite} warm, so open the window.
+cook|повар|The {cook} prepares lunch for the staff.
+cooker|кухонная плита|The {cooker} has four gas rings.
+bring|приносить сюда|Please {bring} the books here to my desk.
+take|относить туда|Please {take} these books to the office across the road.

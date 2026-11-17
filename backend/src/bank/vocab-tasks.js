@@ -30,6 +30,7 @@ const safe = (s) => s.replace(/[[\]|]/g, '');
 function vocabTasks() {
   const out = [];
   for (const book of BOOKS) {
+    if(book.rich_vocab)continue;
     for (const unit of book.units) {
       const topics = topicsOf(book.id, unit.code);
       topics.forEach(({ topic, words }, ti) => {

@@ -4,6 +4,8 @@ import { useLoad, Spinner, ErrorBox, Empty, Bar, Link, Badge } from '../../ui';
 import { relativeDay } from '../../format';
 import { MotivationCard } from '../../components/Motivation';
 import Recommendations from '../../components/Recommendations';
+import LanguageProgress from '../../components/LanguageProgress';
+import SupplementaryCourses from '../../components/SupplementaryCourses';
 import { SKILLS, shortDate, monthName, plural } from '../../format';
 
 export default function ClientProgress({ student }) {
@@ -29,6 +31,8 @@ export default function ClientProgress({ student }) {
           <div className="lead">Всё, что уже получилось: слова, упражнения, задания и курс. Обновляется само после каждого урока и задания.</div>
         </div>
       </div>
+      <LanguageProgress key={student.id} student={student}/>
+      <SupplementaryCourses key={`courses:${student.id}`} student={student}/>
       <MotivationCard studentId={student.id} />
       <Recommendations studentId={student.id} />
       <Achievements d={d} />
@@ -63,7 +67,7 @@ export default function ClientProgress({ student }) {
 
         <div className="stack">
           <section className="panel">
-            <h2 className="section-title">Пройдено</h2>
+            <h2 className="section-title">Пройдено тем программы</h2>
             <div className="big-number num" style={{ margin: '12px 0 10px' }}>{d.completion}%</div>
             <Bar value={d.completion} />
             <div className="stack" style={{ gap: 12, marginTop: 22 }}>

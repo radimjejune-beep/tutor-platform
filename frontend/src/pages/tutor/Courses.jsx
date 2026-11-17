@@ -7,6 +7,7 @@ import { useLoad, Spinner, ErrorBox, Empty, Icon, Link, navigate, Modal, Field, 
 import { ImportButton, TaskPicker, PickedTasks } from './Library';
 import { parseWordLines } from '../../components/Vocab';
 import { plural } from '../../format';
+import {CourseTemplates} from '../../components/SupplementaryCourses';
 
 export function CoursesList() {
   const list = useLoad(() => api.courses(), []);
@@ -25,6 +26,7 @@ export function CoursesList() {
         </div>
       </div>
 
+      <CourseTemplates/>
       <section className="panel">
         {list.loading && <Spinner />}
         {list.error && <ErrorBox error={list.error} onRetry={list.reload} />}
@@ -158,7 +160,7 @@ export function CourseEditor({ id }) {
 
         <section className="panel">
           <h2 className="section-title" style={{ marginBottom: 12 }}>Ученики на курсе</h2>
-          {!c.students.length && <p className="muted small" style={{ margin: 0 }}>Запишите ученика во вкладке «Курс» в его карточке.</p>}
+          {!c.students.length && <p className="muted small" style={{ margin: 0 }}>Подключите курс во вкладке «Курс» ученика: как основной учебник или как дополнительную практику.</p>}
           <div className="list">
             {c.students.map((s) => {
               const u = c.units.find((x) => x.id === s.course_unit_id);
@@ -166,7 +168,7 @@ export function CourseEditor({ id }) {
                 <Link key={s.id} to={`/students/${s.id}/course`} className="list-item">
                   <div className="list-main">
                     <div className="list-title">{s.full_name}</div>
-                    <div className="list-sub">{u ? [u.code, u.title].filter(Boolean).join(' ') : 'Юнит не выбран'}</div>
+                    <div className="list-sub">{s.supplementary?'Дополнительная практика':u ? [u.code, u.title].filter(Boolean).join(' ') : 'Юнит не выбран'}</div>
                   </div>
                 </Link>
               );
