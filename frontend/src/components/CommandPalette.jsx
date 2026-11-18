@@ -4,11 +4,36 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api';
 import { Icon, navigate } from '../ui';
 import { NewLessonModal, PaymentModal, StudentModal } from '../pages/tutor/modals';
+import { useNavigationHistory } from './NavigationHistory';
 
 const norm = (s) => s.toLowerCase().replace(/ё/g, 'е');
 
 // Каждое слово запроса должно найтись в тексте команды
 const match = (q, text) => norm(q).split(/\s+/).filter(Boolean).every((w) => norm(text).includes(w));
+
+// Синонимы для умного поиска
+const SYNONYMS = {
+  'оплата': ['доход', 'финансы', 'деньги', 'платеж'],
+  'урок': ['занятие', 'lesson'],
+  'задание': ['homework', 'дз'],
+  'ученик': ['student'],
+  'расписание': ['уроки', 'schedule'],
+  'словарь': ['слова', 'карточки', 'words'],
+};
+
+const expandQuery = (q) => {
+  const words = norm(q).split(/\s+/).filter(Boolean);
+  const expanded = new Set(words);
+  words.forEach(w => {
+    Object.entries(SYNONYMS).forEach(([key, syns]) => {
+      if (w.includes(key) || syns.some(s => w.includes(s))) {
+        expanded.add(key);
+        syns.forEach(s => expanded.add(s));
+      }
+    });
+  });
+  return Array.from(expanded).join(' ');
+};
 
 export function usePaletteHotkey(setOpen) {
   useEffect(() => {
@@ -35,6 +60,7 @@ export default function CommandPalette({ open, onClose, role, nav }) {
   const input = useRef(null);
   const list = useRef(null);
   const tutor = role === 'tutor';
+  const { recent } = useNavigationHistory();
 
   useEffect(() => {
     if (!open) return;
@@ -49,13 +75,27 @@ export default function CommandPalette({ open, onClose, role, nav }) {
   const commands = useMemo(() => {
     const go = (to) => () => navigate(to);
     const out = [];
+
+    // Недавние страницы (только если есть история и нет запроса)
+    if (!q.trim() && recent.length > 0) {
+      const recentItems = recent.slice(0, 5).map(path => {
+        const navItem = nav.find(n => n.to === path || path.startsWith(n.to + '/'));
+        if (navItem) {
+          return { group: 'Недавние', icon: navItem.icon, label: navItem.label, run: go(path), path };
+        }
+        return null;
+      }).filter(Boolean);
+      out.push(...recentItems);
+    }
+
     // Разделы
     for (const n of nav) out.push({ group: 'Разделы', icon: n.icon, label: n.label, run: go(n.to) });
+
     if (tutor) {
       out.push(
-        { group: 'Действия', icon: 'plus', label: 'Новое занятие', run: () => setModal({ type: 'lesson' }) },
-        { group: 'Действия', icon: 'book', label: 'Новое задание', run: go('/homework/new') },
-        { group: 'Действия', icon: 'users', label: 'Новый ученик', run: () => setModal({ type: 'student' }) },
+        { group: 'Действия', icon: 'plus', label: 'Новое занятие', run: () => setModal({ type: 'lesson' }), keywords: 'урок lesson создать' },
+        { group: 'Действия', icon: 'book', label: 'Новое задание', run: go('/homework/new'), keywords: 'дз homework' },
+        { group: 'Действия', icon: 'users', label: 'Новый ученик', run: () => setModal({ type: 'student' }), keywords: 'student' },
         { group: 'Действия', icon: 'users', label: 'Группы', run: go('/groups') },
         { group: 'Действия', icon: 'library', label: 'Новое упражнение', run: go('/library/new?kind=game') },
         { group: 'Действия', icon: 'play', label: 'Загрузить HTML-урок', run: go('/library/new?kind=html') },
@@ -63,11 +103,11 @@ export default function CommandPalette({ open, onClose, role, nav }) {
       for (const s of data.students) {
         const first = s.full_name;
         out.push(
-          { group: 'Ученики', icon: 'users', label: s.full_name, hint: [s.level, s.textbook].filter(Boolean).join(', '), run: go(`/students/${s.id}`) },
-          { group: 'Ученики', icon: 'plus', label: `Занятие: ${first}`, run: () => setModal({ type: 'lesson', studentId: s.id }), secondary: true },
-          { group: 'Ученики', icon: 'book', label: `Задание: ${first}`, run: go(`/homework/new?student=${s.id}`), secondary: true },
-          { group: 'Ученики', icon: 'wallet', label: `Оплата: ${first}`, run: () => setModal({ type: 'payment', student: s }), secondary: true },
-          { group: 'Ученики', icon: 'cards', label: `Словарь: ${first}`, run: go(`/students/${s.id}/words`), secondary: true },
+          { group: 'Ученики', icon: 'users', label: s.full_name, hint: [s.level, s.textbook].filter(Boolean).join(', '), run: go(`/students/${s.id}`), keywords: s.login },
+          { group: 'Ученики', icon: 'plus', label: `Занятие: ${first}`, run: () => setModal({ type: 'lesson', studentId: s.id }), secondary: true, keywords: 'урок lesson' },
+          { group: 'Ученики', icon: 'book', label: `Задание: ${first}`, run: go(`/homework/new?student=${s.id}`), secondary: true, keywords: 'дз homework' },
+          { group: 'Ученики', icon: 'wallet', label: `Оплата: ${first}`, run: () => setModal({ type: 'payment', student: s }), secondary: true, keywords: 'деньги финансы' },
+          { group: 'Ученики', icon: 'cards', label: `Словарь: ${first}`, run: go(`/students/${s.id}/words`), secondary: true, keywords: 'слова карточки' },
           { group: 'Ученики', icon: 'layers', label: `Курс: ${first}`, run: go(`/students/${s.id}/course`), secondary: true },
         );
       }
@@ -76,16 +116,24 @@ export default function CommandPalette({ open, onClose, role, nav }) {
       }
     } else {
       out.push(
-        { group: 'Действия', icon: 'play', label: 'Повторить слова', run: go('/words') },
-        { group: 'Действия', icon: 'calendar', label: 'Записаться или перенести занятие', run: go('/schedule') },
+        { group: 'Действия', icon: 'play', label: 'Повторить слова', run: go('/words'), keywords: 'словарь карточки' },
+        { group: 'Действия', icon: 'calendar', label: 'Записаться или перенести занятие', run: go('/schedule'), keywords: 'урок расписание' },
       );
     }
     return out;
-  }, [nav, tutor, data]);
+  }, [nav, tutor, data, q, recent]);
 
-  // Без запроса: разделы и действия; с запросом — всё, где совпали слова (подкоманды учеников только по запросу)
+  // Умный поиск с синонимами
   const shown = useMemo(() => {
-    const list2 = q.trim() ? commands.filter((c) => match(q, `${c.label} ${c.hint || ''}`)) : commands.filter((c) => !c.secondary && c.group !== 'Ученики' && c.group !== 'Группы');
+    if (!q.trim()) {
+      return commands.filter((c) => !c.secondary && (c.group === 'Недавние' || c.group !== 'Ученики' && c.group !== 'Группы'));
+    }
+
+    const expandedQ = expandQuery(q);
+    const list2 = commands.filter((c) => {
+      const searchText = `${c.label} ${c.hint || ''} ${c.keywords || ''}`;
+      return match(q, searchText) || match(expandedQ, searchText);
+    });
     return list2.slice(0, 40);
   }, [q, commands]);
 
@@ -128,7 +176,7 @@ export default function CommandPalette({ open, onClose, role, nav }) {
               {shown.map((c, i) => {
                 const head = c.group !== lastGroup ? (lastGroup = c.group) : null;
                 return (
-                  <div key={`${c.group}-${c.label}`}>
+                  <div key={`${c.group}-${c.label}-${i}`}>
                     {head && <div className="palette-group">{head}</div>}
                     <button role="option" aria-selected={i === sel} className="palette-item" onMouseEnter={() => setSel(i)} onClick={() => run(c)}>
                       <Icon name={c.icon} size={17} />

@@ -1,10 +1,12 @@
 // Shell.jsx — каркас кабинета: боковое меню (компьютер) и нижнее меню (телефон)
 import { useAuth } from './auth';
 import { BRAND } from './config';
-import { createContext, Fragment, useContext, useLayoutEffect, useState } from 'react';
+import { createContext, Fragment, useContext, useLayoutEffect, useState, useEffect } from 'react';
 import { Icon, Link, goBack, navigate } from './ui';
 import NotificationBell from './components/Notifications';
 import CommandPalette, { usePaletteHotkey } from './components/CommandPalette';
+import { Breadcrumbs } from './components/Breadcrumbs';
+import { navHistory } from './components/NavigationHistory';
 
 const ROLE_LABEL = { tutor: 'Преподаватель', student: 'Ученик', parent: 'Родитель' };
 
@@ -95,7 +97,17 @@ export function Shell({ nav, path, counts = {}, children }) {
   const { user, logout } = useAuth();
   const [palette, setPalette] = useState(false);
   const [ownBack, setOwnBack] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState({});
   usePaletteHotkey(setPalette);
+
+  // Записываем историю навигации
+  useEffect(() => {
+    navHistory.push(path);
+  }, [path]);
+
+  const toggleGroup = (group) => {
+    setCollapsedGroups(prev => ({ ...prev, [group]: !prev[group] }));
+  };
 
   return (
     <div className="shell">
@@ -106,23 +118,39 @@ export function Shell({ nav, path, counts = {}, children }) {
         </div>
 
         <div className="side-tools">
-          <button className="search-btn" onClick={() => setPalette(true)}>
+          <button className="search-btn" onClick={() => setPalette(true)} title="Быстрый поиск (Ctrl+K)">
             <Icon name="search" size={16} /> <span>Поиск</span> <kbd>Ctrl K</kbd>
           </button>
           <NotificationBell path={path} />
         </div>
 
         <nav className="nav" aria-label="Разделы">
-          {nav.map((item, i) => (
-            <Fragment key={item.to}>
-            {item.group && item.group !== nav[i - 1]?.group && <div className="nav-group">{item.group}</div>}
-            <Link to={item.to} className={isActive(path, item.to) ? 'active' : ''}>
-              <Icon name={item.icon} />
-              {item.label}
-              {counts[item.countKey] > 0 && <span className="count">{counts[item.countKey]}</span>}
-            </Link>
-            </Fragment>
-          ))}
+          {nav.map((item, i) => {
+            const showGroupHeader = item.group && item.group !== nav[i - 1]?.group;
+            const isCollapsed = collapsedGroups[item.group];
+
+            return (
+              <Fragment key={item.to}>
+                {showGroupHeader && (
+                  <button
+                    className="nav-group-toggle"
+                    onClick={() => toggleGroup(item.group)}
+                    aria-expanded={!isCollapsed}
+                  >
+                    <Icon name={isCollapsed ? 'chevron-right' : 'chevron-down'} size={14} />
+                    <span className="nav-group-label">{item.group}</span>
+                  </button>
+                )}
+                {!isCollapsed && (
+                  <Link to={item.to} className={isActive(path, item.to) ? 'active' : ''}>
+                    <Icon name={item.icon} />
+                    {item.label}
+                    {counts[item.countKey] > 0 && <span className="count">{counts[item.countKey]}</span>}
+                  </Link>
+                )}
+              </Fragment>
+            );
+          })}
         </nav>
 
         {user.role === 'tutor' && (
@@ -166,7 +194,13 @@ export function Shell({ nav, path, counts = {}, children }) {
         </header>
 
         <BackCtx.Provider value={setOwnBack}>
-          <main className="content"><BackBar path={path} hidden={ownBack} />{children}</main>
+          <main className="content">
+            <div className="content-nav">
+              <BackBar path={path} hidden={ownBack} />
+              <Breadcrumbs path={path} />
+            </div>
+            {children}
+          </main>
         </BackCtx.Provider>
         <CommandPalette open={palette} onClose={() => setPalette(false)} role={user.role} nav={nav} />
 
