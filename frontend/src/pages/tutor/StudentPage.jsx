@@ -1,4 +1,4 @@
-import { BackLink } from '../../Shell';
+import { BackLink, BreadcrumbEntity } from '../../Shell';
 // pages/tutor/StudentPage.jsx — карточка ученика с вкладками
 import { useState } from 'react';
 import { subjectInfo } from '../../subjects';
@@ -46,6 +46,7 @@ export default function StudentPage({ id, tab }) {
 
   return (
     <>
+      <BreadcrumbEntity path={`/students/${s.id}`} label={s.full_name}/>
       <BackLink to="/students">Ученики</BackLink>
       <div className="page-head">
         <div>

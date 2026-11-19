@@ -44,7 +44,7 @@ export const CLIENT_NAV = [
 
 // Активный пункт: точное совпадение для главной, по началу пути для остальных
 const isActive = (path, to) =>
-  to === '/' ? path === '/' : path === to || path.startsWith(`${to}/`) || (to === '/students' && path.startsWith('/groups'));
+  to === '/' ? path === '/' : path === to || path.startsWith(`${to}/`) || (to === '/students' && path.startsWith('/groups')) || (to==='/market' && (path.startsWith('/marketplace')||path.startsWith('/learn-course')));
 
 // Куда ведёт «Назад» со страницы, если в кабинете ещё не было переходов. null: кнопка не нужна (раздел верхнего уровня или вкладка)
 const TABS = { library: ['theory', 'games', 'lessons', 'books', 'tasks'], market: ['mine'], finance: ['pricing'] };
@@ -69,6 +69,12 @@ export function parentOf(rawPath) {
 // Своя кнопка «Назад» на странице (с подписью раздела). Пока она есть, общая из каркаса не показывается.
 // Обе возвращают туда, откуда пришли, а при открытии по прямой ссылке ведут в раздел to.
 const BackCtx = createContext(null);
+const BreadcrumbNames = createContext(null);
+export function BreadcrumbEntity({path,label}) {
+  const set=useContext(BreadcrumbNames);
+  useEffect(()=>{if(!set||!label)return;set(prev=>({...prev,[path]:label}));return()=>set(prev=>{if(prev[path]!==label)return prev;const next={...prev};delete next[path];return next;});},[set,path,label]);
+  return null;
+}
 export function BackLink({ to, children }) {
   const mark = useContext(BackCtx);
   useLayoutEffect(() => {
@@ -98,12 +104,11 @@ export function Shell({ nav, path, counts = {}, children }) {
   const [palette, setPalette] = useState(false);
   const [ownBack, setOwnBack] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState({});
+  const [entities,setEntities]=useState({});
   usePaletteHotkey(setPalette);
 
-  // Записываем историю навигации
-  useEffect(() => {
-    navHistory.push(path);
-  }, [path]);
+  useLayoutEffect(()=>{navHistory.clear();return()=>navHistory.clear();},[user.id,user.role,user.context]);
+  useEffect(()=>{navHistory.push(path);},[path,user.id,user.role,user.context]);
 
   const toggleGroup = (group) => {
     setCollapsedGroups(prev => ({ ...prev, [group]: !prev[group] }));
@@ -197,9 +202,9 @@ export function Shell({ nav, path, counts = {}, children }) {
           <main className="content">
             <div className="content-nav">
               <BackBar path={path} hidden={ownBack} />
-              <Breadcrumbs path={path} />
+              <Breadcrumbs path={path} entities={entities} />
             </div>
-            {children}
+            <BreadcrumbNames.Provider value={setEntities}>{children}</BreadcrumbNames.Provider>
           </main>
         </BackCtx.Provider>
         <CommandPalette open={palette} onClose={() => setPalette(false)} role={user.role} nav={nav} />

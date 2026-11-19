@@ -26,6 +26,7 @@ export function CoursesList() {
         </div>
       </div>
 
+<section className="panel"><div className="row wrap"><Link className="btn btn-secondary" to="/marketplace/mine">Купленные курсы</Link><Link className="btn btn-secondary" to="/marketplace">Курсы Lessonfold</Link></div></section>
       <CourseTemplates/>
       <section className="panel">
         {list.loading && <Spinner />}

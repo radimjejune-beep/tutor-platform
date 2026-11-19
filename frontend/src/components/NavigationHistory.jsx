@@ -55,7 +55,7 @@ class NavigationHistory {
   }
 
   notify() {
-    this.listeners.forEach(l => l(this.history));
+    this.listeners.forEach(l => l([...this.history]));
   }
 
   clear() {

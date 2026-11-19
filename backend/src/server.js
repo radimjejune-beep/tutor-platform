@@ -31,7 +31,7 @@ app.use(helmet());
 // Обычные запросы — до 200 КБ; загрузка файлов (/api/files) разбирается отдельно, до 15 МБ
 const smallJson = express.json({ limit: '200kb' });
 // Большие запросы разбираются в своих маршрутах: файлы (до 15 МБ) и импорт библиотеки (до 2 МБ)
-const BIG_BODY = ['/api/files', '/api/library', '/api/learning'];
+const BIG_BODY = ['/api/files', '/api/library', '/api/learning', '/api/marketplace'];
 // Сравнение по целому сегменту пути: /api/library-folders и /api/library-books сюда не попадают
 app.use((req, res, next) => (BIG_BODY.some((p) => req.path === p || req.path.startsWith(`${p}/`)) ? next() : smallJson(req, res, next)));
 
@@ -67,6 +67,7 @@ app.use('/api/sandbox', require('./routes/sandbox').publicRouter);
 // Страница записи для новых учеников — тоже без входа
 app.use('/api/public', require('./routes/leads').publicRouter);
 // Тарифы для главной страницы
+app.use('/api/marketplace/public', require('./routes/marketplace').publicRouter);
 app.use('/api/plans', require('./routes/plans').publicRouter);
 // Витрина уроков для главной страницы до входа (берётся из магазина Lessonfold, если он включён)
 // Сисадмин платформы открывает админку магазина без отдельного пароля
@@ -136,6 +137,8 @@ protectedApi.use('/groups', require('./routes/groups'));
 protectedApi.use('/admin', require('./routes/admin'));
 protectedApi.use('/motivation', require('./routes/motivation'));
 protectedApi.use('/leads', require('./routes/leads').router);
+protectedApi.use('/marketplace', require('./routes/marketplace').router);
+protectedApi.use('/billing', require('./routes/payments'));
 protectedApi.use('/market', require('./routes/market'));
 protectedApi.use('/wordsets', require('./routes/wordsets'));
 protectedApi.use('/announcements', require('./routes/announcements'));

@@ -71,11 +71,14 @@ function effective(row) {
 const cache = new Map();
 async function planOf(tutorId) {
   if (!tutorId) return effective(null);
-  const hit = cache.get(tutorId);
-  if (hit && hit.at > Date.now() - 60 * 1000 && (!hit.plan.until || new Date(hit.plan.until) > new Date())) return hit.plan;
   await ensure();
   const { rows } = await query('SELECT id, is_admin, plan, plan_until FROM users WHERE id = $1', [tutorId]);
-  const plan = effective(rows[0]);
+  const row=rows[0];let plan=effective(row);
+  const grants=(await query('SELECT starts_at,ends_at FROM billing_grants WHERE tutor_id=$1 AND revoked_at IS NULL ORDER BY starts_at',[tutorId])).rows;
+  if(row && !row.is_admin && !(['tutor','pro'].includes(row.plan)&&!row.plan_until)){
+   const now=new Date(),until=require('../../lessonfold/src/commerce').paidUntil(row,grants,now);
+   if(until>now && grants.some(g=>new Date(g.starts_at)<=until&&new Date(g.ends_at)>now))plan={...PLANS.tutor,trial:false,until:until.toISOString(),admin:false};
+  }
   cache.set(tutorId, { at: Date.now(), plan });
   return plan;
 }

@@ -28,6 +28,7 @@ export default function ClientHome({ student, isParent }) {
 
   return (
     <>
+      <section className="panel"><Link className="btn btn-secondary" to="/marketplace/mine">Мои курсы и дополнительные занятия</Link></section>
       <div className="page-head">
         <div>
           <h1 className="page-title">{isParent ? firstName : `Привет, ${firstName}`}</h1>

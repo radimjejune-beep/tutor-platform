@@ -113,7 +113,7 @@ function lessonFacts(text) {
 // Выручка за месяц по авторам. Пакет и курс делятся поровну между входящими уроками.
 async function authorReport(month) {
   const from = `${month}-01`;
-  const site = await db.q(`SELECT sku, amount_rub FROM orders WHERE status = 'paid' AND paid_at >= $1::date AND paid_at < ($1::date + interval '1 month')`, [from]);
+  const site = await db.q(`SELECT sku, amount_rub FROM orders WHERE kind='lesson' AND status = 'paid' AND paid_at >= $1::date AND paid_at < ($1::date + interval '1 month')`, [from]);
   const bot = await db.q(`SELECT p.sku,p.amount_rub FROM purchases p WHERE p.kind='paid' AND p.created_at >= $1::date AND p.created_at < ($1::date + interval '1 month') AND NOT EXISTS(SELECT 1 FROM orders o WHERE p.tg_charge_id='yk:'||o.yk_payment_id)`, [from]);
   const authors = new Map();
   const add = (author, title, rub, share) => {
@@ -415,6 +415,7 @@ async function adminApi(req, res, url, hooks) {
   if(route==='/sales/mail/retry'&&method==='POST'){const b=await readJson(req);try{return json(res,200,await sales.retry(b.id,who));}catch(e){return json(res,e.status||500,{error:e.message});}}
   if(route==='/sales/subscriptions'&&method==='GET')return json(res,200,await sales.subscriptions(url.searchParams.get('q')||''));
   if(route==='/sales/subscriptions'&&method==='PUT'){const b=await readJson(req);try{return json(res,200,await sales.grant(b,who));}catch(e){return json(res,e.status||500,{error:e.message});}}
+  if(route==='/sales/subscriptions/cancel'&&method==='POST'){const b=await readJson(req);try{await require('./commerce').cancel(Number(b.id));await store.log(who,'автопродление отключено администратором',String(b.id));return json(res,200,{ok:true});}catch(e){return json(res,e.status||500,{error:e.message});}}
   if(route==='/sales/subscriptions/close'&&method==='POST'){const b=await readJson(req);try{return json(res,200,await sales.closeRequest(b.id,who));}catch(e){return json(res,e.status||500,{error:e.message});}}
   if (route === '/password' && method === 'POST') {
     const b = await readJson(req);
@@ -471,7 +472,7 @@ async function publicApi(req, res, p) {
   const ip = clientIp(req);
   if (p === '/api/yookassa' && req.method === 'POST') {
     // уведомление ЮKassa: статус всегда перепроверяем запросом к API
-    try { await orders.webhook(await readJson(req)); } catch (e) { console.error('webhook', e.message); }
+    try { await orders.webhook(await readJson(req)); } catch (e) { console.error('webhook', e.message); return json(res,503,{error:'Повторите уведомление позже'}); }
     return json(res, 200, { ok: true });
   }
   if (req.method !== 'POST') return json(res, 405, { error: 'Method not allowed' });
@@ -529,6 +530,7 @@ async function orderRoute(req, res, m) {
   if (!orderTpl || process.env.NODE_ENV === 'development') orderTpl = fs.readFileSync(path.join(WEB, 'order.html'), 'utf8');
   const data = {
     id: orders.shortId(o), status: o.status, email: o.email || o.tg_name || 'Telegram', title: o.title, amount: o.amount_rub,
+    kind:o.kind,accountUrl:config.platformUrl+(o.kind==='subscription'?'/#/settings/plan':'/#/marketplace/mine'),
     paidAt: o.paid_at, token: o.token, mailOk: !!o.emailed_at, mail: config.mailEnabled,
     ready: ready.map(l => ({ sku: l.sku, title: orders.productTitle(l), pdf: !!(l.files && l.files.pdf), meta: l.meta || [] })),
     waiting: waiting.map(l => ({ title: orders.productTitle(l) }))

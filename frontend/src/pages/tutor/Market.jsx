@@ -24,6 +24,7 @@ export function MarketPage({ tab }) {
           <div className="lead">Интерактивные уроки и упражнения других репетиторов. Бесплатные копируются сразу, платные после оплаты автору.</div>
         </div>
       </div>
+<section className="panel"><div className="row wrap"><Link className="btn" to="/marketplace">Курсы Lessonfold</Link><Link className="btn btn-secondary" to="/marketplace/mine">Купленные курсы</Link><Link className="btn btn-secondary" to="/shop">Интерактивные уроки и PDF</Link></div></section>
       <MarketTabs active={tab} />
       {tab === 'mine' ? <Mine /> : <Catalog />}
     </>

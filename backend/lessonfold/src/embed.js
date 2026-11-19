@@ -105,4 +105,4 @@ async function revokeAdmin(login) {
   return true;
 }
 
-module.exports = { middleware, start, enabled, publicData, adminLink, revokeAdmin };
+module.exports = { isReady:()=>Boolean(handler), middleware, start, enabled, publicData, adminLink, revokeAdmin };

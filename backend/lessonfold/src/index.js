@@ -40,6 +40,7 @@ async function periodic() {
       const r = config.botEnabled ? await bot.syncReleases() : 0;
       const f = config.botEnabled ? await bot.runFollowups() : 0;
       const s = config.payEnabled ? await orders.syncStale() : 0;
+      if(config.payEnabled)await require('./commerce').renewDue();
       const w = await orders.releases();
       if (r || f || s || w) console.log(`periodic: бот выдал уроков ${r}, напоминаний ${f}; сайт: подтверждено оплат ${s}, писем о выходе ${w}`);
     } catch (e) { console.error('periodic failed', e.message); }

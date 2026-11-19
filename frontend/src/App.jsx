@@ -9,6 +9,8 @@ import { Login, ChangePassword, Register, Forgot, ResetPassword } from './pages/
 import { LegalPage, PlatformDocPage } from './pages/Legal';
 import Join from './pages/Join';
 import Landing from './pages/Landing';
+import CoursesMarketplace from './pages/CoursesMarketplace';
+import CoursePage from './pages/CoursePage';
 import Shop from './pages/Shop';
 import AppErrorBoundary from './AppErrorBoundary';
 import { reloadForNewVersion } from './version-recovery';
@@ -57,6 +59,7 @@ function Root() {
     if (path === '/forgot') return <Forgot />;
     // Главная до входа: страница платформы. Витрина готовых уроков отдельно: /shop
     if (path === '/' || path === '') return <Landing />;
+    if (path === '/marketplace' || path.startsWith('/marketplace/courses/'))return <main className="commerce-public">{path==='/marketplace'?<CoursesMarketplace/>:<CoursePage slug={path.split('/')[3]}/>}</main>;
     if (path === '/shop') return <Shop />;
     return <Login />;
   }

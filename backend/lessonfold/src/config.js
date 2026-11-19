@@ -23,6 +23,9 @@ const config = {
   // DB_SCHEMA=lessonfold: хранить таблицы в отдельной схеме, если база общая с другим проектом
   dbSchema: (E('DB_SCHEMA') || '').trim(),
   publicUrl: (E('PUBLIC_URL') || '').replace(/\/$/, ''),
+  platformUrl: (E('PLATFORM_URL') || 'https://lessonfold.ru').replace(/\/$/, ''),
+  recurringEnabled: E('RECURRING_ENABLED') === '1',
+  billingKey: E('BILLING_KEY') || process.env.JWT_SECRET || '',
   port: Number(E('PORT') || 3000),
   // 127.0.0.1, если перед сервисом стоит Caddy или nginx; пусто = слушать все адреса
   host: E('HOST') || undefined,

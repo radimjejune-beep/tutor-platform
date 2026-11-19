@@ -15,6 +15,10 @@ const ROUTE_LABELS = {
   '/courses': 'Курсы',
   '/bank': 'Банк заданий',
   '/market': 'Каталог',
+  '/marketplace':'Курсы Lessonfold',
+  '/marketplace/author':'Курсы автора',
+  '/marketplace/mine':'Мои курсы',
+  '/learn-course':'Мои курсы',
   '/method': 'Методика',
   '/finance': 'Доход',
   '/settings': 'Настройки',
@@ -40,12 +44,14 @@ export function Breadcrumbs({ path, entities = {} }) {
     let currentPath = '';
     for (let i = 0; i < segments.length; i++) {
       currentPath += `/${segments[i]}`;
-      const label = ROUTE_LABELS[currentPath] || entities[segments[i]] || segments[i];
+      const tabs={lessons:'Занятия',course:'Курс',words:'Словарь',homework:'Задания',coach:'Помощник',progress:'Прогресс',reports:'Отчёты',finance:'Оплаты',access:'Доступ',plan:'Тариф',mine:'Мои курсы',author:'Курсы автора'};
+      const label = entities[currentPath] || ROUTE_LABELS[currentPath] || tabs[segments[i]] || (/^\d+$/.test(segments[i])?'Карточка':segments[i]);
 
       // Пропускаем технические сегменты
-      if (['new', 'edit', 'access'].includes(segments[i])) continue;
+      if (['new','edit','reviews','runs'].includes(segments[i])) continue;
+      if(i>0 && i<segments.length-1 && !entities[currentPath] && !/^\d+$/.test(segments[i])) continue;
 
-      result.push({ to: currentPath, label });
+      result.push({ to:currentPath==='/learn-course'?'/marketplace/mine':currentPath, label });
     }
 
     return result;
@@ -59,7 +65,7 @@ export function Breadcrumbs({ path, entities = {} }) {
         <span key={crumb.to} className="breadcrumb-item">
           {i > 0 && <Icon name="chevron-right" size={14} className="breadcrumb-sep" />}
           {i === crumbs.length - 1 ? (
-            <span className="breadcrumb-current">{crumb.label}</span>
+            <span className="breadcrumb-current" aria-current="page">{crumb.label}</span>
           ) : (
             <Link to={crumb.to} className="breadcrumb-link">{crumb.label}</Link>
           )}

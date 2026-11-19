@@ -1,5 +1,16 @@
 'use strict';
 const db=require('./db'),catalog=require('./catalog'),store=require('./store');
+async function paidStates(users){
+ const ids=users.map(u=>u.id);if(!ids.length)return [];
+ const has=(await db.q("SELECT to_regclass('public.billing_grants') AS t")).rows[0]?.t;
+ if(!has)return users.map(u=>({...u,current:require('../../src/services/plans').effective(u)}));
+ const grants=(await db.q('SELECT * FROM public.billing_grants WHERE tutor_id=ANY($1::int[]) AND revoked_at IS NULL ORDER BY starts_at',[ids])).rows;
+ const profiles=(await db.q('SELECT tutor_id,auto_renew,period,next_charge_at FROM public.billing_profiles WHERE tutor_id=ANY($1::int[])',[ids])).rows;
+ return users.map(u=>{let current=require('../../src/services/plans').effective(u);const own=grants.filter(g=>g.tutor_id===u.id),now=new Date(),until=require('./commerce').paidUntil(u,own,now);
+  if(!u.is_admin && !(['tutor','pro'].includes(u.plan)&&!u.plan_until) && own.some(g=>new Date(g.starts_at)<=until&&new Date(g.ends_at)>now)&&until>now)current={...require('../../src/services/plans').PLANS.tutor,trial:false,until,admin:false};
+  return {...u,current,billing:profiles.find(p=>p.tutor_id===u.id)||{auto_renew:false}};
+ });
+}
 const fail=(status,message)=>{throw Object.assign(Error(message),{status});};
 let ready;
 function ensure(){if(!ready)ready=db.q(`CREATE TABLE IF NOT EXISTS subscription_events(
@@ -16,8 +27,9 @@ async function subscriptions(q=''){
  AND (COALESCE(full_name,'') ILIKE $1 OR login ILIKE $1 OR COALESCE(email,'') ILIKE $1) ORDER BY created_at DESC,id DESC LIMIT 300`,['%'+String(q).slice(0,160)+'%']);
  const {rows:requests}=await db.q(`SELECT r.*,u.full_name,u.login,u.email FROM public.plan_requests r JOIN public.users u ON u.id=r.tutor_id WHERE r.status='pending' ORDER BY r.created_at LIMIT 100`);
  const {rows:events}=await db.q('SELECT * FROM subscription_events ORDER BY created_at DESC LIMIT 30');
- const effective=require('../../src/services/plans').effective;
- return {available:true,tutors:tutors.map(u=>({...u,current:effective(u)})),requests,events};
+ const has=(await db.q("SELECT to_regclass('public.billing_audit') AS t")).rows[0]?.t;
+ const billing_events=has?(await db.q('SELECT tutor_id,event,order_id,details,created_at FROM public.billing_audit ORDER BY created_at DESC LIMIT 50')).rows:[];
+ return {available:true,tutors:await paidStates(tutors),requests,events,billing_events};
 }
 async function grant({id,plan,until,reason,request_id},actor){
  if(!await platformAvailable())fail(409,'Подписки платформы недоступны');await ensure();
@@ -43,19 +55,19 @@ async function summary(days=30){
  legacy AS(SELECT p.* FROM purchases p WHERE p.kind='paid' AND p.created_at>=NOW()-make_interval(days=>$1)
  AND NOT EXISTS(SELECT 1 FROM orders x WHERE p.tg_charge_id='yk:'||x.yk_payment_id))
  SELECT (COALESCE((SELECT SUM(amount_rub) FROM o WHERE status IN('paid','refunded')),0)+COALESCE((SELECT SUM(amount_rub) FROM legacy),0))::bigint AS gross,
- COALESCE((SELECT SUM(amount_rub) FROM o WHERE status='refunded'),0)::bigint AS refunds,
+ COALESCE((SELECT SUM(CASE WHEN status='refunded' THEN amount_rub ELSE refunded_rub END) FROM o WHERE status IN('paid','refunded')),0)::numeric AS refunds,
  ((SELECT COUNT(*) FROM o WHERE status IN('paid','refunded'))+(SELECT COUNT(*) FROM legacy))::int AS sales,
  (SELECT COUNT(*)::int FROM orders WHERE status='pending') AS pending,
  (SELECT COUNT(*)::int FROM order_mail_jobs WHERE sent_at IS NULL AND canceled_at IS NULL) AS mail_waiting`,[days]);
  const platform=await platformAvailable();let subs=null;
- if(platform)subs=(await db.q(`SELECT COUNT(*) FILTER(WHERE is_active AND plan IN('tutor','pro') AND(plan_until IS NULL OR plan_until>NOW()))::int AS active,
- COUNT(*) FILTER(WHERE is_active AND plan='trial' AND(plan_until IS NULL OR plan_until>NOW()))::int AS trial,
- COUNT(*) FILTER(WHERE is_active AND plan IN('tutor','pro') AND plan_until BETWEEN NOW() AND NOW()+INTERVAL '7 days')::int AS ending FROM public.users WHERE role='tutor' AND NOT is_admin`)).rows[0];
- return {days,sales:{...sales,gross:Number(sales.gross),refunds:Number(sales.refunds),net:Number(sales.gross)-Number(sales.refunds)},subscriptions:subs,products:{total:Object.keys(catalog.get().products).length,ready:Object.values(catalog.get().products).filter(p=>p.status==='available').length},subscription_payments:false};
+ if(platform){const all=await paidStates((await db.q("SELECT id,is_active,plan,plan_until FROM public.users WHERE role='tutor' AND NOT is_admin")).rows);
+  subs={active:all.filter(u=>u.is_active&&u.current.id==='tutor'&&!u.current.trial).length,trial:all.filter(u=>u.is_active&&u.current.trial).length,ending:all.filter(u=>u.is_active&&!u.current.trial&&u.current.until&&new Date(u.current.until)>new Date()&&new Date(u.current.until)<new Date(Date.now()+7*864e5)).length};
+ }
+ return {days,sales:{...sales,gross:Number(sales.gross),refunds:Number(sales.refunds),net:Number(sales.gross)-Number(sales.refunds)},subscriptions:subs,products:{total:Object.keys(catalog.get().products).length,ready:Object.values(catalog.get().products).filter(p=>p.status==='available').length},subscription_payments:platform&&require('./config').config.payEnabled};
 }
 async function buyers(q=''){
  return (await db.q(`SELECT lower(email) AS email,COUNT(*)::int AS orders,COUNT(*) FILTER(WHERE status='paid')::int AS paid,
- COALESCE(SUM(amount_rub) FILTER(WHERE status='paid'),0)::bigint AS net,MAX(created_at) AS last_order,BOOL_OR(news) AS news FROM orders
+ COALESCE(SUM(amount_rub-refunded_rub) FILTER(WHERE status='paid'),0)::numeric AS net,MAX(created_at) AS last_order,BOOL_OR(news) AS news FROM orders
  WHERE email<>'' AND email ILIKE $1 GROUP BY lower(email) ORDER BY MAX(created_at) DESC LIMIT 300`,['%'+String(q).slice(0,160)+'%'])).rows;
 }
 async function mails(){return (await db.q(`SELECT j.id,j.order_id,j.kind,j.attempts,j.next_at,j.lease_until,j.sent_at,j.canceled_at,j.last_error,j.created_at,COALESCE(o.email,j.recipient) AS email,o.title

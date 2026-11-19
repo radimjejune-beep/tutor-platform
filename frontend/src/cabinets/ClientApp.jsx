@@ -6,6 +6,7 @@ import { useAuth } from '../auth';
 import { api } from '../api';
 import { Shell, TUTOR_NAV, CLIENT_NAV, MoreMenu } from '../Shell';
 import { Spinner, ErrorBox, Empty, Link, useLoad, navigate } from '../ui';
+import {CourseMine,CoursePlayer} from '../pages/MarketplaceLearning';
 import Profile from '../pages/Profile';
 import Help from '../pages/Help';
 import { ChangePassword } from '../pages/Login';
@@ -78,6 +79,8 @@ function ClientCabinet({ path }) {
   const clientNav = CLIENT_NAV.map((n) => (n.to === '/words' ? { ...n, label: subjectInfo(child.subject || user.subject).vocabTitle } : n));
   let page;
   if (parts.length === 0) page = <ClientHome {...props} />;
+  else if(parts[0]==='marketplace'&&parts[1]==='mine')page=<CourseMine key={child.id}/>;
+  else if(parts[0]==='learn-course'&&parts[1])page=<CoursePlayer key={parts[1]} id={Number(parts[1])}/>;
   else if (parts[0] === 'coach' && parts[1]==='reviews' && parts[2]) page=<CoachReview id={Number(parts[2])}/>;
   else if (parts[0] === 'coach') page=<Coach key={child.id} {...props}/>;
   else if (parts[0] === 'family') page=<FamilyPage/>;

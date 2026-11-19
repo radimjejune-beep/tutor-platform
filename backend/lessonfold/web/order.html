@@ -59,7 +59,9 @@ const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;
 const app = document.getElementById("app");
 const base = location.pathname.replace(/\/$/, "");
 const meta = `<div class="meta"><span>Заказ <b>${esc(O.id)}</b></span><span>${esc(O.title)}</span><span>${O.amount} ₽</span><span>${esc(O.email)}</span></div>`;
-if (O.status === "paid") {
+if (O.status === "paid" && O.kind !== 'lesson') {
+ app.innerHTML=`<span class="kick">Оплата подтверждена</span><h1>Покупка доступна в кабинете</h1><p class="lead">Войдите под аккаунтом, с которого оформлен заказ. ${O.mailOk?'Подтверждение отправлено на вашу почту.':'Письмо ожидает отправки; доступ уже открыт.'}</p>${meta}<div class="btns" style="margin-top:24px"><a class="btn main" href="${esc(O.accountUrl)}">Перейти в кабинет</a></div>`;
+} else if (O.status === "paid") {
   app.innerHTML = `<span class="kick">Оплата прошла</span><h1>Ваши уроки готовы</h1>
   <p class="lead">Скачайте HTML-урок и откройте его в браузере на компьютере или интерактивной доске. Интернет на уроке не нужен. ${O.mailOk ? `Эту ссылку мы также отправили на ${esc(O.email)}.` : "Письмо с материалами ожидает отправки. Файлы уже доступны ниже — сохраните эту страницу, чтобы открыть их снова."}</p>${meta}
   ${O.ready.map(l => `<div class="lesson"><h2>${esc(l.title)}</h2>${l.meta.length ? `<p class="facts">${l.meta.map(esc).join(" · ")}</p>` : ""}
@@ -73,7 +75,7 @@ if (O.status === "paid") {
   if (n < 40) { try { sessionStorage.setItem("lf-w-" + O.id, n + 1) } catch (e) {} setTimeout(() => location.reload(), 3500) }
   else document.getElementById("w").textContent = "Оплата пока не подтверждена. Если деньги списались, ссылка придёт на почту в течение 15 минут, или напишите нам.";
 } else if (O.status === "refunded") {
-  app.innerHTML = `<span class="kick">Заказ ${esc(O.id)}</span><h1>Возврат оформлен</h1><p class="lead">Деньги вернутся тем же способом, которым была оплата, обычно за 1-10 дней. Лицензия на урок по этому заказу прекращена.</p>${meta}`;
+  app.innerHTML = `<span class="kick">Заказ ${esc(O.id)}</span><h1>Возврат оформлен</h1><p class="lead">Деньги вернутся тем же способом, которым была оплата, обычно за 1-10 дней. Доступ по этому заказу прекращён.</p>${meta}`;
 } else {
   app.innerHTML = `<span class="kick">Заказ ${esc(O.id)}</span><h1>Оплата не прошла</h1><p class="lead">Платёж отменён, деньги не списаны. Можно попробовать ещё раз.</p>${meta}<div class="btns" style="margin-top:26px"><a class="btn main" href="/#lessons">Вернуться в каталог</a></div>`;
 }

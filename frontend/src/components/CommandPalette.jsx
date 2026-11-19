@@ -21,18 +21,12 @@ const SYNONYMS = {
   'словарь': ['слова', 'карточки', 'words'],
 };
 
-const expandQuery = (q) => {
-  const words = norm(q).split(/\s+/).filter(Boolean);
-  const expanded = new Set(words);
-  words.forEach(w => {
-    Object.entries(SYNONYMS).forEach(([key, syns]) => {
-      if (w.includes(key) || syns.some(s => w.includes(s))) {
-        expanded.add(key);
-        syns.forEach(s => expanded.add(s));
-      }
-    });
+export const synonymMatch = (q, text) => {
+  const value=norm(text);
+  return norm(q).split(/\s+/).filter(Boolean).every(word=>{
+    const groups=Object.entries(SYNONYMS).filter(([key,values])=>[key,...values].some(v=>v===word));
+    return [word,...groups.flatMap(([key,values])=>[key,...values])].some(v=>value.includes(v));
   });
-  return Array.from(expanded).join(' ');
 };
 
 export function usePaletteHotkey(setOpen) {
@@ -88,6 +82,8 @@ export default function CommandPalette({ open, onClose, role, nav }) {
       out.push(...recentItems);
     }
 
+    out.push({group:'Разделы',icon:'layers',label:'Мои курсы',keywords:'купленные назначенные практика',run:go('/marketplace/mine')});
+    if(tutor)out.push({group:'Разделы',icon:'grid',label:'Курсы Lessonfold',keywords:'магазин витрина маркетплейс',run:go('/marketplace')});
     // Разделы
     for (const n of nav) out.push({ group: 'Разделы', icon: n.icon, label: n.label, run: go(n.to) });
 
@@ -129,10 +125,9 @@ export default function CommandPalette({ open, onClose, role, nav }) {
       return commands.filter((c) => !c.secondary && (c.group === 'Недавние' || c.group !== 'Ученики' && c.group !== 'Группы'));
     }
 
-    const expandedQ = expandQuery(q);
     const list2 = commands.filter((c) => {
       const searchText = `${c.label} ${c.hint || ''} ${c.keywords || ''}`;
-      return match(q, searchText) || match(expandedQ, searchText);
+      return synonymMatch(q, searchText);
     });
     return list2.slice(0, 40);
   }, [q, commands]);

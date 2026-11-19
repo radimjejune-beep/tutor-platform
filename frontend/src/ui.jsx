@@ -204,9 +204,9 @@ export function Field({ label, hint, children }) {
 export function ErrorBox({ error, onRetry }) {
   if (!error) return null;
   return (
-    <div className="panel">
+    <div className="panel" role="alert">
       <Empty title="Не получилось загрузить" action={onRetry && <button className="btn btn-secondary" onClick={onRetry}>Обновить</button>}>
-        {error.message}
+        {typeof error === 'string' ? error : error.message || 'Попробуйте ещё раз'}
       </Empty>
     </div>
   );
@@ -237,6 +237,9 @@ export function Bar({ value }) {
    Иконки (линейные, 24×24)
    ============================================================ */
 const PATHS = {
+  'chevron-right':'m9 5 7 7-7 7',
+  'chevron-down':'m5 9 7 7 7-7',
+  x:'m6 6 12 12M18 6 6 18',
   home: 'M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z',
   calendar: 'M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z',
   users: 'M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM20 19v-1.5a3.5 3.5 0 0 0-2.5-3.35M15.5 4.15a3.5 3.5 0 0 1 0 6.7',

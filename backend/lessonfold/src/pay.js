@@ -10,7 +10,7 @@ async function yk(method, path, body, idemKey) {
     'content-type': 'application/json'
   };
   if (idemKey) headers['idempotence-key'] = idemKey;
-  const res = await fetch(config.ykApi + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  const res = await fetch(config.ykApi + path, { method, headers, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(20000) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new PayError(`ЮKassa ${res.status}: ${data.description || data.code || 'ошибка'}`);
   return data;
@@ -18,18 +18,19 @@ async function yk(method, path, body, idemKey) {
 
 const money = rub => ({ value: Number(rub).toFixed(2), currency: 'RUB' });
 
-async function createPayment({ orderId, amountRub, description, email, returnUrl }) {
+async function createPayment({ orderId, amountRub, description, email, returnUrl, saveMethod = false, methodId, subject = 'intellectual_activity' }) {
   const body = {
     amount: money(amountRub),
     capture: true,
-    confirmation: { type: 'redirect', return_url: returnUrl },
+    ...(methodId ? {payment_method_id: methodId} : {confirmation: { type: 'redirect', return_url: returnUrl }}),
+    ...(saveMethod && !methodId ? {save_payment_method: true} : {}),
     description: description.slice(0, 128),
     metadata: { order_id: orderId }
   };
   if (config.ykReceipt && email) {
     body.receipt = {
       customer: { email },
-      items: [{ description: description.slice(0, 128), quantity: '1.00', amount: money(amountRub), vat_code: 1, payment_mode: 'full_payment', payment_subject: 'intellectual_activity' }]
+      items: [{ description: description.slice(0, 128), quantity: '1.00', amount: money(amountRub), vat_code: 1, payment_mode: 'full_payment', payment_subject: subject }]
     };
   }
   return yk('POST', '/payments', body, orderId);

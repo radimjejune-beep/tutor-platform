@@ -1,9 +1,10 @@
 // components/Plans.jsx — тарифы платформы: таблица сравнения (главная и настройки) и вкладка «Тариф»
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '../api';
 import { useLoad, Spinner, ErrorBox, Badge, Icon, useToast } from '../ui';
 import { fullDate, plural } from '../format';
 
+import Checkout,{BillingHistory} from './Checkout';
 const rub = (n) => `${Number(n).toLocaleString('ru-RU')} ₽`;
 const limitText = (v, unit) => {
   if (v == null) return 'без ограничений';
@@ -65,22 +66,15 @@ const pct = (a, b) => (b ? Math.min(100, Math.round((a / b) * 100)) : 0);
 export function PlanTab() {
   const toast = useToast();
   const data = useLoad(() => api.myPlan(), []);
-  const [sent, setSent] = useState(null);
+  const [purchase,setPurchase]=useState(null);
+  useEffect(()=>{const reload=()=>data.reload();window.addEventListener('lf-billing-updated',reload);return()=>window.removeEventListener('lf-billing-updated',reload);},[data.reload]);
   if (data.loading) return <Spinner />;
   if (data.error) return <ErrorBox error={data.error} onRetry={data.reload} />;
   const d = data.data;
   const c = d.current;
   const days = c.until ? Math.max(0, Math.ceil((new Date(c.until) - Date.now()) / 864e5)) : null;
 
-  const request = async (p, period) => {
-    try {
-      await api.requestPlan(p.id, period);
-      setSent(p.name);
-      toast('Заявка отправлена');
-    } catch (err) {
-      toast(err.message, 'error');
-    }
-  };
+  const request=(p,period)=>setPurchase({p,period});
   const bars = [
     ['Ученики', d.usage.students, c.limits.students, ''],
     ['Учебники', d.usage.books_mb, c.limits.books_mb, 'МБ'],
@@ -110,12 +104,9 @@ export function PlanTab() {
           ))}
         </div>
       </section>
-      {sent && (
-        <section className="panel note-ok">
-          <Icon name="check" /> Заявка на тариф «{sent}» отправлена. Мы подключим его и напишем вам. Оплата прямо на платформе появится в ближайшее время.
-        </section>
-      )}
-      {!c.admin && <section className="panel"><PlanTable data={d} current={c.trial ? null : c.id} onPick={request} pickLabel="Хочу этот тариф" /></section>}
+      {purchase&&<Checkout kind="subscription" period={purchase.period} onClose={()=>setPurchase(null)}/>}
+      <BillingHistory/>
+      {!c.admin && <section className="panel"><PlanTable data={d} current={c.trial ? null : c.id} onPick={request} pickLabel="Оплатить тариф" /></section>}
     </>
   );
 }
