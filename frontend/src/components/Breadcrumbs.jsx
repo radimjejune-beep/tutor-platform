@@ -32,6 +32,9 @@ const ROUTE_LABELS = {
   '/profile': 'Профиль',
   '/help': 'Помощь',
   '/shop': 'Готовые уроки',
+  '/lesson':'Комната урока',
+  '/more':'Ещё',
+  '/password':'Пароль',
 };
 
 export function Breadcrumbs({ path, entities = {} }) {
@@ -49,7 +52,7 @@ export function Breadcrumbs({ path, entities = {} }) {
 
       // Пропускаем технические сегменты
       if (['new','edit','reviews','runs'].includes(segments[i])) continue;
-      if(i>0 && i<segments.length-1 && !entities[currentPath] && !/^\d+$/.test(segments[i])) continue;
+      if(i>0 && i<segments.length-1 && !entities[currentPath] && !ROUTE_LABELS[currentPath] && !/^\d+$/.test(segments[i])) continue;
 
       result.push({ to:currentPath==='/learn-course'?'/marketplace/mine':currentPath, label });
     }

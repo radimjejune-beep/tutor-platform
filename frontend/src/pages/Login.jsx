@@ -11,6 +11,7 @@ import SubjectInput from '../components/SubjectInput';
 function AuthLayout({ children }) {
   return (
     <div className="auth">
+      <div className="auth-mobile-brand"><Link to="/" className="brand-name" aria-label="Lessonfold — на главную"><img className="brand-symbol" src="/icon.svg" alt=""/>{BRAND.name}</Link></div>
       <div className="auth-art">
         <div>
           <div className="brand-name" style={{ fontSize: 30 }}>{BRAND.name}</div>
@@ -38,7 +39,7 @@ export function Login() {
 
   return (
     <AuthLayout>
-      <Link to="/" className="btn btn-quiet btn-sm" style={{ marginLeft: -10, marginBottom: 14 }}>← На главную</Link>
+      <Link to="/" className="btn btn-quiet btn-sm auth-back" style={{ marginLeft: -10, marginBottom: 14 }}>← На главную</Link>
       <h1 className="page-title">Вход в кабинет</h1>
       <p className="muted" style={{ margin: '8px 0 28px' }}>
         Преподаватель входит по почте. Ученикам и родителям логин и пароль выдаёт преподаватель

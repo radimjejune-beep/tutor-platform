@@ -1,6 +1,6 @@
 import {useState} from 'react';
 import {api} from '../api';
-import {Modal,useToast} from '../ui';
+import {Modal,useToast,Icon} from '../ui';
 export const activityUrl=token=>`${location.origin}${location.pathname}#/activity/${token}`;
 export default function ActivityActions({source='library',id,compact=false}) {
  const [token,setToken]=useState(null),[busy,setBusy]=useState(false),[dialog,setDialog]=useState(false),[error,setError]=useState('');
@@ -14,7 +14,7 @@ export default function ActivityActions({source='library',id,compact=false}) {
  const settings=async()=>{setDialog(true);setBusy(true);setError('');try{setToken((await api.activityLink(source,id)).token);}catch(e){setError(e.message);}finally{setBusy(false);}};
  const revoke=async()=>{setBusy(true);setError('');try{await api.disableActivityLink(source,id);setToken(null);toast('Ссылка отключена');}catch(e){setError(e.message);}finally{setBusy(false);}};
  return <div className="activity-actions" onClick={e=>e.stopPropagation()}>
-  <div className="row wrap" style={{gap:8}}><button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={open}>{compact?'Показать':'Показать на уроке'}</button><button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={copy}>Скопировать ссылку</button><button type="button" className="btn btn-quiet btn-sm" disabled={busy} onClick={settings}>Настройки ссылки</button></div>
+  <div className="row wrap" style={{gap:8}}><button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={open}>{compact?'Показать':'Показать на уроке'}</button><button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={copy}>Скопировать ссылку</button><button type="button" className={`btn btn-quiet btn-sm ${compact?'activity-settings':''}`} aria-label="Настройки ссылки" title="Настройки ссылки" disabled={busy} onClick={settings}>{compact?<Icon name="settings" size={15}/>:"Настройки ссылки"}</button></div>
   {!compact&&<p className="small muted" style={{margin:'8px 0'}}>Откроется один материал с его вложениями, без входа и меню кабинета.</p>}
   {dialog&&<Modal title="Ссылка на отдельное задание" onClose={()=>setDialog(false)}>
    <p className="small muted">Любой, кому передадут эту ссылку, сможет открыть материал и его вложения. Данные кабинета и заметки преподавателя не показываются. Результаты тренировки не сохраняются в истории учеников.</p>

@@ -1,6 +1,6 @@
 import {BankSearch,BankSearchResults,BankUseActions,useDesktopBank,BankPreview as Preview} from '../../components/BankTools';
 import ActivityActions from '../../components/ActivityActions';
-import { BackLink } from '../../Shell';
+import { BackLink, BreadcrumbEntity } from '../../Shell';
 // pages/tutor/Bank.jsx — банк заданий по учебникам: учебник → юнит → задания.
 // Задания можно посмотреть, проверить на себе и взять в свою библиотеку. Своими заданиями можно поделиться.
 import { useState } from 'react';
@@ -47,27 +47,24 @@ export default function BankPage({ book, unit, params = new URLSearchParams() })
 
   return (
     <>
-      <div className="page-head">
+      {book&&<BreadcrumbEntity path={`/bank/${b.id}`} label={b.short}/>}
+      {book&&unit&&<BreadcrumbEntity path={`/bank/${b.id}/${encodeURIComponent(unit)}`} label={wordsView?L.vocab:`${u.code}. ${u.title}`}/>}
+      <div className="page-head bank-page-head">
         <div>
           <BackLink to="/library">Библиотека</BackLink>
           <h1 className="page-title">Банк заданий</h1>
-          <div className="lead">Готовые задания по разделам учебников от Lessonfold и других репетиторов. Посмотрите, пройдите сами и возьмите себе в библиотеку: оттуда их можно выдать в задании или открыть на уроке.</div>
+          <div className="lead">Выберите тему и упражнение. Откройте на уроке, задайте на дом или отправьте отдельную ссылку ученику.</div>
         </div>
-        <button className="btn" onClick={() => setSharing(true)}><Icon name="plus" /> Поделиться своим</button>
+        <button className="btn btn-secondary" onClick={() => setSharing(true)}><Icon name="plus" /> Поделиться своим</button>
       </div>
 
-      <div className="bank-books">
-        {[['Учебники', books.data.filter((x) => !x.grammar)], ['Грамматика по темам', books.data.filter((x) => x.grammar)]].filter(([, list]) => list.length).map(([label, list]) => (
-          <div key={label} className="bank-books-row">
-            <span className="meta-label">{label}</span>
-            <div className="seg">
-              {list.map((x) => (
-                <button key={x.id} type="button" className={x.id === b.id ? 'on' : ''} onClick={() => {setUnitQuery('');navigate(`/bank/${x.id}`);}}>{x.short} <span className="muted">{x.total}</span></button>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+      <section className="bank-collection" aria-label="Выбор сборника">
+        <Field label="Сборник заданий"><select className="select" aria-label="Сборник заданий" value={b.id} onChange={e=>{setUnitQuery('');navigate(`/bank/${e.target.value}`);}}>
+          {[['Учебники',books.data.filter(x=>!x.grammar)],['Грамматика по темам',books.data.filter(x=>x.grammar)]].filter(([,list])=>list.length).map(([title,list])=><optgroup label={title} key={title}>{list.map(x=><option key={x.id} value={x.id}>{x.short} · {x.total} заданий</option>)}</optgroup>)}
+        </select></Field>
+        <div className="bank-collection-total"><b>{b.total}</b> заданий в сборнике</div>
+        {totalWords>0&&<Link className="btn btn-secondary btn-sm" to={`/bank/${b.id}/words`}><Icon name="cards" size={16}/>{L.vocabShort} · {totalWords}</Link>}
+      </section>
 
       <BankSearch books={books.data} filters={filters} onSearch={search}/>
       {filters.search?<BankSearchResults filters={filters} onSearch={search}/>:<div className="bank-layout">
@@ -162,12 +159,12 @@ function UnitItems({ book, unit, onShare }) {
             <h3 className="lib-title">{it.title}</h3>
             <div className="small muted">{it.author}{it.uses ? ` · взяли ${it.uses}` : ''}</div>
             <div className="market-foot">
-              <button className="btn btn-secondary btn-sm" onClick={() => setOpen(it)}>Посмотреть</button>
+              <button className="btn btn-sm bank-preview-trigger" onClick={() => setOpen(it)}>Посмотреть</button>
               {it.taken_id ? <Link to={`/library/${it.taken_id}`} className="btn btn-quiet btn-sm">В библиотеке</Link>
                 : <button className="btn btn-sm" disabled={busy === it.id} onClick={() => take(it)}>Взять себе</button>}
             </div>
             <BankUseActions item={it} onTaken={list.reload} includeTake={false}/><ActivityActions source="bank" id={it.id} compact/>
-            {(it.mine || user.is_admin) && <button type="button" className="btn btn-quiet btn-sm" style={{ alignSelf: 'flex-start', marginLeft: -10 }} onClick={() => hide(it)}>Убрать из банка</button>}
+            {(it.mine || user.is_admin) && <details className="bank-card-more"><summary>Управление материалом</summary><button type="button" className="btn btn-quiet btn-sm" onClick={() => hide(it)}>Убрать из банка</button></details>}
           </article>
         ))}
       </div>

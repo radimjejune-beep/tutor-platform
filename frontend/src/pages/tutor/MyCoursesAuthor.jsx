@@ -2,13 +2,13 @@ import {useState} from 'react';
 import {api} from '../../api';
 import {useAuth} from '../../auth';
 import {Link,useLoad,Spinner,ErrorBox,navigate} from '../../ui';
-import {BreadcrumbEntity} from '../../Shell';
+import {BreadcrumbEntity,BackLink} from '../../Shell';
 export default function MyCoursesAuthor({id}){return id?<Editor key={id} id={id}/>:<List/>;}
 function List(){
  const d=useLoad(()=>api.authorCourses(),[]),{user}=useAuth(),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const create=async()=>{setBusy(true);try{const r=await api.createAuthorCourse();navigate(`/marketplace/author/${r.id}`);}catch(e){setError(e.message);}finally{setBusy(false);}};
  if(d.loading)return <Spinner/>;if(d.error)return <ErrorBox error={d.error} onRetry={d.reload}/>;
- return <><Link to="/marketplace">← Витрина</Link><div className="page-head"><h1 className="page-title">Курсы автора</h1><p className="muted">Публикацией управляет команда Lessonfold. Ваши прежние курсы сохранены.</p>{user.is_admin&&<button className="btn" disabled={busy} onClick={create}>Создать курс</button>}</div>{error&&<ErrorBox error={error}/>}<div className="commerce-grid">{d.data.map(c=><article className="panel" key={c.id}><h2 className="section-title">{c.title}</h2><p>{({draft:'Черновик',published:'Опубликован',pending:'На проверке',archived:'Архив'})[c.status]} · Редакция {c.content_version}</p><Link className="btn btn-secondary" to={`/marketplace/author/${c.id}`}>Открыть редактор</Link>{c.status==='published'&&<Link className="btn btn-secondary" to={`/marketplace/courses/${c.slug}`}>Страница курса</Link>}</article>)}</div>{!d.data.length&&<p className="panel">Курсов для витрины пока нет. Учебные курсы остались в разделе <Link to="/courses">«Курсы»</Link>.</p>}</>;
+ return <><BackLink to="/marketplace">Витрина</BackLink><div className="page-head"><h1 className="page-title">Курсы автора</h1><p className="muted">Публикацией управляет команда Lessonfold. Ваши прежние курсы сохранены.</p>{user.is_admin&&<button className="btn" disabled={busy} onClick={create}>Создать курс</button>}</div>{error&&<ErrorBox error={error}/>}<div className="commerce-grid">{d.data.map(c=><article className="panel" key={c.id}><h2 className="section-title">{c.title}</h2><p>{({draft:'Черновик',published:'Опубликован',pending:'На проверке',archived:'Архив'})[c.status]} · Редакция {c.content_version}</p><Link className="btn btn-secondary" to={`/marketplace/author/${c.id}`}>Открыть редактор</Link>{c.status==='published'&&<Link className="btn btn-secondary" to={`/marketplace/courses/${c.slug}`}>Страница курса</Link>}</article>)}</div>{!d.data.length&&<p className="panel">Курсов для витрины пока нет. Учебные курсы остались в разделе <Link to="/courses">«Курсы»</Link>.</p>}</>;
 }
 function Editor({id}){
  const d=useLoad(()=>api.authorCourse(id),[id]);
@@ -25,7 +25,7 @@ function CourseForm({initial,onReload}){
   await api.saveAuthorCourse(b.id,{title:b.title,description:b.description||'',category:b.category||'english',level:b.level||'beginner',price_type:b.price_type==='free'?'free':'paid',price_amount:b.price_type==='free'?0:Number(rub)*100,modules:b.modules});
   if(publish){await api.publishAuthorCourse(b.id);setMessage('Курс опубликован.');}else setMessage('Черновик сохранён. Для продаж опубликуйте курс.');
  }catch(e){setError(e.message);}finally{setBusy(false);}};
- return <><BreadcrumbEntity path={`/marketplace/author/${b.id}`} label={b.title}/><Link to="/marketplace/author">← Курсы автора</Link><h1 className="page-title">Редактор курса</h1><p className="muted">Сохранение снимает курс с публикации до следующей проверки. Купленные редакции сохраняются.</p>
+ return <><BreadcrumbEntity path={`/marketplace/author/${b.id}`} label={b.title}/><BackLink to="/marketplace/author">Курсы автора</BackLink><h1 className="page-title">Редактор курса</h1><p className="muted">Сохранение снимает курс с публикации до следующей проверки. Купленные редакции сохраняются.</p>
  <fieldset className="commerce-fieldset" disabled={busy}><section className="panel">
  <label className="field">Название<input className="input" maxLength={200} value={b.title} onChange={e=>patch({title:e.target.value})}/></label>
  <label className="field">Описание<textarea className="input" rows={4} maxLength={20000} value={b.description||''} onChange={e=>patch({description:e.target.value})}/></label>

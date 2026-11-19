@@ -2,7 +2,7 @@ import {useState} from 'react';
 import {api} from '../api';
 import {useAuth} from '../auth';
 import {Link,useLoad,Spinner,ErrorBox} from '../ui';
-import {BreadcrumbEntity} from '../Shell';
+import {BreadcrumbEntity,BackLink} from '../Shell';
 export function CourseMine(){
  const d=useLoad(()=>api.myMarketplaceCourses(),[]),{user}=useAuth();
  if(d.loading)return <Spinner/>;if(d.error)return <ErrorBox error={d.error} onRetry={d.reload}/>;
@@ -19,7 +19,7 @@ export function CoursePlayer({id}){
  const d=useLoad(()=>api.courseEnrollment(id),[id]),[selected,setSelected]=useState([0,0]);
  if(d.loading)return <Spinner/>;if(d.error)return <ErrorBox error={d.error} onRetry={d.reload}/>;
  const e=d.data,[mi,ui]=selected,u=e.modules[mi]?.units[ui],attempt=e.attempts.find(a=>a.module_index===mi&&a.unit_index===ui);
- return <><BreadcrumbEntity path={`/learn-course/${id}`} label={e.title}/><Link to="/marketplace/mine">← Мои курсы</Link><h1 className="page-title">{e.title}</h1><div className="commerce-player"><aside className="panel"><h2 className="section-title">Программа курса</h2>{e.modules.map((m,i)=><div key={i}><h3>{m.title}</h3>{m.units.map((unit,j)=><button key={j} className={`commerce-lesson ${mi===i&&ui===j?'active':''}`} aria-current={mi===i&&ui===j?'step':undefined} onClick={()=>setSelected([i,j])}>{e.attempts.some(a=>a.module_index===i&&a.unit_index===j)?'✓ ':''}{unit.title}</button>)}</div>)}</aside>
+ return <><BreadcrumbEntity path={`/learn-course/${id}`} label={e.title}/><BackLink to="/marketplace/mine">Мои курсы</BackLink><h1 className="page-title">{e.title}</h1><div className="commerce-player"><aside className="panel"><h2 className="section-title">Программа курса</h2>{e.modules.map((m,i)=><div key={i}><h3>{m.title}</h3>{m.units.map((unit,j)=><button key={j} className={`commerce-lesson ${mi===i&&ui===j?'active':''}`} aria-current={mi===i&&ui===j?'step':undefined} onClick={()=>setSelected([i,j])}>{e.attempts.some(a=>a.module_index===i&&a.unit_index===j)?'✓ ':''}{unit.title}</button>)}</div>)}</aside>
  <section className="panel">{u?<Unit key={`${id}-${mi}-${ui}`} enrollment={e} unit={u} mi={mi} ui={ui} attempt={attempt} onDone={d.reload}/>:<p>В курсе пока нет занятий.</p>}</section></div></>;
 }
 function Unit({enrollment:e,unit:u,mi,ui,attempt,onDone}){

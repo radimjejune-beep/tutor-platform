@@ -22,6 +22,10 @@ import WordPaste from '../../components/WordPaste';
 const orNull = (v) => (v && String(v).trim() ? String(v).trim() : null);
 const dueText = (d) => (d ? `Срок: ${shortDate(d)}` : 'Без срока');
 
+function EditorOption({title,count,defaultOpen=false,children}){
+ return <details className="editor-option" open={defaultOpen}><summary><span>{title}</span>{count>0&&<span className="badge">{count}</span>}</summary><div className="editor-option-body">{children}</div></details>;
+}
+
 /* ============================================================
    Список заданий
    ============================================================ */
@@ -33,6 +37,7 @@ export function AssignmentsList() {
   const list = useLoad(() => api.assignments(), []);
   const [section, setSection] = useState('all');
   const [search, setSearch] = useState('');
+  const [onlyReview,setOnlyReview]=useState(()=>new URLSearchParams(window.location.hash.split('?')[1]||'').get('status')==='submitted');
   if (list.loading) return <Spinner />;
   if (list.error) return <ErrorBox error={list.error} onRetry={list.reload} />;
   const toCheck = list.data.reduce((n, a) => n + a.submitted, 0);
@@ -55,9 +60,10 @@ export function AssignmentsList() {
           {[...new Map(list.data.flatMap(a=>homeworkSections(a)).filter(s=>s.id).map(s=>[s.id,s.title])).entries()].map(([id,title])=><option key={id} value={id}>{title}</option>)}
         </select>
       </div>
+      <div className="section-filter" role="group" aria-label="Какие работы показать"><button type="button" className={`btn btn-sm ${onlyReview?'btn-secondary':''}`} aria-pressed={!onlyReview} onClick={()=>setOnlyReview(false)}>Все задания</button><button type="button" className={`btn btn-sm ${onlyReview?'':'btn-secondary'}`} aria-pressed={onlyReview} onClick={()=>setOnlyReview(true)}>Ждут проверки · {toCheck}</button></div>
       <section className="panel">
         {!list.data.length&&<Empty title="Заданий пока нет">При выдаче выберите раздел: он появится в кабинете ученика вместе с работой.</Empty>}
-        {list.data.filter(a=>matchesHomeworkSection(a,section)&&assignmentSearch(a).includes(search.toLowerCase())).map((a) => (
+        {list.data.filter(a=>(!onlyReview||a.submitted>0)&&matchesHomeworkSection(a,section)&&assignmentSearch(a).includes(search.toLowerCase())).map((a) => (
           <div key={a.id} className="assign-row" onClick={() => navigate(`/homework/${a.id}`)}>
             <div className="assign-icon"><Icon name={a.question_count ? 'quiz' : 'book'} /></div>
             <div className="list-main">
@@ -74,7 +80,7 @@ export function AssignmentsList() {
             <div className="counter"><b className="num">{a.submitted + a.checked}</b><span>сдали из {a.total}</span></div>
           </div>
         ))}
-        {list.data.length>0&&!list.data.some(a=>matchesHomeworkSection(a,section)&&assignmentSearch(a).includes(search.toLowerCase()))&&<Empty title="По этому фильтру заданий нет"/>}
+        {list.data.length>0&&!list.data.some(a=>(!onlyReview||a.submitted>0)&&matchesHomeworkSection(a,section)&&assignmentSearch(a).includes(search.toLowerCase()))&&<Empty title="По этому фильтру заданий нет"/>}
       </section>
     </>
   );
@@ -181,6 +187,7 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
       {isNew && !restoredAt && <MethodTip slug="homework" text="Сколько задавать и как проверять быстро:" />}
       <DraftNotice at={restoredAt} onReset={resetDraft} text={draft?.value?.hadFiles ? 'Восстановлен черновик задания. Файлы прикрепите заново' : 'Восстановлен несохранённый черновик задания'} />
 
+      <div className="editor-guide" aria-label="Как выдать задание"><span><b>1</b>Название и инструкция</span><span><b>2</b>Материалы</span><span><b>3</b>Ученики и срок</span></div>
       <form onSubmit={submit} className="assign-layout">
         <div className="stack">
           <FormulaBar />
@@ -229,6 +236,7 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
               hasFiles={isNew ? pendingFiles.length > 0 : assignment.files.length > 0} />
           </section>
 
+          <EditorOption title="Упражнения из библиотеки" count={f.items.length} defaultOpen={f.items.length>0}>
           <section className="panel">
             <div className="panel-head">
               <div>
@@ -242,9 +250,11 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
                 onPick={(items) => { setPicking(false); setF({ ...f, items }); }} />
             )}
           </section>
+          </EditorOption>
 
-          <HomeworkWords setId={f.setId} onSetId={(setId) => setF({ ...f, setId })} words={newWords} onWords={setNewWords} />
+          <EditorOption title="Слова и карточки к заданию" count={newWords.length} defaultOpen={Boolean(f.setId||newWords.length)}><HomeworkWords setId={f.setId} onSetId={(setId) => setF({ ...f, setId })} words={newWords} onWords={setNewWords} /></EditorOption>
 
+          <EditorOption title="Повторение слов ученика" count={0} defaultOpen={f.vocab}>
           <section className="panel">
             <div className="panel-head">
               <div>
@@ -265,7 +275,9 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
               </div>
             )}
           </section>
+          </EditorOption>
 
+          <EditorOption title="Тест с автопроверкой" count={f.questions.length} defaultOpen={showQuiz}>
           <section className="panel">
             <div className="panel-head">
               <div>
@@ -279,6 +291,7 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
               <div className="note" style={{ marginTop: 14 }}>Работы уже сдают. Если поменяете ответы, оценки за тест пересчитаются.</div>
             )}
           </section>
+          </EditorOption>
         </div>
 
         <aside className="panel work-card form">

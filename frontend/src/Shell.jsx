@@ -116,11 +116,9 @@ export function Shell({ nav, path, counts = {}, children }) {
 
   return (
     <div className="shell">
+      <a className="skip-link" href="#workspace-content" onClick={e=>{e.preventDefault();document.getElementById('workspace-content')?.focus();}}>Перейти к содержимому</a>
       <aside className="sidebar">
-        <div className="brand">
-          {user.role === 'tutor' ? <Link to="/shop" className="brand-name" title="Готовые интерактивные уроки">{BRAND.name}</Link> : <div className="brand-name">{BRAND.name}</div>}
-          <div className="brand-rule" />
-        </div>
+        <div className="brand"><Link to="/" className="brand-lockup" aria-label="Lessonfold — главная кабинета"><img className="brand-symbol" src="/icon.svg" alt=""/><span className="brand-name">{BRAND.name}</span></Link></div>
 
         <div className="side-tools">
           <button className="search-btn" onClick={() => setPalette(true)} title="Быстрый поиск (Ctrl+K)">
@@ -147,7 +145,7 @@ export function Shell({ nav, path, counts = {}, children }) {
                   </button>
                 )}
                 {!isCollapsed && (
-                  <Link to={item.to} className={isActive(path, item.to) ? 'active' : ''}>
+                  <Link to={item.to} className={isActive(path, item.to) ? 'active' : ''} aria-current={isActive(path,item.to)?'page':undefined}>
                     <Icon name={item.icon} />
                     {item.label}
                     {counts[item.countKey] > 0 && <span className="count">{counts[item.countKey]}</span>}
@@ -185,7 +183,8 @@ export function Shell({ nav, path, counts = {}, children }) {
 
       <div className="main">
         <header className="topbar">
-          {user.role === 'tutor' ? <Link to="/shop" className="brand-name">{BRAND.name}</Link> : <div className="brand-name">{BRAND.name}</div>}
+          <div className="workspace-heading"><b>{nav.find(n=>isActive(path,n.to))?.label||'Lessonfold'}</b><span className="workspace-role">{ROLE_LABEL[user.role]}</span></div>
+          <Link to="/" className="brand-name" aria-label="Lessonfold — главная кабинета"><img className="brand-symbol" src="/icon.svg" alt=""/>{BRAND.name}</Link>
           <div className="row" style={{ gap: 2 }}>
             <button className="icon-btn" onClick={() => setPalette(true)} aria-label="Поиск"><Icon name="search" size={20} /></button>
             <NotificationBell path={path} compact />
@@ -199,7 +198,7 @@ export function Shell({ nav, path, counts = {}, children }) {
         </header>
 
         <BackCtx.Provider value={setOwnBack}>
-          <main className="content">
+          <main className="content" id="workspace-content" tabIndex={-1}>
             <div className="content-nav">
               <BackBar path={path} hidden={ownBack} />
               <Breadcrumbs path={path} entities={entities} />
@@ -211,7 +210,7 @@ export function Shell({ nav, path, counts = {}, children }) {
 
         <nav className="tabbar" aria-label="Разделы">
           {nav.filter((item) => !item.hideMobile).map((item) => (
-            <Link key={item.to} to={item.to} className={isActive(path, item.to) ? 'active' : ''}>
+            <Link key={item.to} to={item.to} className={isActive(path, item.to) ? 'active' : ''} aria-current={isActive(path,item.to)?'page':undefined}>
               <Icon name={item.icon} />
               {item.short || item.label}
               {counts[item.countKey] > 0 && <span className="dot" />}

@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { api } from '../api';
 import { useLoad, Empty, Link, Badge } from '../ui';
 import { LearningTabs } from './StudySections';
-import { shortDate, plural } from '../format';
+import { shortDate, plural, todayISO } from '../format';
 
-export default function HomeworkSections({items,renderRow,studentId}) {
+export default function HomeworkSections({items,renderRow,studentId,isParent=false}) {
   const sections=useLoad(()=>api.studySections(studentId),[studentId]);
   const diagnostics=useLoad(()=>api.diagnostics(studentId),[studentId]);
   const progress=useLoad(()=>api.progress(studentId),[studentId]);
@@ -18,8 +18,10 @@ export default function HomeworkSections({items,renderRow,studentId}) {
   const loose=items.filter(h=>!h.section_id),looseTests=(diagnostics.data||[]).filter(t=>!t.section_id);
   if(loose.length||looseTests.length)groups.push({id:0,title:'Без раздела',items:loose,tests:looseTests});
   const visible=groups.filter(g=>g.items.length||g.tests.length);
+  const nextWork=items.filter(pending).slice().sort((a,b)=>(a.due_on||'9999').localeCompare(b.due_on||'9999'))[0];
   const studied=g=>{const linked=(progress.data?.topics||[]).filter(t=>g.grammar_key&&t.grammar_key===g.grammar_key&&t.skill==='grammar');return linked.length>0&&linked.every(t=>t.status==='done');};
   return <>
+    {nextWork&&<section className="learning-focus" aria-label="Следующее домашнее задание"><div><span className="meta-label">Сейчас в работе</span>{nextWork.due_on&&nextWork.due_on<todayISO()&&<Badge tone="red">Срок прошёл</Badge>}<h2>{nextWork.title}</h2><p>{nextWork.due_on?`До ${shortDate(nextWork.due_on)}`:'Можно выполнить в удобное время'} · {nextWork.section_title||known.get(nextWork.section_id)?.title||'Без раздела'}</p></div><Link className="btn" to={`/homework/${nextWork.id}`}>{isParent?'Посмотреть задание':'Открыть задание'} →</Link></section>}
     <LearningTabs active="homework"/>
     <div className="row wrap" style={{gap:8}}><input type="search" aria-label="Поиск домашних заданий" className="input" style={{maxWidth:340}} value={q} onChange={e=>setQ(e.target.value)} placeholder="Найти домашнее задание…"/>
     </div>

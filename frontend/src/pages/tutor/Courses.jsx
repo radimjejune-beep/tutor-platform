@@ -1,4 +1,4 @@
-import { BackLink } from '../../Shell';
+import { BackLink, BreadcrumbEntity } from '../../Shell';
 // pages/tutor/Courses.jsx — курсы по учебнику: юниты, материалы к уроку, ДЗ и слова каждого юнита
 import { useSubject } from '../../subjects';
 import { useState } from 'react';
@@ -113,6 +113,7 @@ export function CourseEditor({ id }) {
 
   return (
     <>
+      <BreadcrumbEntity path={`/courses/${c.id}`} label={c.title}/>
       <BackLink to="/courses">Курсы</BackLink>
       <div className="page-head">
         <div>

@@ -4,7 +4,7 @@ import HomeworkSections from '../../components/HomeworkSections';
 import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, navigate } from '../../ui';
 import { shortDate, HW_STATUS, todayISO } from '../../format';
 
-export default function ClientHomework({ student }) {
+export default function ClientHomework({ student, isParent }) {
   const hw = useLoad(() => api.homework({ student_id: student.id }), [student.id]);
   if (hw.loading) return <Spinner />;
   if (hw.error) return <ErrorBox error={hw.error} onRetry={hw.reload} />;
@@ -38,7 +38,7 @@ export default function ClientHomework({ student }) {
   return (
     <>
       <div className="page-head"><h1 className="page-title">Задания</h1></div>
-      <HomeworkSections key={student.id} items={hw.data} studentId={student.id} renderRow={h=><Row key={h.id} h={h}/>}/>
+      <HomeworkSections key={student.id} items={hw.data} isParent={isParent} studentId={student.id} renderRow={h=><Row key={h.id} h={h}/>}/>
     </>
   );
 }

@@ -24,11 +24,11 @@ export function SectionPicker({value,onChange}) {
   </div>;
 }
 export function LearningTabs({active}) {
-  return <div className="row wrap" style={{gap:8,marginBottom:20}}>
+  return <nav className="learning-tabs" aria-label="Учебные материалы">
     <Link className={`btn btn-sm ${active==='homework'?'':'btn-secondary'}`} to="/homework">Домашние задания</Link>
     <Link className={`btn btn-sm ${active==='diagnostics'?'':'btn-secondary'}`} to="/diagnostics">Диагностика по темам</Link>
     <Link className="btn btn-secondary btn-sm" to="/grammar">Справочник грамматики</Link>
-  </div>;
+  </nav>;
 }
 
 function SectionManager({sections,onChanged}) {

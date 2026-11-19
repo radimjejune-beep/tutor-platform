@@ -1,6 +1,6 @@
 import {useEffect,useState} from 'react';
 import {api} from '../api';
-import {Field,Modal,Spinner,ErrorBox,Empty,Link,useLoad,useToast,navigate} from '../ui';
+import {Field,Modal,Spinner,ErrorBox,Empty,Link,useLoad,useToast,navigate,Icon} from '../ui';
 import LibraryItem from './LibraryItem';
 import ActivityActions from './ActivityActions';
 import {GAME_TYPES,gameSize} from '../games/logic';
@@ -11,27 +11,28 @@ export function useDesktopBank(){
  return wide;
 }
 export function BankSearch({books,filters,onSearch}) {
- const wide=useDesktopBank();
  const [form,setForm]=useState(filters);const key=JSON.stringify(filters);
  useEffect(()=>{setForm(filters);},[key]);
  const change=(k,v)=>setForm(f=>({...f,[k]:v}));
- return <section className="panel bank-search"><h2 className="section-title">Найти задание</h2><form onSubmit={e=>{e.preventDefault();onSearch({...form,page:1,search:'1'});}}>
-  <Field label="Поиск по всему банку"><input className="input" type="search" placeholder="Present Simple, вопросы, café…" maxLength={200} value={form.q} onChange={e=>change('q',e.target.value)}/></Field>
-  <details className="bank-advanced" open={wide}><summary>Сборник, тип и уровень{[form.book,form.kind,form.type,form.level].filter(Boolean).length?` · фильтров: ${[form.book,form.kind,form.type,form.level].filter(Boolean).length}`:''}</summary><div className="bank-search-fields"><Field label="Сборник"><select className="select" value={form.book} onChange={e=>change('book',e.target.value)}><option value="">Все сборники</option>{books.map(b=><option value={b.id} key={b.id}>{b.short}{b.level?` · ${b.level}`:''}</option>)}</select></Field>
+ const count=[form.book,form.kind,form.type,form.level].filter(Boolean).length;
+ return <section className="panel bank-search"><h2 className="section-title">Поиск по теме</h2><form onSubmit={e=>{e.preventDefault();onSearch({...form,page:1,search:'1'});}}>
+  <div className="bank-query-row"><Field label="Поиск по всему банку"><div className="bank-query-input"><Icon name="search" size={17}/><input className="input" type="search" placeholder="Например, Present Simple или семья" maxLength={200} value={form.q} onChange={e=>change('q',e.target.value)}/></div></Field><button className="btn" type="submit">Найти задания</button></div>
+  <div className="bank-query-ideas"><span>Попробуйте:</span>{['Present Simple','Past Simple','семья'].map(q=><button key={q} type="button" onClick={()=>{setForm(f=>({...f,q}));onSearch({...form,q,page:1,search:'1'});}}>{q}</button>)}{filters.search&&<button type="button" onClick={()=>onSearch(null)}>Сбросить поиск</button>}</div>
+  <details className="bank-advanced"><summary>Фильтры: сборник, тип и уровень{count?` · выбрано ${count}`:''}</summary><div className="bank-search-fields"><Field label="Сборник"><select className="select" value={form.book} onChange={e=>change('book',e.target.value)}><option value="">Все сборники</option>{books.map(b=><option value={b.id} key={b.id}>{b.short}{b.level?` · ${b.level}`:''}</option>)}</select></Field>
    <Field label="Материал"><select className="select" value={form.kind} onChange={e=>{change('kind',e.target.value);if(e.target.value!=='game')change('type','');}}><option value="">Любой</option><option value="game">Интерактивное упражнение</option><option value="theory">Объяснение</option><option value="task">Задание для обсуждения</option></select></Field>
    <Field label="Тип упражнения"><select className="select" value={form.type} onChange={e=>{change('type',e.target.value);if(e.target.value)change('kind','game');}}><option value="">Любой</option>{Object.entries(GAME_TYPES).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></Field>
    <Field label="Уровень сборника"><select className="select" value={form.level} onChange={e=>change('level',e.target.value)}><option value="">Любой</option>{['A1','A2','B1','B2'].map(k=><option key={k}>{k}</option>)}</select></Field>
-  </div></details><p className="small muted">Поиск по темам, названиям и содержанию. Фильтр уровня использует разметку сборников; материалы без неё остаются доступны при выборе «Любой».</p>
-  <div className="row wrap"><button className="btn" type="submit">Найти задания</button>{filters.search&&<button className="btn btn-secondary" type="button" onClick={()=>onSearch(null)}>Вернуться к юниту</button>}</div>
+  </div><p className="small muted">Уровень берётся из разметки сборника. Материалы без указанного уровня доступны с фильтром «Любой».</p><button className="btn btn-secondary btn-sm" type="button" onClick={()=>{setForm(f=>({...f,book:'',kind:'',type:'',level:''}));onSearch({...form,book:'',kind:'',type:'',level:'',page:1,search:'1'});}}>Сбросить фильтры</button></details>
  </form></section>;
 }
+
 export function BankSearchResults({filters,onSearch}) {
  const data=useLoad(()=>api.bankSearch({q:filters.q,book:filters.book,kind:filters.kind,type:filters.type,level:filters.level,page:filters.page}),[JSON.stringify(filters)]),[open,setOpen]=useState(null);
  if(data.loading)return <Spinner/>;if(data.error)return <ErrorBox error={data.error} onRetry={data.reload}/>;
  const result=data.data;
  return <section className="bank-search-results" aria-label="Результаты поиска заданий"><div className="row-between wrap"><h2 className="section-title">Найдено: {result.total}</h2><span className="small muted">{result.total?`Страница ${result.page} из ${result.pages}`:''}</span></div>
   {!result.items.length&&<div className="panel"><Empty title="Подходящих заданий не найдено">Измените запрос или уберите часть фильтров. Например, попробуйте «вопросы» или Present Simple.</Empty></div>}
-  <div className="market-grid">{result.items.map(it=><article className="market-card" key={it.id}><span className="meta-label">{it.book_title} · Unit {it.unit}{it.book_level?` · ${it.book_level}`:''}</span><h3 className="lib-title">{it.title}</h3><p className="small muted">{it.game?`${GAME_TYPES[it.game.type]?.label||'Упражнение'} · ${gameSize(it.game)}`:it.kind==='theory'?'Объяснение':'Задание для обсуждения'} · {it.author}</p><div className="row wrap"><button className="btn btn-secondary btn-sm" onClick={()=>setOpen(it)}>Посмотреть</button>{it.taken_id&&<Link className="btn btn-quiet btn-sm" to={`/library/${it.taken_id}`}>В библиотеке</Link>}</div><BankUseActions item={it} onTaken={data.reload}/><ActivityActions source="bank" id={it.id} compact/></article>)}</div>
+  <div className="market-grid">{result.items.map(it=><article className="market-card" key={it.id}><span className="meta-label">{it.book_title} · Unit {it.unit}{it.book_level?` · ${it.book_level}`:''}</span><h3 className="lib-title">{it.title}</h3><p className="small muted">{it.game?`${GAME_TYPES[it.game.type]?.label||'Упражнение'} · ${gameSize(it.game)}`:it.kind==='theory'?'Объяснение':'Задание для обсуждения'} · {it.author}</p><div className="row wrap"><button className="btn btn-sm bank-preview-trigger" onClick={()=>setOpen(it)}>Посмотреть</button>{it.taken_id&&<Link className="btn btn-quiet btn-sm" to={`/library/${it.taken_id}`}>В библиотеке</Link>}</div><BankUseActions item={it} onTaken={data.reload}/><ActivityActions source="bank" id={it.id} compact/></article>)}</div>
   {result.pages>1&&<div className="row wrap bank-pagination"><button className="btn btn-secondary" disabled={result.page<=1} onClick={()=>onSearch({...filters,page:result.page-1})}>← Предыдущая</button><span className="small">{result.page} / {result.pages}</span><button className="btn btn-secondary" disabled={result.page>=result.pages} onClick={()=>onSearch({...filters,page:result.page+1})}>Следующая →</button></div>}
   {open&&<BankPreview id={open.id} taken={open.taken_id} onClose={()=>setOpen(null)} onTaken={data.reload}/>}
  </section>;

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Link, useToast } from '../../ui';
-import { BackLink } from '../../Shell';
+import { BackLink, BreadcrumbEntity } from '../../Shell';
 import { plural } from '../../format';
 import { QuizForm } from '../../components/Quiz';
 
@@ -10,7 +10,9 @@ export default function Grammar({ topic }) {
 }
 function Search() {
   const [q,setQ]=useState(''),[book,setBook]=useState('core');
-  const list=useLoad(()=>api.grammarTopics(q),[q]);
+  const [query,setQuery]=useState(q);
+  useEffect(()=>{const timer=setTimeout(()=>setQuery(q),220);return()=>clearTimeout(timer);},[q]);
+  const list=useLoad(()=>api.grammarTopics(query),[query]);
   const visible=(list.data||[]).filter(t=>book==='all'||(book==='core'?!t.book_id:t.book_id===book));
   return <>
     <div className="page-head"><div><h1 className="page-title">Грамматика под рукой</h1><p className="lead">Найди тему, вспомни правило и проверь себя на короткой практике.</p></div></div>
@@ -20,8 +22,8 @@ function Search() {
     {book.startsWith('murphy-')&&<p className="small muted">Объяснения и упражнения Lessonfold. Название книги и номер юнита помогают найти тему; материалы не связаны с автором или издательством.</p>}
     <label className="field"><span className="field-label">Что нужно объяснить?</span>
       <input className="input" type="search" value={q} onChange={e=>setQ(e.target.value)} placeholder="Present Simple, артикли, вопросы или номер юнита…" /></label>
-    {list.loading?<Spinner/>:list.error?<ErrorBox error={list.error} onRetry={list.reload}/>:<>
-      <p className="small muted">{visible.length} {plural(visible.length,'тема','темы','тем')} · объяснения на русском · уровни A1–B2</p>
+    {list.loading&&!list.data?<Spinner/>:list.error?<ErrorBox error={list.error} onRetry={list.reload}/>:<>
+      <p className="small muted" role="status" aria-live="polite">{(list.loading||q!==query)?'Обновляем список · ':''}{visible.length} {plural(visible.length,'тема','темы','тем')} · объяснения на русском · уровни A1–B2</p>
       {!visible.length&&<Empty title="Такую тему пока не нашли">Попробуй английское название или ключевое слово: например, «прошедшее» или «вопросы».</Empty>}
       <div className="learning-grid">{visible.map(t=><Link key={t.id} className="panel learning-card" to={`/grammar/${t.id}`}>
         <span className="meta-label">{t.level}{t.book_short&&` · ${t.book_short} · Unit ${t.unit}`}</span><h2 className="section-title">{t.title}</h2><p className="muted">{t.when}</p><span className="small">Объяснение и практика →</span>
@@ -33,7 +35,7 @@ function Article({topic}) {
   if(data.loading)return <Spinner/>;
   if(data.error)return <ErrorBox error={data.error} onRetry={data.reload}/>;
   const t=data.data;
-  return <><BackLink to="/grammar">Справочник грамматики</BackLink>
+  return <><BreadcrumbEntity path={`/grammar/${topic}`} label={t.title}/><BackLink to="/grammar">Справочник грамматики</BackLink>
     <div className="page-head"><div><span className="meta-label">{t.level} · {t.book_short?`${t.book_short} · Unit ${t.unit}`:'Грамматика'}</span><h1 className="page-title">{t.title}</h1></div></div>
     {t.notice&&<p className="small muted">{t.notice}</p>}
     <div className="learning-article"><section className="panel">{(t.sections||[t]).map((part,i)=><div key={i}>

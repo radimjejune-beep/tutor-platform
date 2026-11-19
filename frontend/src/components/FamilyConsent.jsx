@@ -33,5 +33,5 @@ export function FamilyPage(){
  const {user,switchProfile}=useAuth(),data=useLoad(()=>api.familyConsent(),[user.id,user.role]),[error,setError]=useState('');
  if(user.account_role==='parent'&&user.context==='self')return <div className="panel"><h1 className="page-title">Семейный кабинет</h1><p>Сейчас открыт ваш собственный учебный профиль. Подтверждения за детей доступны в родительском профиле.</p><button className="btn" onClick={async()=>{try{await switchProfile('parent');navigate('/');}catch(e){setError(e.message);}}}>Открыть родительский профиль</button>{error&&<p className="alert">{error}</p>}</div>;
  if(data.loading)return <Spinner/>;if(data.error)return <ErrorBox error={data.error} onRetry={data.reload}/>;
- return user.role==='parent'?<FamilyConsents state={data.data} onDone={data.reload}/>:<div className="panel"><p>Подтверждения за ребёнка доступны в аккаунте законного представителя.</p><Link to="/">На главную</Link></div>;
+ return user.role==='parent'?<FamilyConsents state={data.data} onDone={data.reload}/>:<div className="panel"><h1 className="page-title">Семья и согласия</h1><p>Подтверждения за ребёнка доступны в аккаунте законного представителя.</p><Link to="/">На главную</Link></div>;
 }

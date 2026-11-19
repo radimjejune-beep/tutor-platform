@@ -66,7 +66,7 @@ export default function StudentPage({ id, tab }) {
       </div>
 
       {/* Сводка */}
-      <div className="grid grid-3" style={{ marginBottom: 24 }}>
+      <div className="grid grid-3 student-summary" style={{ marginBottom: 24 }}>
         <div className="panel">
           <div className="stat-label">Баланс</div>
           <div className="stat-value num" style={{ color: f.balance < 0 ? 'var(--danger)' : undefined }}>

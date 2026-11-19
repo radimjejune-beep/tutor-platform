@@ -191,14 +191,14 @@ export function LibraryPage({ kind = 'task' }) {
           </Empty>
         )}
         {(list.data || []).map((i) => (
-          <div key={i.id} className="assign-row" onClick={() => navigate(`/library/${i.id}`)} draggable
+          <div key={i.id} className="assign-row" data-row-native role="group" aria-label={`Материал: ${i.title}`} onClick={() => navigate(`/library/${i.id}`)} draggable
             onDragStart={(e) => dragItems(e, selected.has(i.id) ? [...selected] : [i.id])} title="Можно перетащить в папку">
             {(
               <input type="checkbox" className="row-check" checked={selected.has(i.id)} aria-label="Выбрать"
                 onClick={(e) => e.stopPropagation()} onChange={() => toggle(i.id)} />
             )}
             <div className="list-main">
-              <div className="list-title truncate">{i.title}</div>
+              <Link className="list-title truncate row-title-link" to={`/library/${i.id}`} onClick={e=>e.stopPropagation()}>{i.title}</Link>
               <div className="list-sub truncate">
                 {[!folderNow && i.folder_id && folderList.find((x) => x.id === i.folder_id)?.title, i.game && `${GAME_TYPES[i.game.type]?.label}, ${gameSize(i.game)}`, i.kind === 'html' && 'Интерактивный урок', i.kind === 'deck' && 'Урок из слайдов', examLabel(i), i.subject, ...(i.tags || []).map((t) => `#${t}`)].filter(Boolean).join(' · ')}
               </div>

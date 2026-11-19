@@ -34,6 +34,7 @@ function DemoBanner({ demo, onChange }) {
 function Onboarding({ demo, onDemo }) {
   const ob = useLoad(() => api.onboarding().catch(() => null), []);
   const [making, setMaking] = useState(false);
+  const [expanded,setExpanded]=useState(null);
   const makeDemo = async () => {
     setMaking(true);
     try { await api.demoCreate(); onDemo(); } catch (e) { window.alert(e.message); } finally { setMaking(false); }
@@ -45,14 +46,14 @@ function Onboarding({ demo, onDemo }) {
   const hide = () => { try { localStorage.setItem('lf-onb-hide', '1'); } catch { /* приватный режим */ } setHidden(true); };
   return (
     <section className="panel onb">
-      <div className="row-between">
+      <div className="onb-summary">
         <div>
           <h2 className="section-title">Первые шаги · {done} из {steps.length}</h2>
-          <div className="small muted">Пять шагов, и платформа начнёт работать на вас.</div>
+          <div className="small muted">{done===0?'Подготовьте кабинет к первому занятию.':'Продолжайте настройку в удобное время.'}</div>
         </div>
-        <button className="btn btn-quiet btn-sm" onClick={hide}>Скрыть</button>
+        <div className="onb-summary-actions"><div className="onb-progress" role="progressbar" aria-label="Настройка кабинета" aria-valuenow={done} aria-valuemin={0} aria-valuemax={steps.length}><span style={{width:`${done/steps.length*100}%`}}/></div><button className="btn btn-secondary btn-sm" aria-expanded={expanded??done===0} aria-controls="onboarding-steps" onClick={()=>setExpanded(!(expanded??done===0))}>{(expanded??done===0)?'Свернуть':'Продолжить'}</button><button className="btn btn-quiet btn-sm" onClick={hide} aria-label="Скрыть первые шаги">Скрыть</button></div>
       </div>
-      <div className="bar" style={{ margin: "12px 0 6px", height: 4 }}><span style={{ width: `${(done / steps.length) * 100}%` }} /></div>
+      <div id="onboarding-steps" hidden={!(expanded??done===0)}><div className="bar" style={{ margin: "12px 0 6px", height: 4 }}><span style={{ width: `${(done / steps.length) * 100}%` }} /></div>
       {done === 0 && demo.data && !demo.data.active && (
         <div className="onb-demo">
           <div><b>Сначала посмотреть, как это выглядит?</b><span className="small muted">Добавим двух учеников-примеров с расписанием, домашкой и оплатами. Удаляются одной кнопкой.</span></div>
@@ -67,7 +68,7 @@ function Onboarding({ demo, onDemo }) {
             {!s.done && <Link to={s.link} className="btn btn-secondary btn-sm">Сделать</Link>}
           </li>
         ))}
-      </ol>
+      </ol></div>
     </section>
   );
 }
@@ -109,6 +110,12 @@ export default function TutorDashboard() {
         </div>
       </div>
 
+      <section className="workspace-overview" aria-label="Сегодня в кабинете">
+        <Link className="overview-card" to="/schedule"><div><span>Занятий сегодня</span><strong>{d.today.length}</strong></div><Icon name="calendar"/></Link>
+        <Link className="overview-card" to="/homework?status=submitted"><div><span>Работ на проверке</span><strong>{a.homework_to_check.length}</strong></div><Icon name="check"/></Link>
+        <Link className="overview-card" to="/finance"><div><span>Доход за месяц</span><strong style={{fontSize:month.income>=100000?24:undefined}}>{rub(month.income)}</strong></div><Icon name="wallet"/></Link>
+      </section>
+      <div className="dashboard-actions" aria-label="Быстрые действия"><Link className="btn btn-secondary" to="/homework/new"><Icon name="plus" size={16}/>Выдать задание</Link><Link className="btn btn-secondary" to="/bank"><Icon name="search" size={16}/>Найти упражнение</Link><Link className="btn btn-secondary" to="/students"><Icon name="users" size={16}/>Открыть учеников</Link><Link className="btn btn-secondary" to="/grammar"><Icon name="book" size={16}/>Объяснить тему</Link></div>
       <DemoBanner demo={demo} onChange={() => window.location.reload()} />
       <Onboarding demo={demo} onDemo={() => window.location.reload()} />
 
@@ -123,8 +130,6 @@ export default function TutorDashboard() {
       </section>
 
       <BookingRequests requests={d.booking_requests || []} cancellations={d.client_cancellations || []} onChanged={dash.reload} />
-      <TutorAnnouncements />
-      <DailyMethodTip />
 
       <div className="grid grid-main" style={{ marginTop: 24 }}>
         {/* Требует внимания */}
@@ -139,7 +144,7 @@ export default function TutorDashboard() {
         ) : (
           <div className="list">
             {a.unmarked_lessons.map((l) => (
-              <div key={`l${l.id}`} className="list-item clickable" onClick={() => setModal({ type: 'lesson', lesson: l })}>
+              <div key={`l${l.id}`} className="list-item clickable" data-row-native role="group" aria-label={`Отметить занятие: ${l.student_name}`} onClick={() => setModal({ type: 'lesson', lesson: l })}>
                 <div className="avatar" style={{ background: 'var(--brass-soft)', borderColor: 'transparent' }}><Icon name="clock" size={20} /></div>
                 <div className="list-main">
                   <div className="list-title">Отметить занятие: {l.student_name}</div>
@@ -149,7 +154,7 @@ export default function TutorDashboard() {
               </div>
             ))}
             {a.homework_to_check.map((h) => (
-              <div key={`h${h.id}`} className="list-item clickable" onClick={() => navigate(`/homework/${h.assignment_id}/review/${h.id}`)}>
+              <div key={`h${h.id}`} className="list-item clickable" data-row-native role="group" aria-label={`Проверить работу: ${h.student_name}`} onClick={() => navigate(`/homework/${h.assignment_id}/review/${h.id}`)}>
                 <div className="avatar"><Icon name="book" size={20} /></div>
                 <div className="list-main">
                   <div className="list-title">Проверить работу: {h.student_name}</div>
@@ -201,6 +206,8 @@ export default function TutorDashboard() {
         </section>
       </div>
 
+      <TutorAnnouncements />
+      <DailyMethodTip />
       <LeagueBoard />
 
       {modal?.type === 'new' && <NewLessonModal onClose={close} onSaved={saved} />}
