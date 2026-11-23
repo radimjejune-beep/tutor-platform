@@ -16,11 +16,12 @@ export function ResultLine({ results, who = 'Ваш' }) {
   if (!results?.length) return null;
   const best = results.reduce((a, b) => (b.score > a.score ? b : a));
   const last = results[0];
+  const manual = (last.details || []).some(d => d.manual);
   return (
     <div className="result-line">
       <span className={`result-pill ${best.total && best.score === 100 ? 'perfect' : ''}`}>{best.total ? `${best.correct}/${best.total}` : 'сдано'}</span>
       <span>
-        {best.total ? `${who === 'Лучший' ? 'Лучший результат' : `${who} лучший результат`}: ${best.score}%. ` : ''}Попыток: {results.length}, последняя {when(last.created_at)}
+        {best.total ? `${manual ? 'Автопроверка' : who === 'Лучший' ? 'Лучший результат' : `${who} лучший результат`}: ${best.score}%. ` : ''}{manual && 'Развёрнутые ответы оценивает преподаватель. '}Попыток: {results.length}, последняя {when(last.created_at)}
       </span>
     </div>
   );

@@ -1,0 +1,112 @@
+/* Exercise Studio. Local fonts, quiet motion, touch and keyboard first. */
+.experience.game{position:relative;background:#f5f7f2;border:1px solid var(--line);border-radius:18px;padding:24px;color:var(--ink);min-width:0;isolation:isolate}
+.experience-toolbar,.experience-heading,.experience-practice-head{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap}
+.experience-toolbar{padding-bottom:20px;margin-bottom:24px;border-bottom:1px solid var(--line)}
+.experience-brand{display:flex;align-items:center;gap:10px;font-size:10px;font-weight:600;letter-spacing:.12em;color:var(--green-deep)}
+.experience-brand b{display:block;font-weight:400;letter-spacing:.14em;color:var(--muted);margin-top:1px}
+.experience-symbol{display:grid;place-items:center;width:34px;height:38px;background:var(--green);color:#fff;font:28px var(--serif);border-radius:8px}
+.experience-heading{align-items:flex-start}
+.experience-heading h3{font:500 clamp(24px,3vw,36px)/1.2 var(--serif);letter-spacing:-.025em;margin:6px 0 0;overflow-wrap:anywhere}
+.experience-modes{display:inline-flex;max-width:100%;padding:4px;border:1px solid var(--line);background:#fff;border-radius:12px;gap:3px}
+.experience-modes button{background:transparent;color:var(--muted);border:0;border-radius:8px;padding:9px 12px;min-height:40px;font:500 12px var(--sans);cursor:pointer}
+.experience-modes button[aria-pressed=true]{background:var(--green);color:#fff}
+.experience-instruction{font-size:15px;line-height:1.65;max-width:75ch;margin:18px 0 4px;overflow-wrap:anywhere}
+.experience-mode-note{color:var(--muted);font-size:12px;margin:0 0 22px}
+.experience-formats{font-size:12px;margin:0 0 22px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:10px 14px}
+.experience-formats summary{cursor:pointer;font-weight:500;min-height:24px}
+.experience-formats label{display:block;margin:12px 0 8px;max-width:320px}
+.experience-formats select{margin-top:6px}
+.experience .game-head{margin:18px 0 8px}
+.experience-step{font-size:11px;letter-spacing:.04em;font-weight:500;color:var(--muted)}
+.experience-progress{height:5px;background:#e0e8de;border-radius:5px;overflow:hidden;margin:0 0 22px}
+.experience-progress>span{height:100%;display:block;background:var(--green);border-radius:5px;transition:width .2s}
+.experience .qk-top{gap:10px;flex-wrap:wrap;margin:0 0 12px}
+.experience .qk-dots{margin-left:auto;flex-wrap:wrap;max-width:50%}
+.experience .qk-card{background:#fff;box-shadow:0 6px 24px #233c3010;border:1px solid var(--line);border-radius:14px;padding:30px 24px;animation:none;min-width:0}
+.experience .qk-q{font:500 clamp(26px,3.2vw,38px)/1.45 var(--serif);color:var(--ink);margin-bottom:26px;overflow-wrap:anywhere}
+.experience .qk-opt{border-radius:12px;min-height:62px;padding:15px;text-align:left;justify-content:flex-start;gap:12px;background:#fafbf8;color:var(--ink);overflow-wrap:anywhere}
+.experience .qk-opt:not(:disabled):hover{border-color:var(--green);background:var(--green-soft);transform:none}
+.experience .qk-opt.ok{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+.experience .qk-opt.bad{background:var(--danger-soft);border-color:var(--danger);color:var(--danger)}
+.experience .qk-opt.dim{opacity:.7}
+.experience .qk-letter{background:#fff;color:var(--muted);flex:none;width:27px;height:27px;font-size:12px;display:inline-grid;place-items:center;border-radius:8px}
+.experience .qk-say{opacity:1!important;min-width:42px;min-height:42px;background:var(--green-soft);border-radius:50%;margin-left:12px;color:var(--green-deep)}
+.experience .qk-input{max-width:100%;min-height:52px}
+.experience .qk-slots,.experience .qk-letters{flex-wrap:wrap}
+.experience .qk-tile{min-width:44px;min-height:48px;border-radius:10px}
+.experience .qk-slot{border-radius:8px}
+
+.experience-feedback{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:18px 0 0;margin-top:22px;border-top:1px solid var(--line)}
+.experience-feedback p{font-size:13px;margin:3px 0 0;color:var(--muted);overflow-wrap:anywhere}
+.experience-feedback b{font-size:14px}
+.experience-feedback .btn{flex:none;min-height:44px}
+.experience .qk-end{padding:42px 20px}
+.experience .qk-big{color:var(--green-deep);margin-bottom:10px}
+.experience .qk-memory{gap:10px}
+.experience .qk-mem{border-radius:12px;min-height:100px;font-size:15px;background:var(--green);color:#fff;overflow-wrap:anywhere}
+.experience .qk-mem.open{background:#fff;color:var(--ink)}
+.experience .qk-mem.found{background:var(--ok-soft);color:var(--ok);border-color:var(--ok)}
+.experience .qk-mem>span{font-size:28px;opacity:.7}
+.experience .qk-flip{min-height:180px;border-radius:14px;background:#f7f9f5;padding:24px}
+.experience .qk-flip-a{color:var(--green-deep)}
+.experience .card-btn{min-height:58px;border-radius:12px;overflow-wrap:anywhere}
+.experience .chip{min-height:44px;border-radius:9px}
+.experience .game-foot{padding-top:18px;margin-top:18px;border-top:1px solid var(--line)}
+.experience .game-result{margin-top:24px;border:1px solid var(--line);background:#fff;padding:22px;gap:18px;border-radius:14px;align-items:center}
+.experience .game-result.perfect{background:var(--ok-soft);border-color:#b9d0bc}
+.experience .game-score{font-size:44px;margin:5px 0 8px}
+.experience-result-actions{display:flex;gap:9px;flex-wrap:wrap}
+.experience-practice-head{margin:16px 0 22px;padding:18px;border-radius:12px;background:var(--green-soft)}
+.experience-practice-head p{margin:4px 0 0;max-width:55ch}
+.experience-lesson .qk-q{font-size:clamp(30px,3.5vw,48px)}
+.experience-lesson .qk-opt,.experience-lesson .card-btn{font-size:20px;min-height:76px}
+.experience-lesson .gap-text{font-size:23px;line-height:2.5}
+.experience.experience-focus{position:fixed;inset:0;z-index:10000;border:0;border-radius:0;overflow:auto;overscroll-behavior:contain;padding:30px max(24px,calc((100vw - 1120px)/2));margin:0!important;max-width:none!important;width:100%;height:100dvh;background:#f5f7f2}
+.experience-focus .experience-toolbar{position:sticky;top:-30px;background:#f5f7f2;z-index:5;padding-top:12px}
+.experience-focus:focus{outline:0}
+@media(max-width:600px){
+ .experience.game{padding:16px;border-radius:14px}
+ .experience-toolbar{gap:12px;padding-bottom:16px;margin-bottom:18px}
+ .experience-toolbar>.btn{min-height:40px;font-size:11px;padding:8px}
+ .experience-brand{font-size:9px;gap:7px}
+ .experience-symbol{width:27px;height:32px;font-size:24px}
+ .experience-heading{gap:16px}
+ .experience-modes{width:100%}.experience-modes button{flex:1;font-size:12px;padding:8px}
+ .experience-instruction{font-size:14px}
+ .experience .qk-card{padding:22px 14px}
+ .experience .qk-opts{grid-template-columns:1fr}
+ .experience .qk-opt{min-height:58px;font-size:16px;padding:12px}
+ .experience .qk-tf{flex-direction:column;gap:10px}
+ .experience .qk-tf>.qk-opt{width:100%}
+ .experience-feedback{align-items:flex-start;flex-direction:column;gap:14px}
+ .experience-feedback>.btn{width:100%}
+ .experience .qk-memory{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .experience .qk-mem{min-height:96px;font-size:13px}
+ .experience .game-result{padding:18px}
+ .experience-result-actions,.experience-result-actions .btn{width:100%}
+ .experience-lesson .qk-opt,.experience-lesson .card-btn{font-size:17px;min-height:66px}
+ .experience.experience-focus{padding:16px;border-radius:0}
+ .experience-focus .experience-toolbar{top:-16px}
+ .experience .match-grid{gap:8px}.experience .card-btn{padding:12px 9px;font-size:13px}
+}
+@media(prefers-reduced-motion:reduce){.experience *{animation:none!important;transition:none!important}}
+.experience-incomplete{margin-top:14px;padding:16px;border:1px solid var(--brass-light);border-radius:12px;background:var(--brass-soft)}
+.experience-incomplete p{margin:0 0 12px;font-size:13px}
+@media(max-width:600px){
+ .experience-toolbar{padding-bottom:12px;margin-bottom:12px;flex-wrap:nowrap;gap:8px}
+ .experience-toolbar>.btn{max-width:150px}
+ .experience-heading h3{font-size:25px}
+ .experience-heading{gap:12px}
+ .experience-mode-note{display:none}
+ .experience-instruction{margin:12px 0 16px}
+ .experience-formats{margin-bottom:16px}
+ .experience .qk-top{margin-bottom:12px}
+ .experience .qk-card{margin-top:0}
+}
+
+.experience-focus .experience-aux{display:none}
+.experience .bucket-target{display:block;width:100%;font:600 14px var(--sans);text-align:left;border:0;background:transparent;color:var(--ink);padding:10px 4px;min-height:44px;cursor:pointer}
+.experience .bucket-target:disabled{opacity:1;cursor:default}
+.experience .btn,.experience .experience-modes button,.experience .chip-btn{min-height:44px}
+.experience .qk-say{min-width:44px;min-height:44px}
+.experience .game-result:focus{outline:2px solid var(--line-strong);outline-offset:4px}

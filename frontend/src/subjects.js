@@ -88,7 +88,7 @@ const EXAMPLES = {
 
 // Предмет текущего ученика (если задан) или репетитора
 export function useSubject(studentSubject) {
-  const { user, students } = useAuth();
+  const { user, students } = useAuth() || {};
   const info = subjectInfo(studentSubject || (students?.length === 1 ? students[0].subject : null) || user?.subject);
   setSpeechLang(info.speech);
   return info;

@@ -1,0 +1,19 @@
+.inline-block{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px!important;min-width:0}
+.inline-passage{font-size:20px;line-height:2.8;white-space:pre-wrap;overflow-wrap:anywhere}
+.inline-answer{display:inline-flex;vertical-align:middle;flex-direction:column;max-width:100%;margin:4px 3px;white-space:normal}
+.inline-options{display:inline-flex;max-width:100%;flex-wrap:wrap;padding:4px;gap:4px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;line-height:1.5}
+.inline-options>button{border:1px solid transparent;border-radius:8px;min-height:44px;padding:8px 13px;background:transparent;color:var(--ink);font:500 16px var(--sans);cursor:pointer;overflow-wrap:anywhere;max-width:100%}
+.inline-options>button:hover:not(:disabled){border-color:var(--line-strong);background:#fff}
+.inline-options>button.selected{background:var(--green);color:#fff;box-shadow:0 2px 6px #244b3b15}
+.inline-options.ok{border-color:var(--ok)}.inline-options.bad{border-color:var(--danger)}
+.inline-options>button.correct{background:var(--ok-soft);color:var(--ok);border-color:var(--ok)}
+.inline-options.bad>button.selected:not(.correct){background:var(--danger-soft);color:var(--danger);text-decoration:line-through}
+.inline-correction{font:12px/1.6 var(--sans);color:var(--danger);padding:3px 7px 0}
+.inline-key{margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:10px;font-size:13px}
+.inline-key legend{padding:0 5px;color:var(--muted);font-size:12px}
+.inline-key label{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:6px 10px;border-radius:8px;background:var(--surface-2);cursor:pointer;max-width:100%;overflow-wrap:anywhere}
+.inline-key input{accent-color:var(--green);flex:none}
+.inline-editor>label{display:grid;gap:8px;font-size:13px}.inline-editor p{margin:8px 0}
+.inline-validation{font-size:12px;padding:10px 14px;background:var(--brass-soft);border-radius:10px}
+.experience-lesson .inline-passage{font-size:25px}.experience-lesson .inline-options>button{font-size:20px;min-height:52px}
+@media(max-width:600px){.inline-block{padding:14px!important}.inline-passage{font-size:17px}.inline-options>button{font-size:15px;min-height:44px;padding:8px 11px}.experience-lesson .inline-passage{font-size:20px}.experience-lesson .inline-options>button{font-size:17px}}

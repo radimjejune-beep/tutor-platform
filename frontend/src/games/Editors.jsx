@@ -17,6 +17,7 @@ export const EMPTY_GAME = {
   quick: emptyQuick('quiz'),
   ...Object.fromEntries(Object.keys(QUICK_TEMPLATES).map((t) => [`q_${t}`, emptyQuick(t)])),
   // Готовые листы: с примером внутри, его нужно заменить своим
+  inline: { type: 'sheet', blocks: [{ t: 'inline', text: 'She [work|*works] every day.\nI [*am|is] a teacher.\nThey [has|*have] a lesson today.' }] },
   write: { type: 'sheet', blocks: [{ t: 'write', q: 'Write about your typical Monday (60–80 words).', min_words: 60, max_words: 80, min_sentences: 6,
     checks: [{ label: 'Наречия частоты: always, usually, often…', words: 'always|usually|often|sometimes|rarely|never', min: 3 }, { label: 'Слова порядка: first, then, after that…', words: 'first|then|next|after that|finally|later', min: 2 }],
     caps: true, stop: true, latin: true, starters: ['On Mondays I usually', 'After that,', 'My favourite part of Monday is'], model: '' }] },
@@ -69,6 +70,7 @@ const ILLUSTRATION = {
   groups: (<><i>go</i><i>play</i><b>|</b><i>see</i></>),
   sheet: (<><i>1.</i><u /><i>фото</i></>),
   board: (<><i>A</i><b>✥</b><u /></>),
+  inline: (<><i>work</i><b>/</b><i>works</i></>),
   write: (<><i>Dear</i><u /><b>✓</b></>),
   fix: (<><i>He</i><s>go</s><i>goes</i></>),
   rewrite: (<><i>He</i><b>→</b><i>doesn't</i></>),

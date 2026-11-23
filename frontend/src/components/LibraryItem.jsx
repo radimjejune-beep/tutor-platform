@@ -48,7 +48,7 @@ export default function LibraryItem({ item, index, showPrivate, actions, onGameF
       {gameNotice && <p className="learning-note">{gameNotice}</p>}
       {item.kind === 'game' && item.game && !gameNotice && (
         <div style={{ marginTop: 14 }}>
-          <GamePlayer game={item.game} onFinish={onGameFinish} footer={gameExtra} draftKey={draftKey} />
+          <GamePlayer title={item.title} game={item.game} onFinish={onGameFinish} footer={gameExtra} draftKey={draftKey} />
         </div>
       )}
       {item.kind === 'html' && item.html && (

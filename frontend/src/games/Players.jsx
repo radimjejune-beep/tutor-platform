@@ -1,7 +1,10 @@
 // games/Players.jsx — прохождение упражнений
 // Управление нажатиями (без перетаскивания), чтобы одинаково работало на телефоне и компьютере:
 // выбрать карточку → нажать, куда её поставить.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { buildMistakePractice, exerciseInstruction, exerciseProgress } from './experience';
+import './experience.css';
+import { createPortal } from 'react-dom';
 import { GAME_TYPES, grade, parseGaps, shuffle, shuffleChanged, tokenize } from './logic';
 import { Icon, readDraft, writeDraft, clearDraft } from '../ui';
 import { SheetBoard, sheetProgress } from './Sheet';
@@ -12,19 +15,76 @@ import { QuickBoard, quickProgress, QUICK_TEMPLATES } from './Quick';
    Обёртка: заголовок, кнопка «Проверить», итог, «Ещё раз»
    onFinish(answers, result, durationSec) — сохранить результат (если не передан — режим тренировки)
    ============================================================ */
-export default function GamePlayer({ game, onFinish, footer, draftKey, initialAnswers, initialResult, onDraft, allowRetry = true }) {
+export default function GamePlayer({ game, title, onFinish, footer, draftKey, initialAnswers, initialResult, onDraft, allowRetry = true }) {
   const [round, setRound] = useState(0);
-  // Страница периодически обновляет данные — без этого слова перемешивались бы заново посреди игры
+  const [mode, setMode] = useState('self');
+  const [focus, setFocus] = useState(false);
+  const [template, setTemplate] = useState(null);
+  const root = useRef(null), focusButton = useRef(null), slot = useRef(null);
+  const [host] = useState(() => document.createElement('div'));
+  // Move one stable portal host, preserving answers and in-progress card state.
+  // This also escapes mobile shell stacking/containing blocks.
+  useLayoutEffect(() => {
+    if (focus) {
+      if (slot.current) slot.current.style.minHeight = `${root.current?.offsetHeight || 0}px`;
+      document.body.appendChild(host);
+    } else if (slot.current) { slot.current.appendChild(host); slot.current.style.minHeight = ''; }
+    return () => { host.remove(); };
+  }, [focus, host]);
+  const headingId = useId();
   const key = JSON.stringify(game);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const stable = useMemo(() => game, [key]);
-  return <Round key={`${round}-${key}`} game={stable} onFinish={onFinish} footer={footer} draftKey={draftKey} initialAnswers={initialAnswers} initialResult={initialResult} onDraft={onDraft} allowRetry={allowRetry} onRetry={() => { if (draftKey) clearDraft(draftKey); setRound((r) => r + 1); }} />;
+  // Preserve shuffled cards while a parent refreshes equivalent material.
+  const stable = useMemo(() => game, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setTemplate(null); setRound(0); }, [key]);
+  const activeGame = useMemo(() => template && stable.type === 'quick' ? { ...stable, template } : stable, [stable, template]);
+  const label = activeGame.type === 'quick' ? QUICK_TEMPLATES[activeGame.template]?.label : GAME_TYPES[activeGame.type]?.label;
+  useEffect(() => {
+    if (!focus || !root.current) return undefined;
+    const element = root.current, previous = focusButton.current;
+    const formats = element.querySelector('.experience-formats'); if (formats) formats.open = false;
+    const priorOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    // Isolate the presented exercise from the cabinet for pointer, keyboard and AT.
+    const siblings = [];
+    for (let node = element; node.parentElement; node = node.parentElement) {
+      for (const sibling of node.parentElement.children) if (sibling !== node && sibling instanceof HTMLElement) {
+        siblings.push([sibling, sibling.inert]); sibling.inert = true;
+      }
+      if (node.parentElement === document.body) break;
+    }
+    const controls = () => [...element.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"], summary')].filter(el => el.getClientRects().length && !el.closest('[inert]'));
+    const keydown = e => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setFocus(false); }
+      if (e.key === 'Tab') {
+        const items = controls(), first = items[0], last = items.at(-1);
+        if (!first) { e.preventDefault(); element.focus(); }
+        else if (e.shiftKey && (document.activeElement === first || !element.contains(document.activeElement))) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && (document.activeElement === last || !element.contains(document.activeElement))) { e.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener('keydown', keydown, true);
+    focusButton.current?.focus();
+    return () => { document.removeEventListener('keydown', keydown, true); document.body.style.overflow = priorOverflow; siblings.forEach(([el, inert]) => { el.inert = inert; }); if (previous?.isConnected) previous.focus({ preventScroll: true }); };
+  }, [focus]);
+  return <><div ref={slot} className="experience-slot" />{createPortal(<section ref={root} tabIndex={-1} className={`game experience${mode === 'lesson' ? ' experience-lesson' : ''}${focus ? ' experience-focus' : ''}`} role={focus ? 'dialog' : undefined} aria-modal={focus || undefined} aria-labelledby={headingId}>
+    <div className="experience-toolbar">
+      <div className="experience-brand"><span className="experience-symbol" aria-hidden="true">L</span><span>LESSONFOLD <b>ПРАКТИКА</b></span></div>
+      <button ref={focusButton} type="button" className="btn btn-secondary btn-sm" aria-pressed={focus} onClick={() => setFocus(v => !v)}>{focus ? 'Вернуться · Esc' : 'Развернуть упражнение'}</button>
+    </div>
+    <div className="experience-heading"><div><span className="game-type">{label}</span><h3 id={headingId}>{title || 'Время практики'}</h3></div>
+      <div className="experience-modes" role="group" aria-label="Режим упражнения"><button type="button" aria-pressed={mode === 'self'} onClick={() => setMode('self')}>Самостоятельно</button><button type="button" aria-pressed={mode === 'lesson'} onClick={() => setMode('lesson')}>На уроке</button></div>
+    </div>
+    <p className="experience-instruction">{exerciseInstruction(activeGame)}</p>
+    <p className="experience-mode-note">{mode === 'lesson' ? 'Обсуждайте ответы вслух и переключайте вопросы вместе.' : (allowRetry ? 'Отвечайте в своём темпе. После проверки можно вернуться к ошибкам.' : 'Отвечайте в своём темпе. Повторная попытка в этом задании недоступна.')}</p>
+    {!onFinish && !initialResult && game.type === 'quick' && <details className="experience-formats"><summary>Другой формат тренировки</summary><label>Тот же набор слов<select className="input" value={activeGame.template} onChange={e => { setTemplate(e.target.value); setRound(r => r + 1); }}>{Object.entries(QUICK_TEMPLATES).map(([k, t]) => <option key={k} value={k}>{t.label}</option>)}</select></label><span className="small muted">Смена формата начинает новую тренировку. Исходный материал не изменяется.</span></details>}
+    <Round key={`${round}-${key}-${template}`} game={activeGame} onFinish={onFinish} footer={footer} draftKey={draftKey} initialAnswers={round === 0 ? initialAnswers : undefined} initialResult={round === 0 ? initialResult : undefined} onDraft={onDraft} allowRetry={allowRetry} onRetry={() => { if (draftKey) clearDraft(draftKey); setRound(r => r + 1); }} />
+  </section>, host)}</>;
 }
 
 // Ответы листа с заданиями сохраняются как черновик: ушли со страницы, вернулись и продолжили
 const DRAFTABLE = new Set(['sheet', 'board']);
 const QuickWithMatch = (p) => <QuickBoard {...p} MatchBoard={MatchBoard} />;
-function Round({ game, onFinish, footer, onRetry, draftKey, initialAnswers, initialResult, onDraft, allowRetry }) {
+function Round({ game, onFinish, footer, onRetry, draftKey, initialAnswers, initialResult, onDraft, allowRetry, isPractice = false }) {
   const started = useRef(Date.now());
   const useDraft = Boolean(draftKey && onFinish && DRAFTABLE.has(game.type));
   const [restored] = useState(() => (useDraft ? readDraft(draftKey) : null));
@@ -39,16 +99,26 @@ function Round({ game, onFinish, footer, onRetry, draftKey, initialAnswers, init
   useEffect(() => { if (initialResult) setResult(initialResult); }, [initialResult]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [confirmIncomplete, setConfirmIncomplete] = useState(false);
   const checked = Boolean(result);
+  const [practice, setPractice] = useState(null);
+  const [practiceRound, setPracticeRound] = useState(0);
+  const returnButton = useRef(null), practiceButton = useRef(null), resultPanel = useRef(null);
+  const progress = exerciseProgress(game, answers);
+  const focused = checked && allowRetry && !isPractice && !saving && !saveError ? buildMistakePractice(game, result) : null;
+  useEffect(() => { if (practice) returnButton.current?.focus(); }, [practice]);
 
   const Board = { match: MatchBoard, order: OrderBoard, gaps: GapsBoard, groups: GroupsBoard, sheet: SheetBoard, board: BoardBoard, quick: QuickWithMatch }[game.type];
   if (!Board) return null;
 
-  const check = async () => {
+  const check = async (confirmed = false) => {
     if (saving) return;
+    if (!result && progress && progress.done < progress.total && !confirmed) { setConfirmIncomplete(true); return; }
+    setConfirmIncomplete(false);
     setSaveError('');
     const r = grade(game, answers);
     setResult(r);
+    requestAnimationFrame(() => resultPanel.current?.focus({ preventScroll: true }));
     if (onFinish) {
       setSaving(true);
       try {
@@ -63,36 +133,49 @@ function Round({ game, onFinish, footer, onRetry, draftKey, initialAnswers, init
     }
   };
 
+  if (practice) return <div className="experience-practice">
+    <div className="experience-practice-head"><div><b>Работа над ошибками</b><p className="small muted">Отдельная тренировка без таймера. Исходная оценка не изменяется.</p></div><button ref={returnButton} type="button" className="btn btn-secondary btn-sm" onClick={() => { setPractice(null); requestAnimationFrame(() => practiceButton.current?.focus()); }}>К исходному результату</button></div>
+    <p className="experience-instruction">{exerciseInstruction(practice)}</p>
+    <Round key={practiceRound} game={practice} allowRetry isPractice onRetry={() => setPracticeRound(r => r + 1)} />
+  </div>;
+
   return (
-    <div className="game">
+    <div className="experience-round">
       <div className="game-head">
-        <span className="game-type">{game.type === 'quick' ? QUICK_TEMPLATES[game.template]?.label : GAME_TYPES[game.type].label}</span>
+<span className="experience-step">{checked ? 'Разбор результата' : 'Ваш прогресс'}</span>
         {!checked && <span className="small muted">{progressText(game, answers)}</span>}
       </div>
 
+      {progress && !checked && <div className="experience-progress" role="progressbar" aria-label="Ответы заполнены" aria-valuemin={0} aria-valuemax={progress.total || 1} aria-valuenow={progress.done}><span style={{ width: `${progress.percent}%` }} /></div>}
       {restored && !checked && <div className="small muted" style={{ marginBottom: 8 }}>Продолжаем с того места, где вы остановились.</div>}
       <Board game={game} answers={answers} setAnswers={setAnswers} result={result} />
 
       {checked ? (
-        <div className={`game-result ${result.score === 100 ? 'perfect' : ''}`}>
-          <div>
+        <div ref={resultPanel} tabIndex={-1} className={`game-result ${result.score === 100 ? 'perfect' : ''}`}>
+          <div role="status">
+            <div className="experience-step">{isPractice ? 'Результат тренировки' : game.type === 'sheet' && game.blocks.some(b => b.t === 'write') ? 'Автопроверка требований · не оценка текста' : 'Результат попытки'}</div>
             <div className="game-score num">{result.total ? `${result.correct} из ${result.total}` : 'Отправлено'}</div>
             <div className="small">
-              {!result.total ? '' : result.score === 100 ? 'Всё верно!' : result.score >= 70 ? 'Хорошо, ошибки отмечены.' : 'Посмотрите ошибки и попробуйте ещё раз.'}
-              {result.manual ? ' Развёрнутые и устные ответы проверит преподаватель.' : ''}
+              {!result.total ? '' : result.score === 100 ? (game.type === 'quick' && game.template === 'flip' ? 'Вы отметили все карточки как знакомые.' : 'Всё верно!') : result.score >= 70 ? 'Хорошо, ошибки отмечены.' : 'Посмотрите ошибки и попробуйте ещё раз.'}
+              {result.manual ? (onFinish ? ' Развёрнутые и устные ответы проверит преподаватель.' : ' Текст и устные ответы требуют проверки преподавателя. В этой тренировке они не отправляются.') : ''}
+              {game.type === 'quick' && game.template === 'flip' && ' Это самооценка, а не проверка знаний.'}
               {onFinish && (saving ? ' Сохраняем…' : saveError ? ` Не сохранилось: ${saveError}` : ' Результат сохранён.')}
             </div>
           </div>
-          {saveError && <button type="button" className="btn btn-sm" disabled={saving} onClick={check}>Повторить отправку</button>}
-          {allowRetry && <button type="button" className="btn btn-secondary btn-sm" disabled={saving} onClick={onRetry}>Ещё раз</button>}
+          <div className="experience-result-actions">
+          {focused && <button ref={practiceButton} type="button" className="btn btn-sm" onClick={() => { setPracticeRound(0); setPractice(focused); }}>Повторить ошибки</button>}
+          {saveError && <button type="button" className="btn btn-sm" disabled={saving} onClick={() => check(true)}>Повторить отправку</button>}
+          {allowRetry && <button type="button" className="btn btn-secondary btn-sm" disabled={saving} onClick={onRetry}>Начать заново</button>}
+          </div>
         </div>
       ) : (
         <div className="game-foot">
-          <button type="button" className="btn" onClick={check}>{game.type === 'sheet' || game.type === 'board' ? 'Сдать и проверить' : 'Проверить'}</button>
-          {!onFinish && <span className="small muted">Тренировка, результат не сохраняется</span>}
+          <button type="button" className="btn" disabled={saving} onClick={() => check()}>{game.type === 'sheet' || game.type === 'board' ? 'Сдать и проверить' : 'Проверить'}</button>
+          {!onFinish && <span className="small muted">Тренировка · без сохранения оценки</span>}
         </div>
       )}
-      {footer}
+      {confirmIncomplete && !checked && <div className="experience-incomplete" role="alert"><p>Заполнено {progress.done} из {progress.total}. Пустые ответы будут отмечены как ошибки.</p><div className="row wrap"><button type="button" className="btn btn-secondary btn-sm" onClick={() => setConfirmIncomplete(false)}>Продолжить решать</button><button type="button" className="btn btn-sm" onClick={() => check(true)}>Всё равно проверить</button></div></div>}
+      <div className="experience-aux">{footer}</div>
     </div>
   );
 }
@@ -160,7 +243,7 @@ function MatchBoard({ game, answers, setAnswers, result }) {
           const d = result?.details[i];
           return (
             <button type="button" key={i} onClick={() => pickLeft(i)}
-              className={`card-btn ${selected === i ? 'on' : ''} ${d ? (d.ok ? 'ok' : 'bad') : ''}`}
+              aria-pressed={selected === i || linked} className={`card-btn ${selected === i ? 'on' : ''} ${d ? (d.ok ? 'ok' : 'bad') : ''}`}
               style={linked && !d ? { background: tint(i), borderColor: 'transparent' } : undefined}>
               <span>{game.pairs[i].a}</span>
               {d && <Mark ok={d.ok} />}
@@ -305,7 +388,7 @@ function GapsBoard({ game, answers, setAnswers, result }) {
               const cls = d ? (d.ok ? 'ok' : 'bad') : '';
               if (game.mode === 'bank') {
                 return (
-                  <button type="button" className={`gap-slot ${cls} ${slots[i] !== null ? 'filled' : ''} ${selected !== null && !checked ? 'target' : ''}`} onClick={() => tapSlot(i)}>
+                  <button type="button" aria-label={`Пропуск ${i + 1}${values[i] ? `: ${values[i]}` : ''}`} className={`gap-slot ${cls} ${slots[i] !== null ? 'filled' : ''} ${selected !== null && !checked ? 'target' : ''}`} onClick={() => tapSlot(i)}>
                     {values[i] || ' '}
                   </button>
                 );
@@ -378,9 +461,8 @@ function GroupsBoard({ game, answers, setAnswers, result }) {
       )}
       <div className="buckets" style={{ gridTemplateColumns: `repeat(${Math.min(game.groups.length, 3)}, minmax(0, 1fr))` }}>
         {game.groups.map((g, gi) => (
-          <div key={gi} className={`bucket ${selected !== null && !checked ? 'target' : ''}`} onClick={() => place(gi)}
-            role="button" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && place(gi)}>
-            <div className="bucket-name">{g.name}</div>
+          <div key={gi} className={`bucket ${selected !== null && !checked ? 'target' : ''}`} onClick={() => place(gi)} role="group" aria-label={`Группа: ${g.name}`}>
+            <button type="button" className="bucket-name bucket-target" disabled={checked || selected === null} aria-label={`Поместить в группу: ${g.name}`} onClick={e => { e.stopPropagation(); place(gi); }}>{g.name}</button>
             <div className="bucket-items">
               {all.filter((x) => placed[x.key] === gi).map((x) => {
                 const d = detailOf(x.key);

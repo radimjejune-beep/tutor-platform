@@ -1,7 +1,7 @@
 // games/Quick.jsx: быстрые шаблоны. Преподаватель вводит список «вопрос и ответ» один раз,
 // а игру выбирает из галереи и может сменить в любой момент: викторина, пары, мемори, анаграмма,
 // верно или нет, напиши ответ, карточки. Ответ на i-ю строку хранится в answers.r[i].
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Field, Icon } from '../ui';
 import { normalize, shuffle } from './logic';
 import { speak, canSpeak } from '../voice';
@@ -27,11 +27,18 @@ const first = (a) => String(a || '').split('|')[0].trim();
    ============================================================ */
 function Countdown({ seconds, onEnd }) {
   const [left, setLeft] = useState(seconds);
+  const ended = useRef(onEnd);
+  ended.current = onEnd;
   useEffect(() => {
     if (!seconds) return undefined;
-    const t = setInterval(() => setLeft((s) => { if (s <= 1) { clearInterval(t); onEnd(); return 0; } return s - 1; }), 1000);
+    const deadline = Date.now() + seconds * 1000;
+    const t = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setLeft(remaining);
+      if (!remaining) { clearInterval(t); ended.current(); }
+    }, 250);
     return () => clearInterval(t);
-  }, [seconds]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [seconds]);
   if (!seconds) return null;
   return <span className={`qk-timer num${left <= 10 ? ' low' : ''}`} aria-live="off">{Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}</span>;
 }
@@ -49,21 +56,35 @@ function Stepper({ game, answers, setAnswers, result, render, isDone }) {
   const [timeUp, setTimeUp] = useState(false);
   const locked = Boolean(result) || timeUp;
   const answer = (i, v) => setAnswers((prev) => ({ ...prev, r: { ...(prev.r || {}), [i]: v } }));
-  const next = () => setPos((p) => p + 1);
+  const cardRef = useRef(null);
+  const next = () => setPos((p) => Math.min(order.length, p + 1));
+  const firstQuestion = useRef(true);
+  useEffect(() => {
+    if (firstQuestion.current) { firstQuestion.current = false; return; }
+    const target = cardRef.current?.querySelector('input:not(:disabled)') || cardRef.current;
+    target?.focus({ preventScroll: true });
+  }, [pos]);
   const done = order.filter((i) => isDone(r[i])).length;
   const right = order.filter((i) => checkOne(game, i, r[i])).length;
   return (
     <div className="qk">
       <div className="qk-top">
+        <span className="experience-step">{pos < order.length && !locked ? `Вопрос ${pos + 1} из ${order.length}` : `Пройдено ${done} из ${order.length}`}</span>
         <div className="qk-dots" aria-hidden="true">{order.map((i, k) => <span key={i} className={isDone(r[i]) ? (checkOne(game, i, r[i]) ? 'ok' : 'bad') : k === pos ? 'on' : ''} />)}</div>
         {!result && <Countdown seconds={game.timer} onEnd={() => setTimeUp(true)} />}
       </div>
       {pos < order.length && !locked ? (
-        <div className="qk-card" key={order[pos]}>{render(order[pos], r[order[pos]], (v) => answer(order[pos], v), next)}</div>
+        <div className="qk-card" key={order[pos]} ref={cardRef} tabIndex={-1}>
+          {render(order[pos], r[order[pos]], (v) => answer(order[pos], v), next)}
+          {isDone(r[order[pos]]) && game.template !== 'flip' && <div className="experience-feedback" role="status">
+            <div><b>{checkOne(game, order[pos], r[order[pos]]) ? 'Верно' : 'Попробуем запомнить'}</b><p>{checkOne(game, order[pos], r[order[pos]]) ? 'Можно переходить дальше.' : `Ответ: ${first(game.template === 'anagram' ? game.items[order[pos]].q : game.items[order[pos]].a)}`}</p></div>
+            <button type="button" className="btn" onClick={next}>{pos === order.length - 1 ? 'К итогу' : 'Следующий вопрос'}</button>
+          </div>}
+        </div>
       ) : (
         <div className="qk-card qk-end">
           <div className="qk-big num">{right} из {order.length}</div>
-          <div className="muted">{timeUp && done < order.length ? 'Время вышло.' : 'Все вопросы пройдены.'} {result ? '' : 'Нажмите «Проверить», чтобы сохранить результат.'}</div>
+          <div className="muted">{timeUp && done < order.length ? 'Время вышло.' : done < order.length ? 'Не все вопросы были пройдены.' : 'Все вопросы пройдены.'} {result ? '' : 'Нажмите «Проверить», чтобы увидеть итог.'}</div>
         </div>
       )}
       {result && <ReviewList game={game} r={r} />}
@@ -93,13 +114,15 @@ function ReviewList({ game, r }) {
 function QuizCard({ game, i, given, set, next }) {
   const x = game.items[i];
   const opts = useMemo(() => {
-    const own = (x.wrong || []).filter(Boolean);
-    const pool = shuffle(game.items.filter((_, j) => j !== i).map((y) => first(y.a)).filter((a) => normalize(a) !== normalize(first(x.a))));
-    const wrong = [...new Set([...own, ...pool])].slice(0, 3);
+    const accepted = String(x.a).split('|').map(normalize);
+    const own = (x.wrong || []).filter(o => o && !accepted.includes(normalize(o)));
+    const pool = shuffle(game.items.filter((_, j) => j !== i).map((y) => first(y.a)).filter((a) => !accepted.includes(normalize(a))));
+    const seen = new Set(accepted);
+    const wrong = [...own, ...pool].filter(o => { const key = normalize(o); if (seen.has(key)) return false; seen.add(key); return true; }).slice(0, 3);
     return shuffle([first(x.a), ...wrong]);
   }, [game, i]); // eslint-disable-line react-hooks/exhaustive-deps
   const answered = given !== undefined;
-  const pick = (o) => { if (answered) return; set(o); setTimeout(next, normalize(o) === normalize(first(x.a)) ? 700 : 1500); };
+  const pick = (o) => { if (answered) return; set(o); };
   return (
     <>
       <div className="qk-q">{x.q}<Say text={x.q} /></div>
@@ -118,7 +141,7 @@ function TypeCard({ game, i, given, set, next }) {
   const x = game.items[i];
   const [v, setV] = useState('');
   const answered = given !== undefined;
-  const submit = (e) => { e.preventDefault(); if (answered || !v.trim()) return; set(v.trim()); if (checkOne(game, i, v.trim())) setTimeout(next, 700); };
+  const submit = (e) => { e.preventDefault(); if (answered || !v.trim()) return; set(v.trim()); };
   return (
     <form onSubmit={submit}>
       <div className="qk-q">{x.q}<Say text={x.q} /></div>
@@ -126,8 +149,6 @@ function TypeCard({ game, i, given, set, next }) {
         <input className={`input qk-input${answered ? (checkOne(game, i, given) ? ' ok' : ' bad') : ''}`} value={answered ? given : v} onChange={(e) => setV(e.target.value)} disabled={answered} autoFocus autoComplete="off" spellCheck={false} aria-label="Ответ" />
         {!answered && <button className="btn" type="submit">Ответить</button>}
       </div>
-      {answered && !checkOne(game, i, given) && <div className="qk-correct">Правильно: <b>{first(x.a)}</b></div>}
-      {answered && !checkOne(game, i, given) && <div style={{ textAlign: 'center', marginTop: 10 }}><button type="button" className="btn btn-secondary btn-sm" onClick={next}>Дальше</button></div>}
     </form>
   );
 }
@@ -150,7 +171,7 @@ function AnagramCard({ game, i, given, set, next }) {
     // пробелы из фразы возвращаем на место
     let out = ''; let n = 0;
     for (const ch of word) out += ch === ' ' ? ' ' : built[n++];
-    set(out); setTimeout(next, normalize(out) === normalize(word) ? 700 : 1600);
+    set(out);
   }, [built]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <>
@@ -162,16 +183,19 @@ function AnagramCard({ game, i, given, set, next }) {
         {letters.map((o) => <button key={o.k} type="button" className="qk-tile" disabled={answered || picked.includes(o.k)} onClick={() => setPicked([...picked, o.k])}>{o.c}</button>)}
       </div>
       {!answered && picked.length > 0 && <div style={{ textAlign: 'center' }}><button type="button" className="btn btn-quiet btn-sm" onClick={() => setPicked(picked.slice(0, -1))}>Стереть букву</button></div>}
-      {answered && !checkOne(game, i, given) && <div className="qk-correct">Правильно: <b>{word}</b></div>}
     </>
   );
 }
 
 function TfCard({ game, i, given, set, next }) {
   const x = game.items[i];
-  const j = useMemo(() => (Math.random() < 0.5 || game.items.length < 2 ? i : shuffle(game.items.map((_, k) => k).filter((k) => k !== i))[0]), [game, i]);
+  const j = useMemo(() => {
+    const accepted = String(x.a).split('|').map(normalize);
+    const other = game.items.map((y, k) => ({ y, k })).filter(({ y, k }) => k !== i && !accepted.includes(normalize(first(y.a))));
+    return Math.random() < 0.5 || !other.length ? i : shuffle(other)[0].k;
+  }, [game, i]);
   const answered = given !== undefined;
-  const say = (v) => { if (answered) return; set({ j, v }); setTimeout(next, (j === i) === v ? 700 : 1600); };
+  const say = (v) => { if (answered) return; set({ j, v }); };
   return (
     <>
       <div className="qk-q">{x.q} <span className="muted">=</span> {first(game.items[j].a)}</div>
@@ -179,7 +203,6 @@ function TfCard({ game, i, given, set, next }) {
         <button type="button" className={`qk-opt${answered ? (j === i ? ' ok' : given.v ? ' bad' : ' dim') : ''}`} onClick={() => say(true)} disabled={answered}><Icon name="check" size={20} /> Верно</button>
         <button type="button" className={`qk-opt${answered ? (j !== i ? ' ok' : !given.v ? ' bad' : ' dim') : ''}`} onClick={() => say(false)} disabled={answered}><Icon name="close" size={20} /> Неверно</button>
       </div>
-      {answered && j !== i && <div className="qk-correct">На самом деле: <b>{first(x.a)}</b></div>}
     </>
   );
 }
@@ -193,9 +216,10 @@ function FlipCard({ game, i, given, set, next }) {
         <span className="qk-flip-q">{x.q}</span>
         {open ? <span className="qk-flip-a">{first(x.a)}</span> : <span className="small muted">нажмите, чтобы перевернуть</span>}
       </button>
+      {!open && <p className="small muted" style={{textAlign: 'center'}}>Сначала откройте ответ, затем оцените себя.</p>}
       <div className="qk-tf">
-        <button type="button" className="qk-opt" onClick={() => { set(false); next(); }} disabled={given !== undefined}>Не знаю</button>
-        <button type="button" className="qk-opt" onClick={() => { set(true); next(); }} disabled={given !== undefined}>Знаю</button>
+        <button type="button" className="qk-opt" onClick={() => { set(false); next(); }} disabled={given !== undefined || !open}>Ещё учу</button>
+        <button type="button" className="qk-opt" onClick={() => { set(true); next(); }} disabled={given !== undefined || !open}>Знаю</button>
       </div>
     </>
   );
@@ -203,17 +227,19 @@ function FlipCard({ game, i, given, set, next }) {
 
 function MemoryBoard({ game, answers, setAnswers, result }) {
   const tiles = useMemo(() => shuffle(game.items.flatMap((x, i) => [{ i, side: 'q', text: x.q }, { i, side: 'a', text: first(x.a) }])), [game]);
+  const pending = useRef(null);
   const found = new Set(answers.found || []);
   const [open, setOpen] = useState([]);
   const [timeUp, setTimeUp] = useState(false);
   const locked = Boolean(result) || timeUp;
+  useEffect(() => { if (locked) { clearTimeout(pending.current); setOpen([]); } return () => clearTimeout(pending.current); }, [locked]);
   const flip = (k) => {
     if (locked || open.length === 2 || open.includes(k) || found.has(tiles[k].i)) return;
     const now = [...open, k];
     setOpen(now);
     if (now.length === 2) {
       const [a, b] = now.map((n) => tiles[n]);
-      setTimeout(() => {
+      pending.current = setTimeout(() => {
         if (a.i === b.i) setAnswers((prev) => ({ ...prev, found: [...(prev.found || []), a.i] }));
         else setAnswers((prev) => ({ ...prev, misses: (prev.misses || 0) + 1 }));
         setOpen([]);
@@ -230,8 +256,8 @@ function MemoryBoard({ game, answers, setAnswers, result }) {
         {tiles.map((t, k) => {
           const shown = open.includes(k) || found.has(t.i) || Boolean(result);
           return (
-            <button key={k} type="button" className={`qk-mem${shown ? ' open' : ''}${found.has(t.i) ? ' found' : ''}${result && !found.has(t.i) ? ' bad' : ''}`} onClick={() => flip(k)} disabled={locked} aria-label={shown ? t.text : 'Закрытая карточка'}>
-              {shown ? t.text : ''}
+            <button key={k} type="button" className={`qk-mem${shown ? ' open' : ''}${found.has(t.i) ? ' found' : ''}${result && !found.has(t.i) ? ' bad' : ''}`} onClick={() => flip(k)} disabled={locked} aria-label={shown ? t.text : `Закрытая карточка ${k + 1}`} aria-pressed={shown}>
+              {shown ? t.text : <span aria-hidden="true">◇</span>}
             </button>
           );
         })}
@@ -243,7 +269,8 @@ function MemoryBoard({ game, answers, setAnswers, result }) {
 
 export function QuickBoard({ game, answers, setAnswers, result, MatchBoard }) {
   const t = game.template;
-  if (t === 'match') return <MatchBoard game={{ type: 'match', pairs: game.items.map((x) => ({ a: x.q, b: first(x.a) })) }} answers={answers} setAnswers={setAnswers} result={result} />;
+  const matching = useMemo(() => ({ type: 'match', pairs: game.items.map(x => ({ a: x.q, b: first(x.a) })) }), [game]);
+  if (t === 'match') return <MatchBoard game={matching} answers={answers} setAnswers={setAnswers} result={result} />;
   if (t === 'memory') return <MemoryBoard game={game} answers={answers} setAnswers={setAnswers} result={result} />;
   const Card = { quiz: QuizCard, type: TypeCard, anagram: AnagramCard, tf: TfCard, flip: FlipCard }[t];
   return (
@@ -254,7 +281,7 @@ export function QuickBoard({ game, answers, setAnswers, result, MatchBoard }) {
 
 export function quickProgress(game, answers) {
   if (game.template === 'match') return `Соединено ${Object.keys(answers.pairs || {}).length} из ${game.items.length}`;
-  if (game.template === 'memory') return '';
+  if (game.template === 'memory') return `Найдено ${new Set(answers.found || []).size} из ${game.items.length}`;
   return `Ответов ${Object.keys(answers.r || {}).length} из ${game.items.length}`;
 }
 

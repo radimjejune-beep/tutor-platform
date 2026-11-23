@@ -1,3 +1,4 @@
+const { parseInlineChoices, gradeInlineChoices } = require('./inline-choice');
 // services/games.js — упражнения: формат данных и проверка ответов
 // Типы:
 //   match  — найди пару:            { pairs: [{ a, b }] }
@@ -26,6 +27,7 @@ const fileId = z.number().int().positive();
 const pct = z.number().min(0).max(100);
 const sheetBlock = z.discriminatedUnion('t', [
   z.object({ t: z.literal('text'), text: z.string().max(5000).default(''), image: fileId.nullish(), audio: fileId.nullish(), video: z.string().trim().max(500).regex(/^https?:\/\//, 'Ссылка на видео должна начинаться с https://').nullish().or(z.literal('')) }).strict(),
+  z.object({ t: z.literal('inline'), text: z.string().trim().min(1).max(10000).superRefine((text, ctx) => { for (const message of parseInlineChoices(text).errors) ctx.addIssue({ code: 'custom', message }); }), audio: fileId.nullish() }).strict(),
   z.object({ t: z.literal('gaps'), text: z.string().trim().min(1, 'Пустой блок с пропусками').max(5000), audio: fileId.nullish() }).strict(),
   z.object({
     t: z.literal('choice'), q: z.string().trim().max(1000).default(''),
@@ -256,7 +258,9 @@ function gradeSheet(game, answers = {}) {
   const short = (v) => (v === undefined || v === null || v === '' ? null : String(v).slice(0, 300));
   game.blocks.forEach((b, i) => {
     const a = given[i];
-    if (b.t === 'gaps') {
+    if (b.t === 'inline') {
+      gradeInlineChoices(b.text, a).forEach(d => details.push({ block: i, ...d }));
+    } else if (b.t === 'gaps') {
       parseGaps(b.text).gaps.forEach((opts, k) => {
         const g = Array.isArray(a) ? a[k] : '';
         details.push({ block: i, k, ok: opts.some((o) => normalize(o) === normalize(g)), given: short(g), expected: opts.join(' / ') });

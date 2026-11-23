@@ -1,3 +1,4 @@
+import { gradeInlineChoices, parseInlineChoices } from './inline-choice.js';
 // games/logic.js — общая логика упражнений (зеркало backend/src/services/games.js)
 
 export const GAME_TYPES = {
@@ -12,7 +13,8 @@ export const GAME_TYPES = {
 
 // Готовые листы для конкретной отработки: в конструкторе это тоже «Лист с заданиями»
 export const SHEET_PRESETS = {
-  write: { label: 'Письмо с чек-листом', hint: 'Эссе, письмо, рассказ: сайт сам отслеживает слова, объём и нужные конструкции' },
+  inline: { label: 'Выбор в предложении', hint: 'Work или works? Несколько мест выбора прямо в тексте, с проверкой и повторением ошибок' },
+  write: { label: 'Письмо с чек-листом', hint: 'План, текст и самопроверка: объём и ключевые слова проверяются автоматически, содержание — преподавателем' },
   fix: { label: 'Найди и исправь ошибки', hint: 'Текст с ошибками: ученик нажимает на неверное слово и исправляет' },
   rewrite: { label: 'Перепиши предложение', hint: 'Трансформации: сделай отрицание, вопрос, поставь в другое время' },
   dictation: { label: 'Диктант на слух', hint: 'Предложение звучит британским голосом или из вашего аудио, ученик записывает' },
@@ -176,7 +178,9 @@ export function gradeSheet(game, answers = {}) {
   const details = [];
   game.blocks.forEach((b, i) => {
     const a = given[i];
-    if (b.t === 'gaps') {
+    if (b.t === 'inline') {
+      gradeInlineChoices(b.text, a).forEach(d => details.push({ block: i, ...d }));
+    } else if (b.t === 'gaps') {
       parseGaps(b.text).gaps.forEach((opts, k) => {
         const g = Array.isArray(a) ? a[k] : '';
         details.push({ block: i, k, ok: opts.some((o) => normalize(o) === normalize(g)), given: g || null, expected: opts.join(' / ') });
@@ -280,7 +284,7 @@ export const boardSize = (game) => game.elements.filter((e) => ['input', 'select
 
 // Сколько всего ответов ждёт лист (для прогресса и подписи)
 export function sheetSize(game) {
-  return game.blocks.reduce((n, b) => n + (b.t === 'gaps' ? parseGaps(b.text).gaps.length : b.t === 'page' ? b.fields.length : b.t === 'fix' ? parseFix(b.text).filter((x) => x.right).length : ['choice', 'open', 'voice', 'write', 'rewrite', 'dictation'].includes(b.t) ? 1 : 0), 0);
+  return game.blocks.reduce((n, b) => n + (b.t === 'inline' ? parseInlineChoices(b.text).choices.length : b.t === 'gaps' ? parseGaps(b.text).gaps.length : b.t === 'page' ? b.fields.length : b.t === 'fix' ? parseFix(b.text).filter((x) => x.right).length : ['choice', 'open', 'voice', 'write', 'rewrite', 'dictation'].includes(b.t) ? 1 : 0), 0);
 }
 
 // Сколько заданий в упражнении (для подписи в списке)

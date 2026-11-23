@@ -6,8 +6,11 @@ import { createContext, useContext, useEffect, useId, useRef, useState } from 'r
 import { api } from '../api';
 import {useActivityMedia} from '../components/ActivityMedia';
 import { Icon, useToast } from '../ui';
-import { parseGaps, alts, writeChecks, parseFix, words } from './logic';
+import { parseGaps, alts, writeChecks, parseFix } from './logic';
 import { say } from '../voice';
+import WritingStudio from './Writing';
+import { InlineChoiceBlock, InlineChoiceEditor } from './InlineChoice';
+import { parseInlineChoices } from './inline-choice';
 
 // Где проходят лист: в домашнем задании можно записать голос (файл прикрепится к работе)
 export const SheetContext = createContext({ homeworkId: null });
@@ -76,6 +79,10 @@ export function SheetBoard({ game, answers, setAnswers, result }) {
             </div>
           );
         }
+        if (blk.t === 'inline') {
+          n++;
+          return <InlineChoiceBlock key={i} n={n} block={blk} value={b[i]} onChange={v=>set(i,v)} result={checked ? result.details.filter(d=>d.block===i) : null} audio={audio} />;
+        }
         if (blk.t === 'gaps') {
           const { parts, gaps } = parseGaps(blk.text);
           const vals = Array.isArray(b[i]) ? b[i] : [];
@@ -127,14 +134,7 @@ export function SheetBoard({ game, answers, setAnswers, result }) {
         }
         if (blk.t === 'open') {
           n++;
-          return (
-            <div key={i} className="sheet-block">
-              {audio}
-              {blk.q && <div className="sheet-q"><span className="sheet-n">{n}</span><MathText>{blk.q}</MathText></div>}
-              <textarea className="textarea" value={b[i] || ''} disabled={checked} placeholder="Ваш ответ" onChange={(e) => set(i, e.target.value)} />
-              {checked && <div className="small muted">Этот ответ проверит преподаватель.</div>}
-            </div>
-          );
+          return <WritingStudio key={i} n={n} blk={blk} value={b[i] || ''} onChange={v => set(i, v)} checked={checked} audio={audio} notes={answers.writing?.[i]} onNotesChange={v => setAnswers(prev => ({ ...prev, writing: { ...(prev.writing || {}), [i]: v } }))} />;
         }
         if (blk.t === 'voice') {
           n++;
@@ -174,7 +174,7 @@ export function SheetBoard({ game, answers, setAnswers, result }) {
         }
         if (blk.t === 'write') {
           n++;
-          return <WriteBlock key={i} n={n} blk={blk} value={b[i] || ''} onChange={(v) => set(i, v)} checked={checked} audio={audio} />;
+          return <WritingStudio key={i} n={n} blk={blk} value={b[i] || ''} onChange={(v) => set(i, v)} checked={checked} audio={audio} notes={answers.writing?.[i]} onNotesChange={v => setAnswers(prev => ({ ...prev, writing: { ...(prev.writing || {}), [i]: v } }))} />;
         }
         if (blk.t === 'rewrite') {
           n++;
@@ -220,51 +220,6 @@ export function SheetBoard({ game, answers, setAnswers, result }) {
 
 
 /* ---------- Письмо: чек-лист обновляется, пока ученик пишет ---------- */
-function WriteBlock({ n, blk, value, onChange, checked, audio }) {
-  const list = writeChecks(blk, value);
-  const done = list.filter((c) => c.ok).length;
-  const count = words(value).length;
-  const [showModel, setShowModel] = useState(false);
-  const add = (st) => onChange(`${value.trim() ? `${value.trimEnd()} ` : ''}${st} `);
-  return (
-    <div className="sheet-block write-block">
-      {audio}
-      <div className="sheet-q"><span className="sheet-n">{n}</span><MathText>{blk.q || 'Напишите текст'}</MathText></div>
-      {!checked && blk.starters?.length > 0 && (
-        <div className="write-starters">
-          <span className="small muted">Начала фраз:</span>
-          {blk.starters.map((st, k) => <button type="button" key={k} className="chip-btn" onClick={() => add(st)}>{st}</button>)}
-        </div>
-      )}
-      <div className="write-grid">
-        <div className="write-pad">
-          <textarea className="textarea write-area" value={value} disabled={checked} placeholder="Пишите здесь…" spellCheck="false"
-            onChange={(e) => onChange(e.target.value)} />
-          <div className="small muted">Слов: {count}{blk.max_words ? ` из ${blk.max_words}` : blk.min_words ? `, нужно не меньше ${blk.min_words}` : ''}</div>
-        </div>
-        {list.length > 0 && (
-          <div className="write-checks" aria-live="polite">
-            <div className="meta-label">Чек-лист · {done} из {list.length}</div>
-            {list.map((c) => (
-              <div key={c.key} className={`write-check ${c.ok ? 'ok' : ''}`}>
-                <span className="write-tick" aria-hidden="true">{c.ok ? '✓' : ''}</span>
-                <span><span>{c.label}</span>{c.info && <small>{c.info}</small>}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-      {checked && <div className="small muted">Пункты чек-листа засчитаны сразу, сам текст проверит преподаватель.</div>}
-      {checked && blk.model && (
-        <div>
-          <button type="button" className="btn btn-quiet btn-sm" onClick={() => setShowModel(!showModel)}>{showModel ? 'Скрыть пример' : 'Показать пример ответа'}</button>
-          {showModel && <MathText as="div" className="write-model">{blk.model}</MathText>}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* ---------- Найди и исправь: нажать на слово, вписать верный вариант ---------- */
 function FixBlock({ n, blk, value, onChange, result, audio }) {
   const toks = parseFix(blk.text);
@@ -313,7 +268,10 @@ export function sheetProgress(game, answers) {
   let done = 0;
   let total = 0;
   game.blocks.forEach((blk, i) => {
-    if (blk.t === 'gaps' || blk.t === 'page') {
+    if (blk.t === 'inline') {
+      const count = parseInlineChoices(blk.text).choices.length; total += count;
+      done += (Array.isArray(b[i]) ? b[i] : []).slice(0,count).filter(v=>v !== undefined && v !== null && v !== '').length;
+    } else if (blk.t === 'gaps' || blk.t === 'page') {
       const cnt = blk.t === 'gaps' ? parseGaps(blk.text).gaps.length : blk.fields.length;
       total += cnt;
       done += (Array.isArray(b[i]) ? b[i] : []).filter((v) => String(v || '').trim()).length;
@@ -402,9 +360,10 @@ function VoiceAnswer({ value, disabled, onChange }) {
 /* ============================================================
    Конструктор листа
    ============================================================ */
-export const BLOCK_LABEL = { text: 'Текст или инструкция', gaps: 'Пропуски', choice: 'Выбор ответа', write: 'Письмо с чек-листом', fix: 'Исправь ошибки', rewrite: 'Перепиши предложение', dictation: 'Диктант', open: 'Развёрнутый ответ', voice: 'Ответ голосом', page: 'Фото с полями' };
+export const BLOCK_LABEL = { text: 'Текст или инструкция', inline: 'Выбор в предложении', gaps: 'Пропуски', choice: 'Выбор ответа', write: 'Письмо с чек-листом', fix: 'Исправь ошибки', rewrite: 'Перепиши предложение', dictation: 'Диктант', open: 'Развёрнутый ответ', voice: 'Ответ голосом', page: 'Фото с полями' };
 const NEW_BLOCK = {
   text: () => ({ t: 'text', text: '' }),
+  inline: () => ({ t: 'inline', text: 'She [work|*works] every day.\nI [*am|is] a teacher.' }),
   gaps: () => ({ t: 'gaps', text: '' }),
   choice: () => ({ t: 'choice', q: '', options: ['', ''], correct: 0 }),
   write: () => ({ t: 'write', q: '', min_words: 50, max_words: 0, min_sentences: 0, checks: [], caps: true, stop: true, latin: true, starters: [], model: '' }),
@@ -546,6 +505,7 @@ function BlockEditor({ b, onChange, upload }) {
       </>
     );
   }
+  if (b.t === 'inline') return <><InlineChoiceEditor block={b} onChange={onChange} /><MediaRow b={b} onChange={onChange} upload={upload} /></>;
   if (b.t === 'choice') return <ChoiceEditor b={b} onChange={onChange} upload={upload} />;
   if (b.t === 'open' || b.t === 'voice') {
     return (
@@ -664,10 +624,11 @@ function WriteEditor({ b, onChange, upload }) {
 
       <div className="row wrap" style={{ gap: 14 }}>
         <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={b.caps} onChange={(e) => onChange({ caps: e.target.checked })} /> <span className="small">Большие буквы в начале предложений</span></label>
-        <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={b.stop} onChange={(e) => onChange({ stop: e.target.checked })} /> <span className="small">Точка в конце</span></label>
+        <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={b.stop} onChange={(e) => onChange({ stop: e.target.checked })} /> <span className="small">Знак препинания в конце текста</span></label>
         <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={b.latin} onChange={(e) => onChange({ latin: e.target.checked })} /> <span className="small">Без русских букв</span></label>
       </div>
 
+      <p className="small muted">В письмах с подписью проверку знака в конце можно отключить. Наличие ключевого слова не подтверждает правильность грамматической конструкции.</p>
       <Field2 label="Начала фраз для подсказки (каждое с новой строки, необязательно)">
         <textarea className="textarea" style={{ minHeight: 60 }} value={(b.starters || []).join('\n')} placeholder={'On Mondays I usually\nAfter that,\nMy favourite part of the day is'}
           onChange={(e) => onChange({ starters: e.target.value.split('\n').map((x) => x.slice(0, 160)).slice(0, 20) })} />
