@@ -84,14 +84,14 @@ export default function TutorApp({ path, params }) {
   else if (parts[0] === 'finance' && parts[1] === 'pricing') page = <Pricing />;
   else if (parts[0] === 'finance') page = <Finance />;
   else if (parts[0] === 'leads') page = <Leads />;
-  else if (parts[0] === 'bank') page = <BankPage params={params} key={parts.slice(1, 3).join('/')} book={parts[1]} unit={parts[2] ? decodeURIComponent(parts[2]) : undefined} />;
+  else if (parts[0] === 'bank') page = <BankPage params={params} book={parts[1]} unit={parts[2] ? decodeURIComponent(parts[2]) : undefined} />;
   else if (parts[0] === 'market') page = <MarketPage key={parts[1] || 'all'} tab={parts[1] === 'mine' ? 'mine' : 'all'} />;
   else if (parts[0] === 'settings') page = <Settings tab={parts[1] || 'booking'} />;
   else if (parts[0] === 'more') page = <MoreMenu nav={tutorNav} counts={counts} />;
   else if (parts[0] === 'library' && parts[1] === 'generate') page = <Generator />;
   else if (parts[0] === 'library' && parts[1] === 'new') page = <LibraryEditor key={`new-${params.get('kind')}-${params.get('folder')}`} presetKind={params.get('kind') || 'task'} presetFolder={params.get('folder')} />;
   else if (parts[0] === 'library' && /^\d+$/.test(parts[1] || '')) page = <LibraryEditor key={parts[1]} id={Number(parts[1])} />;
-  else if (parts[0] === 'library') page = <LibraryPage key={parts[1] || 'tasks'} kind={{ theory: 'theory', games: 'game', lessons: 'html', books: 'books' }[parts[1]] || 'task'} />;
+  else if (parts[0] === 'library') page = <LibraryPage kind={{ all:'all',tasks:'task',theory: 'theory', games: 'game', lessons: 'html', books: 'books' }[parts[1]] || 'all'} />;
   else if (parts[0] === 'lesson' && parts[1]) page = <LessonRoom id={Number(parts[1])} />;
   else if (parts[0] === 'wordsets' && parts[1] === 'new') page = <WordSetEditor key="new" />;
   else if (parts[0] === 'wordsets' && /^\d+$/.test(parts[1] || '')) page = <WordSetEditor key={parts[1]} id={Number(parts[1])} />;

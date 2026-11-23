@@ -1,9 +1,10 @@
+import {finishWorkspaceScroll,readWorkspace,saveWorkspace} from '../../workspace-state';
 import {BankSearch,BankSearchResults,BankUseActions,useDesktopBank,BankPreview as Preview} from '../../components/BankTools';
 import ActivityActions from '../../components/ActivityActions';
 import { BackLink, BreadcrumbEntity } from '../../Shell';
 // pages/tutor/Bank.jsx — банк заданий по учебникам: учебник → юнит → задания.
 // Задания можно посмотреть, проверить на себе и взять в свою библиотеку. Своими заданиями можно поделиться.
-import { useState } from 'react';
+import { useEffect,useRef,useState } from 'react';
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Badge, Link, navigate, Modal, Field, useSubmit, useToast, Icon } from '../../ui';
 import { useAuth } from '../../auth';
@@ -30,6 +31,10 @@ export default function BankPage({ book, unit, params = new URLSearchParams() })
   const books = useLoad(() => api.bankBooks(), []);
   const [sharing, setSharing] = useState(false);
   const [unitQuery,setUnitQuery]=useState('');
+  const memory=useRef(readWorkspace('bank',{book:'',units:{}}));
+  const b=books.data?.find(x=>x.id===(book||memory.current.book))||books.data?.[0];
+  const u=b?.units.find(x=>x.code===(unit||memory.current.units[b.id]))||b?.units.find(x=>x.count)||b?.units[0];
+  useEffect(()=>{if(!b||!u)return;memory.current={book:b.id,units:{...memory.current.units,...(!wordsView?{[b.id]:u.code}:{})}};saveWorkspace('bank',memory.current);},[b?.id,u?.code,wordsView]);
   if (books.loading) return <Spinner />;
   if (books.error) return <ErrorBox error={books.error} onRetry={books.reload} />;
   if (!books.data.length) {
@@ -40,8 +45,6 @@ export default function BankPage({ book, unit, params = new URLSearchParams() })
       </>
     );
   }
-  const b = books.data.find((x) => x.id === book) || books.data[0];
-  const u = b.units.find((x) => x.code === unit) || b.units.find((x) => x.count) || b.units[0];
   const totalWords = b.units.reduce((n, x) => n + (x.words || 0), 0);
   const L = labels(b);
 
@@ -90,7 +93,7 @@ export default function BankPage({ book, unit, params = new URLSearchParams() })
           <div className="stack">
             {u.grammar_key&&<div className="panel"><p className="small muted">{b.notice}</p><Link className="btn btn-secondary" to={`/grammar/${u.grammar_key}`}>Объяснение и короткая практика</Link></div>}
             {u.words > 0 && <UnitWords key={`w-${b.id}/${u.code}`} book={b} unit={u} />}
-            <UnitItems key={`${b.id}/${u.code}`} book={b} unit={u} onShare={() => setSharing(true)} />
+            <UnitItems book={b} unit={u} onShare={() => setSharing(true)} />
           </div>
         )}
       </div>}
@@ -106,12 +109,14 @@ export default function BankPage({ book, unit, params = new URLSearchParams() })
 function UnitItems({ book, unit, onShare }) {
   const toast = useToast();
   const { user } = useAuth();
-  const list = useLoad(() => api.bankItems(book.id, unit.code), [book.id, unit.code]);
+  const scope=`${book.id}/${unit.code}`;
+  const list = useLoad(() => api.bankItems(book.id, unit.code).then(items=>({items,scope})), [book.id, unit.code]);
+  const rows=list.data?.items||[],pending=!list.error&&(list.loading||list.data?.scope!==scope);
+  useEffect(()=>{if(!pending&&!list.error)finishWorkspaceScroll();},[pending,list.data]);
   const [open, setOpen] = useState(null);
   const [busy, setBusy] = useState(null);
   const [part, setPart] = useState('all');
-  if (list.loading) return <div className="panel"><Spinner /></div>;
-  if (list.error) return <ErrorBox error={list.error} onRetry={list.reload} />;
+  useEffect(()=>{setOpen(null);setPart('all');},[book.id,unit.code]);
 
   const take = async (it) => {
     setBusy(it.id);
@@ -131,29 +136,29 @@ function UnitItems({ book, unit, onShare }) {
   };
 
   return (
-    <section className="bank-items">
+    <section className="bank-items" aria-busy={pending}><div className="bank-load-status" role="status">{pending?'Загружаем задания выбранного раздела…':''}</div>{list.error&&<ErrorBox error={list.error} onRetry={list.reload}/>}
       <div className="row-between" style={{ marginBottom: 12, alignItems: 'baseline' }}>
         <h2 className="section-title">{unit.code}. {unit.title}</h2>
-        {list.data.length > 0 && <span className="small muted">{list.data.length} {plural(list.data.length, 'задание', 'задания', 'заданий')}</span>}
+        {rows.length > 0 && <span className="small muted">{rows.length} {plural(rows.length, 'задание', 'задания', 'заданий')}</span>}
       </div>
-      {!list.data.length && (
+      {!list.error&&!pending&&!rows.length && (
         <div className="panel"><Empty title="Пока пусто" action={<button className="btn btn-secondary" onClick={onShare}>Поделиться своим заданием</button>}>
           В этой {labels(book).Unit === 'Глава' ? 'главе' : 'части'} ещё нет заданий. Добавьте своё: так банк растёт для всех.
         </Empty></div>
       )}
       {(() => {
-        const n = { main: list.data.filter((x) => x.section !== 'words').length, words: list.data.filter((x) => x.section === 'words').length };
+        const n = { main: rows.filter((x) => x.section !== 'words').length, words: rows.filter((x) => x.section === 'words').length };
         if (!n.main || !n.words) return null;
         return (
           <div className="seg bank-filter" role="tablist" aria-label="Какие задания показать">
-            <button type="button" className={part === 'all' ? 'on' : ''} onClick={() => setPart('all')}>Все {list.data.length}</button>
+            <button type="button" className={part === 'all' ? 'on' : ''} onClick={() => setPart('all')}>Все {rows.length}</button>
             <button type="button" className={part === 'main' ? 'on' : ''} onClick={() => setPart('main')}>{labels(book).main} {n.main}</button>
             <button type="button" className={part === 'words' ? 'on' : ''} onClick={() => setPart('words')}>{labels(book).Words} {n.words}</button>
           </div>
         );
       })()}
-      <div className="market-grid">
-        {list.data.filter((it) => part === 'all' || (part === 'words') === (it.section === 'words')).map((it) => (
+      <div className="market-grid" inert={pending?'':undefined}>
+        {rows.filter((it) => part === 'all' || (part === 'words') === (it.section === 'words')).map((it) => (
           <article key={it.id} className="market-card">
             <span className="meta-label">{kindLabel(it)}{it.game ? ` · ${gameSize(it.game)}` : ''}</span>
             <h3 className="lib-title">{it.title}</h3>
@@ -354,7 +359,8 @@ function MakeSet({ book, unit, words, onClose }) {
 /* ---------- Словарь всего учебника: все юниты подряд и поиск ---------- */
 function BookWords({ book }) {
   const units = book.units.filter((u) => u.words > 0);
-  const all = useLoad(() => Promise.all(units.map((u) => api.bankVocab(book.id, u.code).then((r) => ({ unit: u, words: withIds(r.words) })))), [book.id]);
+  const all = useLoad(() => api.bankBookVocab(book.id).then(groups=>groups.map(g=>({...g,words:withIds(g.words)}))), [book.id]);
+  useEffect(()=>{if(!all.loading&&all.data)finishWorkspaceScroll();},[all.loading,all.data]);
   const [q, setQ] = useState('');
   const [making, setMaking] = useState(null);
   if (all.loading) return <div className="panel"><Spinner /></div>;

@@ -64,7 +64,7 @@ router.get(
   '/',
   asyncHandler(async (req, res) => {
     const { rows } = await query(
-      `SELECT a.id, a.title, a.due_on, a.created_at, a.section_id,
+      `SELECT a.id, a.title, a.due_on, a.created_at, a.section_id,a.archived_at,
               (SELECT title FROM study_sections ss WHERE ss.id=a.section_id) AS section_title,
               COALESCE(jsonb_agg(DISTINCT jsonb_build_object('id',(${HOMEWORK_SECTION}),'title',(SELECT title FROM study_sections ss WHERE ss.id=(${HOMEWORK_SECTION})))) FILTER (WHERE h.id IS NOT NULL),'[]'::jsonb) AS homework_sections,
               jsonb_array_length(a.questions) AS question_count,
@@ -73,6 +73,7 @@ router.get(
               COUNT(h.id) FILTER (WHERE h.status = 'submitted')::int AS submitted,
               COUNT(h.id) FILTER (WHERE h.status = 'checked')::int AS checked,
               COUNT(h.id) FILTER (WHERE h.status = 'assigned' AND a.due_on < CURRENT_DATE)::int AS overdue,
+              COALESCE(jsonb_agg(jsonb_build_object('student_id',s.id,'student_name',s.full_name,'homework_id',h.id,'status',h.status,'section_id',(${HOMEWORK_SECTION}))) FILTER (WHERE h.id IS NOT NULL),'[]'::jsonb) AS recipients,
               COALESCE(json_agg(s.full_name ORDER BY s.full_name) FILTER (WHERE s.id IS NOT NULL), '[]') AS students,
               (SELECT COUNT(*)::int FROM files f WHERE f.assignment_id = a.id) AS files_count
          FROM assignments a
@@ -88,6 +89,15 @@ router.get(
 );
 
 // ------------------------------------------------------------
+router.post('/archive',validateBody(z.object({ids:z.array(z.number().int().positive()).min(1).max(200),archived:z.boolean()}).strict()),asyncHandler(async(req,res)=>{
+ const ids=[...new Set(req.body.ids)];
+ const updated=await transaction(async db=>{
+ const own=await db.query('SELECT id FROM assignments WHERE id=ANY($1::int[]) AND tutor_id=$2 FOR UPDATE',[ids,req.user.id]);
+ if(own.rowCount!==ids.length)throw Object.assign(Error('Задание не найдено'),{status:404});
+ return (await db.query('UPDATE assignments SET archived_at=CASE WHEN $3 THEN NOW() ELSE NULL END WHERE id=ANY($1::int[]) AND tutor_id=$2 RETURNING id',[ids,req.user.id,req.body.archived])).rowCount;
+ });res.json({updated});
+}));
+
 // Новое задание и выдача ученикам
 // ------------------------------------------------------------
 const createSchema = z

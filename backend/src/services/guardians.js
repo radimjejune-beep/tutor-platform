@@ -2,7 +2,7 @@
 const {query}=require('../db');
 const KINDS=['offer','privacy','consent_parent'];
 async function status(user,db={query}) {
- if(user.role==='tutor')return {can_use:true,mode:'tutor',children:[]};
+ if(['tutor','learner'].includes(user.role))return {can_use:true,mode:'tutor',children:[]};
  const {rows:docs}=await db.query('SELECT DISTINCT ON(kind) id,kind,version FROM legal_documents WHERE tutor_id=$1 AND kind=ANY($2::varchar[]) ORDER BY kind,version DESC,id DESC',[user.tid,KINDS]);
  let children=[];
  if(user.role==='student')children=(await db.query("SELECT id,full_name,category FROM students WHERE user_id=$1 AND tutor_id=$2 AND category<>'adult'",[user.id,user.tid])).rows;

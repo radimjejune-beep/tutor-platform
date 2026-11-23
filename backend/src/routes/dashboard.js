@@ -78,7 +78,7 @@ async function tutorDashboard(tid) {
        FROM homework h
        JOIN students s ON s.id = h.student_id
        JOIN assignments a ON a.id = h.assignment_id
-      WHERE h.status = 'submitted' AND s.tutor_id = $1 ORDER BY h.submitted_at`,
+      WHERE h.status = 'submitted' AND a.archived_at IS NULL AND s.tutor_id = $1 ORDER BY h.submitted_at`,
     [tid]
   );
 

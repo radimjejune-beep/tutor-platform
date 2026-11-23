@@ -1,3 +1,4 @@
+import {prepareWorkspaceScroll,setWorkspaceUser} from './workspace-state';
 // ui.jsx — общие компоненты: роутер, иконки, модальные окна, уведомления, загрузка данных
 import { Children, cloneElement, isValidElement, useId, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
@@ -24,9 +25,9 @@ export const goBack = (fallback = '/') => {
 export function useRoute() {
   const [path, setPath] = useState(getPath);
   useEffect(() => {
-    const on = () => {
+    const on = event => {
+      prepareWorkspaceScroll(event);
       setPath(getPath());
-      window.scrollTo(0, 0);
     };
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
@@ -305,7 +306,7 @@ export function Icon({ name, size }) {
    Ключ включает пользователя, чтобы на общем компьютере черновики разных людей не смешивались.
    ============================================================ */
 let draftUser = 'anon';
-export const setDraftUser = (id) => { draftUser = id ? String(id) : 'anon'; };
+export const setDraftUser = (id) => { draftUser = id ? String(id) : 'anon'; setWorkspaceUser(id); };
 const draftKey = (key) => `lf-draft:${draftUser}:${key}`;
 const DRAFT_DAYS = 30;
 

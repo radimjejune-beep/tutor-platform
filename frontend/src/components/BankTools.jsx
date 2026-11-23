@@ -1,3 +1,4 @@
+import {finishWorkspaceScroll} from '../workspace-state';
 import {useEffect,useState} from 'react';
 import {api} from '../api';
 import {Field,Modal,Spinner,ErrorBox,Empty,Link,useLoad,useToast,navigate,Icon} from '../ui';
@@ -28,7 +29,8 @@ export function BankSearch({books,filters,onSearch}) {
 
 export function BankSearchResults({filters,onSearch}) {
  const data=useLoad(()=>api.bankSearch({q:filters.q,book:filters.book,kind:filters.kind,type:filters.type,level:filters.level,page:filters.page}),[JSON.stringify(filters)]),[open,setOpen]=useState(null);
- if(data.loading)return <Spinner/>;if(data.error)return <ErrorBox error={data.error} onRetry={data.reload}/>;
+ useEffect(()=>{if(!data.loading&&data.data)finishWorkspaceScroll();},[data.loading,data.data]);
+ if(data.loading)return <div className="panel bank-search-wait"><Spinner/></div>;if(data.error)return <ErrorBox error={data.error} onRetry={data.reload}/>;
  const result=data.data;
  return <section className="bank-search-results" aria-label="Результаты поиска заданий"><div className="row-between wrap"><h2 className="section-title">Найдено: {result.total}</h2><span className="small muted">{result.total?`Страница ${result.page} из ${result.pages}`:''}</span></div>
   {!result.items.length&&<div className="panel"><Empty title="Подходящих заданий не найдено">Измените запрос или уберите часть фильтров. Например, попробуйте «вопросы» или Present Simple.</Empty></div>}

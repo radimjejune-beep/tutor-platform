@@ -105,6 +105,8 @@ const limiter = (windowMin, limit, error) => rateLimit({
   keyGenerator: (req) => (req.user ? `u${req.user.id}` : req.ip), message: { error },
 });
 protectedApi.use(limiter(5, 1500, 'Слишком много запросов, подождите пару минут'));
+// Independent learners never inherit teacher APIs through a null tutor_id.
+protectedApi.use((req,res,next)=>req.user.role!=='learner'||['/marketplace','/billing','/platform-terms'].some(p=>req.path===p||req.path.startsWith(p+'/'))?next():res.status(403).json({error:'Этот раздел доступен в кабинете преподавателя или его ученика'}));
 protectedApi.use(require('./services/guardians').middleware);
 protectedApi.use('/pronounce', limiter(1, 120, 'Слишком часто, подождите минуту'));
 protectedApi.use('/files', limiter(10, 120, 'Слишком много загрузок, подождите 10 минут'));

@@ -46,11 +46,10 @@ export function AuthProvider({ children }) {
     await refresh();
   };
 
-  const register = async (data) => {
-    const { token } = await api.register(data);
+  const register = async (data, learner=false) => {
+    const { token } = await (learner?api.registerLearner(data):api.register(data));
     setToken(token);
     await refresh();
-    window.location.hash = '/';
   };
 
   const switchProfile = async mode => {

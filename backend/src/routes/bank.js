@@ -54,6 +54,12 @@ router.get('/search', asyncHandler(async (req, res) => {
   res.json({items:rows.map(r=>({...r,mine:r.author_id===req.user.id,book_title:bookById(r.book)?.short,book_level:bookById(r.book)?.level||null})),total:count.n,page,pages:Math.ceil(count.n/limit)});
 }));
 
+// One request for a book dictionary instead of one request per unit.
+router.get('/vocab-book',asyncHandler(async(req,res)=>{
+ const book=bookById(String(req.query.book||''));if(!book)return res.status(404).json({error:'Учебник не найден'});
+ res.json({groups:book.units.map(unit=>({unit,words:vocabOf(book.id,unit.code)})).filter(g=>g.words.length)});
+}));
+
 // Слова юнита: подборка Lessonfold по теме юнита (из неё можно сделать набор карточек)
 router.get(
   '/vocab',

@@ -5,13 +5,14 @@ import { TrySandbox } from './components/Sandbox';
 import { lazy, Suspense } from 'react';
 import { AuthProvider, useAuth } from './auth';
 import { ToastProvider, Spinner, useRoute } from './ui';
-import { Login, ChangePassword, Register, Forgot, ResetPassword } from './pages/Login';
+import { Login, ChangePassword, Register, Forgot, ResetPassword, LearnerRegister } from './pages/Login';
 import { LegalPage, PlatformDocPage } from './pages/Legal';
 import Join from './pages/Join';
 import Landing from './pages/Landing';
 import CoursesMarketplace from './pages/CoursesMarketplace';
 import CoursePage from './pages/CoursePage';
 import Shop from './pages/Shop';
+import {safeReturn} from './auth-return';
 import AppErrorBoundary from './AppErrorBoundary';
 import { reloadForNewVersion } from './version-recovery';
 
@@ -24,6 +25,7 @@ const retry = (load) => () => load().catch((err) => {
 });
 const PublicActivity = lazy(retry(() => import('./pages/PublicActivity')));
 const TutorApp = lazy(retry(() => import('./cabinets/TutorApp')));
+const LearnerApp=lazy(retry(()=>import('./cabinets/LearnerApp')));
 const ClientApp = lazy(retry(() => import('./cabinets/ClientApp')));
 
 export default function App() {
@@ -56,6 +58,7 @@ function Root() {
   if (path === '/try') return <TrySandbox />;
   if (!session) {
     if (path === '/register') return <Register />;
+    if(path==='/learn-register')return <LearnerRegister/>;
     if (path === '/forgot') return <Forgot />;
     // Главная до входа: страница платформы. Витрина готовых уроков отдельно: /shop
     if (path === '/' || path === '') return <Landing />;
@@ -66,11 +69,11 @@ function Root() {
   // Витрина уроков открывается и после входа (ссылка «Готовые уроки» в меню)
   if (path === '/shop') return <Shop />;
   // После входа со страницы /login открываем главную кабинета
-  if (path === '/login' || path === '/register') { window.location.hash = '#/'; return <Spinner />; }
+  if (['/login','/register','/learn-register'].includes(path)) { window.location.hash = '#'+safeReturn(params.get('return')); return <Spinner />; }
   if (user.must_change_password) return <ChangePassword forced />;
   return (
     <Suspense fallback={<Spinner />}>
-      {user.role === 'tutor' ? <TutorApp path={path} params={params} /> : <ClientApp path={path} />}
+      {user.role==='learner'?<LearnerApp path={path}/>:user.role === 'tutor' ? <TutorApp path={path} params={params} /> : <ClientApp path={path} />}
     </Suspense>
   );
 }

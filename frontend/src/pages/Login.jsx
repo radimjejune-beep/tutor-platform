@@ -6,6 +6,7 @@ import { api, setToken } from '../api';
 import { BRAND } from '../config';
 import { Field, useSubmit, Link } from '../ui';
 import { LEGAL_LINKS } from './Legal';
+import {returnFromLocation} from '../auth-return';
 import SubjectInput from '../components/SubjectInput';
 
 function AuthLayout({ children }) {
@@ -42,7 +43,7 @@ export function Login() {
       <Link to="/" className="btn btn-quiet btn-sm auth-back" style={{ marginLeft: -10, marginBottom: 14 }}>← На главную</Link>
       <h1 className="page-title">Вход в кабинет</h1>
       <p className="muted" style={{ margin: '8px 0 28px' }}>
-        Преподаватель входит по почте. Ученикам и родителям логин и пароль выдаёт преподаватель
+        Входите по почте или логину. Ученикам и родителям доступ выдаёт преподаватель; для самостоятельных курсов можно создать свой аккаунт.
       </p>
       <form className="form" onSubmit={submit}>
         <Field label="Почта или логин">
@@ -78,7 +79,7 @@ export function Login() {
       </p>
       {reg.data?.open && (
         <div className="register-cta">
-          <span>Вы репетитор?</span> <Link to="/register">Создать свой кабинет бесплатно</Link>
+          <Link to={`/learn-register?return=${encodeURIComponent(returnFromLocation())}`}>Хочу учиться самостоятельно</Link><br/><span>Вы репетитор?</span> <Link to="/register">Создать свой кабинет бесплатно</Link>
         </div>
       )}
       <div className="register-cta" style={{ marginTop: 10 }}>
@@ -210,8 +211,10 @@ export function Register() {
   const { register } = useAuth();
   const [f, setF] = useState({ full_name: '', subject: '', email: '', password: '', repeat: '', accept: false });
   const { busy, error, submit, setError } = useSubmit(async () => {
+    const destination=returnFromLocation();
     if (f.password !== f.repeat) return setError('Пароли не совпадают');
     await register({ full_name: f.full_name.trim(), email: f.email.trim().toLowerCase(), password: f.password, subject: f.subject.trim(), accept: f.accept });
+    window.location.hash=destination;
   });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   return (
@@ -248,4 +251,20 @@ export function Register() {
       </form>
     </AuthLayout>
   );
+}
+
+export function LearnerRegister(){
+ const {register}=useAuth(),[f,setF]=useState({full_name:'',email:'',password:'',repeat:'',accept:false,adult:false,privacy:false});
+ const {busy,error,submit,setError}=useSubmit(async()=>{const destination=returnFromLocation();if(f.password!==f.repeat)return setError('Пароли не совпадают');await register({full_name:f.full_name.trim(),email:f.email.trim(),password:f.password,adult_confirmed:f.adult,accept:f.accept,privacy_acknowledged:f.privacy,terms_version:1},true);window.location.hash=destination;});
+ const set=k=>e=>setF(p=>({...p,[k]:e.target.value}));
+ return <AuthLayout><h1 className="page-title">Учиться самостоятельно</h1><p className="muted">Личный кабинет для курсов английского. Подписка репетитора не нужна. Регистрация здесь — для пользователей от 18 лет.</p><form className="form" onSubmit={submit}>
+ <Field label="Как к вам обращаться"><input className="input" autoComplete="name" maxLength={120} required minLength={2} value={f.full_name} onChange={set('full_name')}/></Field>
+ <Field label="Почта для входа и покупок"><input className="input" autoComplete="email" type="email" maxLength={255} required value={f.email} onChange={set('email')}/></Field>
+ <Field label="Пароль — минимум 8 символов"><input className="input" autoComplete="new-password" type="password" minLength={8} maxLength={100} required value={f.password} onChange={set('password')}/></Field>
+ <Field label="Повторите пароль"><input className="input" autoComplete="new-password" type="password" minLength={8} required value={f.repeat} onChange={set('repeat')}/></Field>
+ <label className="commerce-check"><input type="checkbox" required checked={f.adult} onChange={e=>setF(p=>({...p,adult:e.target.checked}))}/>Мне исполнилось 18 лет</label>
+ <label className="commerce-check"><input type="checkbox" required checked={f.accept} onChange={e=>setF(p=>({...p,accept:e.target.checked}))}/><span>Принимаю <Link to="/terms/learning_terms" target="_blank">условия самостоятельного обучения</Link></span></label>
+ <label className="commerce-check"><input type="checkbox" required checked={f.privacy} onChange={e=>setF(p=>({...p,privacy:e.target.checked}))}/><span>Ознакомлен(а) с <Link to="/terms/learning_privacy" target="_blank">информацией об обработке данных</Link> и <Link to="/terms/privacy" target="_blank">политикой платформы</Link></span></label>
+ {error&&<div className="alert" role="alert">{error}</div>}<button className="btn" disabled={busy||!f.adult||!f.accept||!f.privacy}>{busy?'Создаём кабинет…':'Создать учебный аккаунт'}</button>
+ <Link to={`/login?return=${encodeURIComponent(returnFromLocation())}`}>Уже есть аккаунт — войти</Link><p className="small muted">До 18 лет доступ организует преподаватель с участием родителя. Этот аккаунт не заменяет профиль ребёнка.</p></form></AuthLayout>;
 }

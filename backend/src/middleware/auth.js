@@ -46,7 +46,7 @@ async function authenticate(req, res, next) {
     }
     delete user.password_hash;
 
-    if (user.role !== 'tutor') {
+    if (!['tutor','learner'].includes(user.role)) {
       const { rows: owner } = await query("SELECT 1 FROM users WHERE id = $1 AND role = 'tutor' AND is_active", [user.tutor_id]);
       if (!owner[0]) return res.status(401).json({ error: 'Кабинет преподавателя недоступен' });
     }

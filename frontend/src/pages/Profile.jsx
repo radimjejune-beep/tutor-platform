@@ -9,7 +9,7 @@ import TelegramCard from '../components/TelegramCard';
 const ROLE = { tutor: 'Преподаватель', student: 'Ученик', parent: 'Родитель' };
 const initials = (name) => String(name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 
-function NameForm({ user, refresh }) {
+export function NameForm({ user, refresh }) {
   const toast = useToast();
   const [name, setName] = useState(user.full_name || '');
   const { busy, error, submit } = useSubmit(async () => {
@@ -19,7 +19,7 @@ function NameForm({ user, refresh }) {
   });
   return (
     <form className="form" onSubmit={submit} style={{ maxWidth: 460 }}>
-      <Field label="Имя" hint="Так вас видят ученики и родители: в расписании, сообщениях и боте">
+      <Field label="Имя" hint="Имя в вашем кабинете и обращениях в поддержку">
         <input className="input" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} required />
       </Field>
       {error && <div className="alert">{error}</div>}
@@ -28,11 +28,11 @@ function NameForm({ user, refresh }) {
   );
 }
 
-function EmailForm({ user, refresh }) {
+export function EmailForm({ user, refresh }) {
   const toast = useToast();
   const [email, setEmail] = useState(user.email || '');
   const [password, setPassword] = useState('');
-  const tutor = user.role === 'tutor';
+  const tutor = ['tutor','learner'].includes(user.role);
   const { busy, error, submit } = useSubmit(async () => {
     await api.setEmail(email.trim().toLowerCase(), password);
     await refresh();
@@ -72,7 +72,7 @@ function PlanLine() {
 
 export default function Profile() {
   const { user, students, logout, refresh } = useAuth();
-  const tutor = user.role === 'tutor';
+  const tutor = ['tutor','learner'].includes(user.role);
   const [pwd, setPwd] = useState(false);
   return (
     <>

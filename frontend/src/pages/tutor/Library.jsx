@@ -1,3 +1,4 @@
+import {readWorkspace,saveWorkspace,finishWorkspaceScroll} from '../../workspace-state';
 import ActivityActions from '../../components/ActivityActions';
 import { BackLink } from '../../Shell';
 // pages/tutor/Library.jsx — библиотека преподавателя: теория и задачник
@@ -5,7 +6,7 @@ import { useSubject, hasBank } from '../../subjects';
 import { FolderTree, FolderSelect, MoveModal, dragItems } from '../../components/Folders';
 import { BooksPanel } from '../../components/Books';
 import FormulaBar from '../../components/FormulaBar';
-import { useState } from 'react';
+import { useEffect,useRef,useState } from 'react';
 import { api } from '../../api';
 import { useAuth } from '../../auth';
 import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Field, Link, Modal, navigate, useToast, useSubmit, readDraft, clearDraft, useDraftSave, DraftNotice } from '../../ui';
@@ -19,34 +20,35 @@ import { relativeDay, dayMonth, time } from '../../format';
 import GamePlayer from '../../games/Players';
 import { DeckEditor, DeckTemplatePicker, deckFromTemplate, parseDeck } from '../../components/Deck';
 
-const KINDS = { task: 'Задачник', game: 'Упражнения', html: 'Уроки', theory: 'Теория', books: 'Учебники' };
-const KIND_PATH = { task: 'tasks', game: 'games', html: 'lessons', deck: 'lessons', theory: 'theory', books: 'books' };
+const KINDS = { all:'Все материалы', task: 'Задачник', game: 'Упражнения', html: 'Уроки', theory: 'Теория', books: 'Учебники' };
+const KIND_PATH = { all:'all', task: 'tasks', game: 'games', html: 'lessons', deck: 'lessons', theory: 'theory', books: 'books' };
 const NEW_LABEL = { task: 'Задача', game: 'Упражнение', html: 'Урок', deck: 'Урок из слайдов', theory: 'Теория', books: 'Учебник' };
+function libraryReturnPath(){const p=readWorkspace('library-origin',{path:'/library'}).path;return /^\/library(?:\/(?:all|tasks|games|lessons|theory|books))?$/.test(p)?p:'/library';}
 const orNull = (v) => (v && String(v).trim() ? String(v).trim() : null);
 
 /* ============================================================
    Фильтры (общие для списка и выбора задач)
    ============================================================ */
 // Последняя открытая папка запоминается в браузере (если хранилище недоступно, просто «Все материалы»)
-const FOLDER_KEY = 'lf_library_folder';
-function readFolder() { try { const v = localStorage.getItem(FOLDER_KEY) || ''; return v === 'none' ? 'none' : Number(v) || ''; } catch { return ''; } }
-function saveFolder(v) { try { localStorage.setItem(FOLDER_KEY, String(v || '')); } catch { /* без хранилища */ } }
-
-function useFilters(kind, withFolder = false) {
-  const [f, setF] = useState({ kind, subject: '', exam: '', exam_task: '', tag: '', q: '', fav: false, folder: withFolder ? readFolder() : '' });
-  return [f, setF];
+function saveFolder(v){const f=readWorkspace('library',{});saveWorkspace('library',{...f,folder:v});}
+function useFilters(kind,withFolder=false){
+ const defaults={kind,subject:'',exam:'',exam_task:'',tag:'',q:'',fav:false,folder:''};
+ const [f,setF]=useState(()=>withFolder?{...readWorkspace('library',defaults),kind}:defaults);
+ useEffect(()=>{if(withFolder)saveWorkspace('library',f);},[f,withFolder]);
+ useEffect(()=>{setF(p=>({...p,kind}));},[kind]);
+ return [f,setF];
 }
 
 function Filters({ f, setF, facets }) {
   return (
     <div className="lib-filters">
-      <input className="input" aria-label="Поиск по библиотеке" placeholder="Поиск по названию, тексту и заметкам" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} />
+      <input className="input" type="search" aria-label="Поиск по библиотеке" placeholder="Поиск по названию, тексту и заметкам" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} />
       {f.kind !== 'theory' && (
         <button type="button" className={`btn btn-sm fav-filter ${f.fav ? 'on' : ''}`} aria-pressed={f.fav} onClick={() => setF({ ...f, fav: !f.fav })}>
           <Icon name="star" size={16} /> Избранное
         </button>
       )}
-      {facets.subjects.length > 1 && (
+      <details className="library-advanced" open={Boolean(f.subject||f.exam||f.tag)}><summary>Фильтры</summary><div className="library-advanced-fields">      {facets.subjects.length > 1 && (
         <select className="select" value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })} aria-label="Предмет">
           <option value="">Все предметы</option>
           {facets.subjects.map((s) => <option key={s}>{s}</option>)}
@@ -65,12 +67,12 @@ function Filters({ f, setF, facets }) {
           <option value="">Все теги</option>
           {facets.tags.map((t) => <option key={t} value={t}>#{t}</option>)}
         </select>
-      )}
+      )}</div></details>{(f.q||f.fav||f.subject||f.exam||f.tag)&&<button className="btn btn-quiet btn-sm" type="button" onClick={()=>setF({...f,q:'',subject:'',exam:'',exam_task:'',tag:'',fav:false})}>Сбросить фильтры</button>}
     </div>
   );
 }
 
-const loadList = (f) => api.library({ kind: f.kind, subject: f.subject, exam: f.exam, exam_task: f.exam_task, tag: f.tag, q: f.q, fav: f.fav ? 1 : '', folder: f.folder || '' });
+const loadList = (f) => api.library({ kind: f.kind==='all'?'':f.kind, subject: f.subject, exam: f.exam, exam_task: f.exam_task, tag: f.tag, q: f.q, fav: f.fav ? 1 : '', folder: f.folder || '' });
 
 // Звёздочка: избранные задачи быстро находятся на уроке
 function FavStar({ item, onChanged }) {
@@ -108,14 +110,21 @@ async function createSheet(title, type = 'sheet') {
 /* ============================================================
    Список
    ============================================================ */
-export function LibraryPage({ kind = 'task' }) {
+export function LibraryPage({ kind = 'all' }) {
   const subj = useSubject();
   const toast = useToast();
   const [f, setF] = useFilters(kind, true);
+  const [wideFolders,setWideFolders]=useState(()=>window.matchMedia('(min-width:1024px)').matches);
+  useEffect(()=>{const media=window.matchMedia('(min-width:1024px)'),on=()=>setWideFolders(media.matches);media.addEventListener('change',on);return()=>media.removeEventListener('change',on);},[]);
+  const rememberList=()=>saveWorkspace('library-origin',{path:window.location.hash.slice(1)});
+  const [query,setQuery]=useState(f.q),[more,setMore]=useState(false),[add,setAdd]=useState(false),[page,setPage]=useState(()=>readWorkspace('library-page',{page:1}).page),[sort,setSort]=useState(()=>readWorkspace('library-page',{sort:'recent'}).sort);
+  const previousFilter=useRef('');
+  useEffect(()=>{const timer=setTimeout(()=>setQuery(f.q),250);return()=>clearTimeout(timer);},[f.q]);
+  useEffect(()=>{saveWorkspace('library-page',{page,sort});},[page,sort]);
   const facets = useLoad(() => api.libraryFacets(), []);
   const isBooks = kind === 'books';
   const [uploading, setUploading] = useState(false);
-  const list = useLoad(() => (isBooks ? Promise.resolve([]) : loadList({ ...f, kind })), [kind, f.subject, f.exam, f.exam_task, f.tag, f.q, f.fav, f.folder]);
+  const list = useLoad(() => (isBooks ? Promise.resolve([]) : loadList({ ...f,kind,q:query })), [kind, f.subject, f.exam, f.exam_task, f.tag, query, f.fav, f.folder]);
   const folders = useLoad(() => api.folders().then((r) => ({ folders: Array.isArray(r?.folders) ? r.folders : [], unfiled: r?.unfiled || 0 })).catch(() => ({ folders: [], unfiled: 0 })), []);
   const [selected, setSelected] = useState(new Set());
   const [toLesson, setToLesson] = useState(false);
@@ -125,6 +134,12 @@ export function LibraryPage({ kind = 'task' }) {
   // если папку удалили, а она была выбрана
   const folderNow = f.folder && f.folder !== 'none' && folders.data && !folderList.some((x) => x.id === f.folder) ? '' : f.folder;
   const curFolder = folderList.find((x) => x.id === folderNow);
+  const rows=[...(list.data||[])].sort((a,b)=>sort==='title'?a.title.localeCompare(b.title,'ru'):sort==='favorite'?Number(b.favorite)-Number(a.favorite)||a.title.localeCompare(b.title,'ru'):String(b.updated_at||b.created_at).localeCompare(String(a.updated_at||a.created_at)));
+  const pages=Math.max(1,Math.ceil(rows.length/25)),currentPage=Math.min(page,pages),visible=rows.slice((currentPage-1)*25,currentPage*25);
+  const canAssign=[...selected].every(id=>list.data?.find(i=>i.id===id)?.kind!=='theory');
+  useEffect(()=>{const signature=JSON.stringify([kind,f.subject,f.exam,f.exam_task,f.tag,f.q,f.fav,f.folder]);if(previousFilter.current&&previousFilter.current!==signature){setSelected(new Set());setPage(1);}previousFilter.current=signature;},[kind,f]);
+  useEffect(()=>{if(folders.data&&f.folder&&f.folder!=='none'&&!folderList.some(x=>x.id===f.folder)){setF(p=>({...p,folder:''}));saveFolder('');}},[folders.data,f.folder]);
+  useEffect(()=>{if(!list.loading&&list.data)finishWorkspaceScroll();},[list.loading,list.data]);
   const newHref = `/library/new?kind=${kind}${typeof folderNow === 'number' ? `&folder=${folderNow}` : ''}`;
 
   const toggle = (id) => {
@@ -138,15 +153,16 @@ export function LibraryPage({ kind = 'task' }) {
       <div className="page-head">
         <div>
           <h1 className="page-title">Библиотека</h1>
-          <div className="lead">{isBooks ? 'Учебники и книги для учителя в PDF: открываются прямо в браузере, видите только вы' : kind === 'theory' ? 'Теорию видят все ученики в разделе «Теория»' : 'Видите только вы. Ученик увидит задачу или упражнение, когда вы выдадите их на уроке или в задании'}</div>
+          <div className="lead">{isBooks ? 'Учебники и книги для учителя в PDF: открываются прямо в браузере, видите только вы' : kind==='all'?'Ваши задания, упражнения, уроки и теория вместе. PDF-учебники — в отдельной вкладке.':kind === 'theory' ? 'Теорию видят все ученики в разделе «Теория»' : 'Видите только вы. Ученик увидит задачу или упражнение, когда вы выдадите их на уроке или в задании'}</div>
         </div>
-        <div className="row" style={{ gap: 8 }}>
-          {!isBooks && <ImportButton onDone={() => { list.reload(); facets.reload(); }} />}
-          {(kind === 'game' || kind === 'task') && <button className="btn btn-secondary" onClick={() => createSheet('', 'board')}><Icon name="grid" /> Конструктор</button>}
-          {kind !== 'theory' && !isBooks && <button className="btn btn-secondary" onClick={() => createSheet()}><Icon name="layers" /> Лист из фото</button>}
-          {kind !== 'theory' && !isBooks && <Link to="/library/generate" className="btn btn-secondary"><Icon name="star" /> По тексту или видео</Link>}
-          {kind === 'html' && <Link to={newHref.replace('kind=html', 'kind=deck')} className="btn"><Icon name="layers" /> Собрать урок</Link>}
-          {isBooks ? <button className="btn" onClick={() => setUploading(true)}><Icon name="plus" /> Учебник</button> : <Link to={newHref} className={`btn${kind === 'html' ? ' btn-secondary' : ''}`}><Icon name="plus" /> {kind === 'html' ? 'Загрузить HTML' : NEW_LABEL[kind]}</Link>}
+        <div className="row wrap library-header-actions">
+          <Link to="/bank" className="btn btn-secondary"><Icon name="library"/>Найти в банке</Link>
+          <details className="library-create-menu"><summary className="btn btn-secondary">Импорт и конструкторы</summary><div className="library-create-options">
+          {!isBooks&&<ImportButton onDone={()=>{list.reload();facets.reload();}}/>}
+          <button className="btn btn-secondary" onClick={()=>createSheet('', 'board')}>Конструктор упражнения</button>
+          <button className="btn btn-secondary" onClick={()=>createSheet()}>Лист из фото</button>
+          <Link to="/library/generate" className="btn btn-secondary">По тексту или видео</Link></div></details>
+          {isBooks?<button className="btn" onClick={()=>setUploading(true)}><Icon name="plus"/>Учебник</button>:<button className="btn" onClick={()=>setAdd(true)}><Icon name="plus"/>Добавить материал</button>}
         </div>
       </div>
 
@@ -159,7 +175,7 @@ export function LibraryPage({ kind = 'task' }) {
       </div>
 
       <div className="lib-layout">
-      {folders.data && <FolderTree data={folders.data} current={folderNow} onPick={pickFolder} onChanged={(items) => { folders.reload(); if (items) { list.reload(); setSelected(new Set()); } }} />}
+      {folders.data && <details className="library-folder-browser" open={wideFolders}><summary>Папки · {curFolder?.title|| (folderNow==='none'?'Без папки':'Все материалы')}</summary><FolderTree data={folders.data} current={folderNow} onPick={pickFolder} onChanged={(items) => { folders.reload(); if (items) { list.reload(); setSelected(new Set()); } }} /></details>}
       <div className="lib-main">
       {curFolder && <h2 className="section-title" style={{ margin: '0 0 12px' }}><Icon name="folder" size={18} /> {curFolder.title}</h2>}
       {isBooks && <BooksPanel folders={folderList} folder={folderNow} uploading={uploading} setUploading={setUploading} onChanged={() => folders.reload()} />}
@@ -171,18 +187,19 @@ export function LibraryPage({ kind = 'task' }) {
           <div className="row wrap" style={{ gap: 6 }}>
             <button className="btn btn-secondary btn-sm" onClick={() => setSelected(new Set())}>Сбросить</button>
             <button className="btn btn-secondary btn-sm" onClick={() => setMoving(true)}><Icon name="folder" size={14} /> В папку</button>
-            {kind !== 'theory' && <button className="btn btn-secondary btn-sm" onClick={() => setToLesson(true)}>На урок</button>}
-            {kind !== 'theory' && <button className="btn btn-sm" onClick={() => navigate(`/homework/new?items=${[...selected].join(',')}`)}>Выдать как ДЗ</button>}
+            {kind !== 'theory'&&canAssign && <button className="btn btn-secondary btn-sm" onClick={() => setToLesson(true)}>На урок</button>}
+            {kind !== 'theory'&&canAssign && <button className="btn btn-sm" onClick={() => navigate(`/homework/new?items=${[...selected].join(',')}`)}>Выдать как ДЗ</button>}
           </div>
         </div>
       )}
 
-      {!isBooks && <section className="panel">
+      {!isBooks&&<div className="library-results-toolbar"><span className="small muted" role="status">Найдено материалов: {rows.length}</span><label className="field">Порядок<select className="select" aria-label="Порядок материалов" value={sort} onChange={e=>{setSort(e.target.value);setPage(1);}}><option value="recent">Недавно изменённые</option><option value="title">По названию</option><option value="favorite">Избранное сначала</option></select></label></div>}
+      {!isBooks && <section className="panel library-result-list" aria-busy={list.loading}>
         {list.loading && <Spinner />}
         {list.error && <ErrorBox error={list.error} onRetry={list.reload} />}
         {list.data && !list.data.length && (
-          <Empty title={f.fav && !f.q ? 'В избранном пусто' : f.q || f.exam || f.tag ? 'Ничего не нашлось' : folderNow ? 'В этой папке пусто' : { task: 'Задачник пуст', game: 'Упражнений пока нет', html: 'Уроков пока нет', theory: 'Теории пока нет' }[kind]}
-            action={<Link to={newHref} className="btn">Добавить</Link>}>
+          <Empty title={f.fav && !f.q ? 'В избранном пусто' : f.q || f.exam || f.tag ? 'Ничего не нашлось' : folderNow ? 'В этой папке пусто' : { all:'Материалов пока нет',task: 'Задачник пуст', game: 'Упражнений пока нет', html: 'Уроков пока нет', theory: 'Теории пока нет' }[kind]}
+            action={<button className="btn" onClick={()=>setAdd(true)}>Добавить материал</button>}>
             {folderNow && !f.q && !f.fav && 'В этой папке пока нет материалов этого вида. Перетащите сюда материалы из «Все материалы» или добавьте новый. '}
             {f.fav && 'Нажмите звёздочку у задачи, чтобы она появилась здесь и в выборе задач на уроке.'}
             {kind === 'task' && !f.q && !f.fav && 'Добавляйте задачи с пометками: номер задания ОГЭ/ЕГЭ, теги, заметка для себя.'}
@@ -190,29 +207,31 @@ export function LibraryPage({ kind = 'task' }) {
             {kind === 'game' && !f.q && 'Найди пару, собери предложение, вставь пропуск, распредели по группам. Ученик проходит прямо в кабинете, оценка ставится сама.'}
           </Empty>
         )}
-        {(list.data || []).map((i) => (
-          <div key={i.id} className="assign-row" data-row-native role="group" aria-label={`Материал: ${i.title}`} onClick={() => navigate(`/library/${i.id}`)} draggable
+        {visible.map((i) => (
+          <div key={i.id} className="assign-row" inert={list.loading?'':undefined} data-row-native role="group" aria-label={`Материал: ${i.title}`} onClick={()=>{rememberList();navigate(`/library/${i.id}`);}} draggable
             onDragStart={(e) => dragItems(e, selected.has(i.id) ? [...selected] : [i.id])} title="Можно перетащить в папку">
             {(
-              <input type="checkbox" className="row-check" checked={selected.has(i.id)} aria-label="Выбрать"
+              <input type="checkbox" className="row-check" checked={selected.has(i.id)} aria-label={`Выбрать материал: ${i.title}`}
                 onClick={(e) => e.stopPropagation()} onChange={() => toggle(i.id)} />
             )}
             <div className="list-main">
-              <Link className="list-title truncate row-title-link" to={`/library/${i.id}`} onClick={e=>e.stopPropagation()}>{i.title}</Link>
+              <Link className="list-title truncate row-title-link" to={`/library/${i.id}`} onClick={e=>{e.stopPropagation();rememberList();}}>{i.title}</Link>
               <div className="list-sub truncate">
                 {[!folderNow && i.folder_id && folderList.find((x) => x.id === i.folder_id)?.title, i.game && `${GAME_TYPES[i.game.type]?.label}, ${gameSize(i.game)}`, i.kind === 'html' && 'Интерактивный урок', i.kind === 'deck' && 'Урок из слайдов', examLabel(i), i.subject, ...(i.tags || []).map((t) => `#${t}`)].filter(Boolean).join(' · ')}
               </div>
               {i.tutor_note && <div className="list-sub truncate" style={{ color: '#7a5717' }}><Icon name="note" size={13} /> {i.tutor_note}</div>}
             </div>
             {i.files_count > 0 && <Badge>Файлов: {i.files_count}</Badge>}
-            {kind !== 'theory' && <FavStar item={i} onChanged={f.fav ? list.reload : undefined} />}
+            {kind !== 'theory' && <FavStar item={i} onChanged={f.fav||sort==='favorite' ? list.reload : undefined} />}
           </div>
         ))}
+      {pages>1&&<nav className="workspace-pagination" aria-label="Страницы библиотеки"><button className="btn btn-secondary" disabled={currentPage===1} onClick={()=>setPage(p=>p-1)}>Назад</button><span>{currentPage} из {pages}</span><button className="btn btn-secondary" disabled={currentPage===pages} onClick={()=>setPage(p=>p+1)}>Дальше</button></nav>}
       </section>}
 
       </div>
       </div>
 
+      {add&&<Modal title="Добавить материал" onClose={()=>setAdd(false)}><p className="muted">Выберите, что хотите подготовить. Материал останется в вашей библиотеке.</p><div className="library-add-types">{[['game','Интерактивное упражнение','Практика с автоматической проверкой'],['deck','Урок из слайдов','Объяснение и задания на одном занятии'],['html','Готовый HTML-урок','Загрузить свой интерактивный файл'],['theory','Объяснение темы','Теория для ваших учеников'],['task','Задача или письменная работа','Условие, решение и приложения']].map(([k,title,hint])=><Link key={k} className="library-add-type" to={`/library/new?kind=${k}${typeof folderNow==='number'?`&folder=${folderNow}`:''}`} onClick={()=>{rememberList();setAdd(false);}}><b>{title}</b><span className="small muted">{hint}</span></Link>)}</div></Modal>}
       {toLesson && (
         <AddToLessonModal itemIds={[...selected]} onClose={() => setToLesson(false)} onDone={() => { setToLesson(false); setSelected(new Set()); }} />
       )}
@@ -350,7 +369,7 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
     navigate(`/library/${KIND_PATH[item.kind]}`);
   };
 
-  const back = `/library/${KIND_PATH[f.kind]}`;
+  const back = libraryReturnPath();
 
   return (
     <>
@@ -496,7 +515,7 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
 export function TaskPicker({ selected, onClose, onPick }) {
   const [f, setF] = useFilters('task,game,html');
   const facets = useLoad(() => api.libraryFacets(), []);
-  const list = useLoad(() => loadList(f), [f.subject, f.exam, f.exam_task, f.tag, f.q, f.fav, f.folder]);
+  const list = useLoad(() => loadList(f), [f.subject, f.exam, f.exam_task, f.tag, query, f.fav, f.folder]);
   const folders = useLoad(() => api.folders().then((r) => (Array.isArray(r?.folders) ? r.folders : [])).catch(() => []), []);
   const [chosen, setChosen] = useState(new Set(selected));
 

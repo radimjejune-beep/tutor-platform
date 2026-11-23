@@ -124,6 +124,20 @@ router.post(
   })
 );
 
+// Adult self-study account is separate from a tutor subscription and child invitation.
+router.post('/register-learner',registerLimiter,validateBody(z.object({
+ full_name:z.string().trim().min(2).max(120),email:z.string().trim().toLowerCase().max(255).email(),password:z.string().min(8).max(100),
+ adult_confirmed:z.literal(true),accept:z.literal(true),privacy_acknowledged:z.literal(true),terms_version:z.literal(1)
+}).strict()),asyncHandler(async(req,res)=>{
+ if(!await registrationOpen())return res.status(403).json({error:'Регистрация сейчас закрыта'});
+ const b=req.body,hash=await bcrypt.hash(b.password,12);
+ try {
+ const {rows:[u]}=await query(`INSERT INTO users(role,login,email,password_hash,full_name,last_login_at,learning_terms_version,learning_terms_at,learning_terms_ip)
+ VALUES('learner',$1,$2,$3,$4,NOW(),1,NOW(),$5) RETURNING *`,['learner_'+require('crypto').randomBytes(12).toString('hex'),b.email,hash,b.full_name,String(req.ip||'').slice(0,64)]);
+ const {password_hash,...user}=u;res.status(201).json({token:signToken(u),user});
+ }catch(e){if(e.code==='23505')return res.status(409).json({error:'С этой почтой уже есть кабинет. Войдите или восстановите пароль'});throw e;}
+}));
+
 // Основной предмет репетитора (меняется в настройках)
 router.put(
   '/subject',
@@ -142,7 +156,7 @@ router.put(
   authenticate,
   validateBody(z.object({ full_name: z.string().trim().min(2, 'Введите имя').max(120) }).strict()),
   asyncHandler(async (req, res) => {
-    if (req.user.role !== 'tutor') return res.status(403).json({ error: 'Имя меняет преподаватель' });
+    if (!['tutor','learner'].includes(req.user.role)) return res.status(403).json({ error: 'Имя меняет преподаватель' });
     await query('UPDATE users SET full_name = $1 WHERE id = $2', [req.body.full_name, req.user.id]);
     res.json({ full_name: req.body.full_name });
   })
@@ -157,7 +171,7 @@ router.put(
     const { rows } = await query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
     if (!(await bcrypt.compare(req.body.password, rows[0].password_hash))) return res.status(400).json({ error: 'Пароль указан неверно' });
     const email = req.body.email || null;
-    if (!email && req.user.role === 'tutor') return res.status(400).json({ error: 'Преподавателю почта нужна для входа' });
+    if (!email && ['tutor','learner'].includes(req.user.role)) return res.status(400).json({ error: 'Преподавателю почта нужна для входа' });
     if (email) {
       const { rows: other } = await query('SELECT 1 FROM users WHERE LOWER(email) = $1 AND id <> $2', [email, req.user.id]);
       if (other[0]) return res.status(409).json({ error: 'Эта почта уже привязана к другому кабинету' });

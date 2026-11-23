@@ -93,7 +93,37 @@ test('platform commerce: ЮKassa, права на курсы и повторны
   assert.equal((await req(author,`/marketplace/author/${id}/publish`,'POST',{})).status,422);
   assert.equal((await req(author,`/marketplace/author/${id}/publish`,'POST',{rights_confirmed:true})).status,200);
   const saved=(await query('SELECT * FROM marketplace_courses WHERE id=$1',[id])).rows[0];assert.ok(saved.rights_confirmed_at);assert.equal(saved.modules[0].units[0].questions[0].points,1);
+  await query("UPDATE marketplace_courses SET audience='self',outcomes='[\"Keep my outcomes\"]',estimated_hours=2 WHERE id=$1",[id]);
+  assert.equal((await req(author,`/marketplace/author/${id}`,'PUT',data)).status,200);const kept=(await query('SELECT audience,outcomes,estimated_hours FROM marketplace_courses WHERE id=$1',[id])).rows[0];assert.deepEqual(kept,{audience:'self',outcomes:['Keep my outcomes'],estimated_hours:2});
+  assert.equal((await req(author,`/marketplace/author/${id}/publish`,'POST',{rights_confirmed:true})).status,200);
   const u=await user();await assert.rejects(commerce.checkout(u,body({course_id:id,quoted_amount:100}),'course'),/Цена изменилась/);assert.equal((await db.q('SELECT * FROM orders WHERE platform_user_id=$1',[u.id])).rowCount,0);
+ });
+
+ await t.test('самостоятельный покупатель оплачивает личный курс, повторная сверка не дублирует доступ, возврат отзывает его',async()=>{
+  const u=await user('learner'),author=await user();
+  const course=(await query("INSERT INTO marketplace_courses(author_id,title,slug,status,price_type,price_amount,currency,modules,audience) VALUES($1,'Independent',$2,'published','paid',120000,'RUB',$3,'self') RETURNING *",[author.id,'independent-'+randomUUID(),JSON.stringify([{title:'Module',units:[{title:'Read',type:'text',content:'Original practice'}]}])])).rows[0];
+  await assert.rejects(commerce.checkout(u,body(),'subscription'),/недоступен/);
+  const r=await commerce.checkout(u,body({course_id:course.id}),'course');assert.equal((await req(u,'/marketplace/mine')).body.length,0);
+  await payOrder(r.id);await orders.sync(await orders.byId(r.id));const mine=(await req(u,'/marketplace/mine')).body;assert.equal(mine.length,1);assert.equal((await req(u,'/marketplace/enrollments/'+mine[0].enrollment_id)).body.read_only,false);
+  assert.equal((await query('SELECT buyer_type FROM course_purchases WHERE order_id=$1',[r.id])).rows[0].buyer_type,'student');
+  assert.equal((await req(u,'/marketplace/purchases/'+mine[0].purchase_id+'/assign','POST',{student_id:1})).status,403);
+  pay.refund=async x=>({id:'learner-refund-'+x.paymentId,payment_id:x.paymentId,status:'succeeded',amount:{value:Number(x.amountRub).toFixed(2),currency:'RUB'}});
+  await orders.refund(r.id);assert.equal((await req(u,'/marketplace/mine')).body.length,0);assert.equal((await req(u,'/marketplace/enrollments/'+mine[0].enrollment_id)).status,404);
+ });
+ await t.test('личный покупатель не может купить курс для преподавателя, а parent может учиться в собственной покупке',async()=>{
+  const author=await user(),u=await user('learner'),parent=await user('parent',author.id);
+  const course=(await query("INSERT INTO marketplace_courses(author_id,title,slug,status,price_type,price_amount,currency,modules,audience) VALUES($1,'Teacher course',$2,'published','paid',120000,'RUB',$3,'tutor') RETURNING *",[author.id,'teacher-'+randomUUID(),JSON.stringify([{title:'Module',units:[{title:'Read',type:'text',content:'Original'},{title:'Write',type:'assignment',content:'Write your own sentence.'}]}])])).rows[0];
+  await assert.rejects(commerce.checkout(u,body({course_id:course.id}),'course'),/преподавателей/);await query("UPDATE marketplace_courses SET audience='both' WHERE id=$1",[course.id]);
+  const r=await commerce.checkout(parent,body({course_id:course.id}),'course');await payOrder(r.id);const mine=(await req(parent,'/marketplace/mine')).body;assert.equal(mine.length,1);const e=mine[0].enrollment_id;assert.equal((await req(parent,'/marketplace/enrollments/'+e)).body.read_only,false);assert.equal((await req(parent,'/marketplace/enrollments/'+e+'/attempt','POST',{module_index:0,unit_index:0,answers:{}})).status,200);
+  const childUser=await user('student',author.id),child=(await query("INSERT INTO students(user_id,tutor_id,full_name,category) VALUES($1,$2,'Family fixture','adult') RETURNING id",[childUser.id,author.id])).rows[0];await query('INSERT INTO parent_students(parent_user_id,student_id) VALUES($1,$2)',[parent.id,child.id]);
+  const assigned=await req(parent,'/marketplace/purchases/'+mine[0].purchase_id+'/assign','POST',{student_id:child.id});assert.equal(assigned.status,200);const eid=assigned.body.id;assert.equal((await req(parent,'/marketplace/enrollments/'+eid)).body.read_only,true);assert.equal((await req(childUser,'/marketplace/enrollments/'+eid)).body.requires_review,false);assert.equal((await req(childUser,'/marketplace/enrollments/'+eid+'/attempt','POST',{module_index:0,unit_index:1,answers:{},response:'My own answer.'})).body.pending_review,false);
+  assert.equal((await req(parent,'/marketplace/enrollments/'+eid+'/attempt','POST',{module_index:0,unit_index:1,answers:{},response:'Answer as a parent'})).status,403);
+ });
+
+ await t.test('существующий совершеннолетний ученик покупает свой курс без подписки преподавателя',async()=>{
+  const author=await user(),u=await user('student',author.id);await query("INSERT INTO students(user_id,tutor_id,full_name,category) VALUES($1,$2,'Adult student','adult')",[u.id,author.id]);
+  const c=(await query("INSERT INTO marketplace_courses(author_id,title,slug,status,price_type,price_amount,currency,modules) VALUES($1,'Adult self course',$2,'published','paid',120000,'RUB',$3) RETURNING id",[author.id,'adult-'+randomUUID(),JSON.stringify([{title:'Module',units:[{title:'Read',type:'text',content:'Original'}]}])])).rows[0];
+  const r=await commerce.checkout(u,body({course_id:c.id}),'course');await payOrder(r.id);assert.equal((await req(u,'/marketplace/mine')).body.length,1);assert.equal((await plans.planOf(u.id)).id,'start');
  });
 
 });

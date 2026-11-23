@@ -1,3 +1,6 @@
+import CoursesMarketplace from '../pages/CoursesMarketplace';
+import CoursePage from '../pages/CoursePage';
+import {BillingHistory} from '../components/Checkout';
 // cabinets/ClientApp.jsx — кабинет ученика и родителя (грузится отдельно, после входа)
 import { ClientMethod } from '../pages/Method';
 import { SandboxBackBar } from '../components/Sandbox';
@@ -58,7 +61,11 @@ function ClientCabinet({ path }) {
     ]).then(([list, vocab]) => setCounts({ homework: list.length, words: vocab?.stats.due || 0 }));
   }, [path, childId]);
 
-  if (!students.length) {
+  if (!students.length && (path.startsWith('/marketplace')||path.startsWith('/learn-course')||path==='/purchases')) {
+ const page=path==='/marketplace'?<CoursesMarketplace/>:parts[1]==='courses'?<CoursePage slug={parts[2]}/>:parts[0]==='learn-course'?<CoursePlayer id={Number(parts[1])}/>:path==='/purchases'?<><h1 className="page-title">Покупки</h1><BillingHistory/></>:<CourseMine/>;
+ return <Shell nav={CLIENT_NAV} path={path}>{page}</Shell>;
+ }
+ if (!students.length) {
     return (
       <Shell nav={CLIENT_NAV} path={path}>
         <div className="panel">
@@ -79,6 +86,9 @@ function ClientCabinet({ path }) {
   const clientNav = CLIENT_NAV.map((n) => (n.to === '/words' ? { ...n, label: subjectInfo(child.subject || user.subject).vocabTitle } : n));
   let page;
   if (parts.length === 0) page = <ClientHome {...props} />;
+  else if(path==='/marketplace')page=<CoursesMarketplace/>;
+  else if(parts[0]==='marketplace'&&parts[1]==='courses')page=<CoursePage slug={parts[2]}/>;
+  else if(path==='/purchases'&&(user.role==='parent'||students.some(s=>s.category==='adult')))page=<><h1 className="page-title">Покупки</h1><BillingHistory/></>;
   else if(parts[0]==='marketplace'&&parts[1]==='mine')page=<CourseMine key={child.id}/>;
   else if(parts[0]==='learn-course'&&parts[1])page=<CoursePlayer key={parts[1]} id={Number(parts[1])}/>;
   else if (parts[0] === 'coach' && parts[1]==='reviews' && parts[2]) page=<CoachReview id={Number(parts[2])}/>;

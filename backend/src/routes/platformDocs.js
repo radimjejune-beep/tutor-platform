@@ -26,7 +26,8 @@ publicRouter.get('/', (req, res) => {
   res.json({ version: P.VERSION, docs: P.all().map(({ kind, title }) => ({ kind, title })), owner: { name: o.name, inn: o.inn, email: o.email }, configured: P.configured() });
 });
 publicRouter.get('/:kind', (req, res) => {
-  const d = P.doc(req.params.kind);
+  const L=require('../legal/learning'),ld=L.doc(req.params.kind);
+  const d = ld ? {...ld,blocks:ld.text.split('\n\n').map(text=>({type:'p',text}))} : P.doc(req.params.kind);
   if (!d) return res.status(404).json({ error: 'Документ не найден' });
   res.json(d);
 });

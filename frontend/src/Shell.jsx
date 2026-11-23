@@ -8,7 +8,7 @@ import CommandPalette, { usePaletteHotkey } from './components/CommandPalette';
 import { Breadcrumbs } from './components/Breadcrumbs';
 import { navHistory } from './components/NavigationHistory';
 
-const ROLE_LABEL = { tutor: 'Преподаватель', student: 'Ученик', parent: 'Родитель' };
+const ROLE_LABEL = { tutor: 'Преподаватель', student: 'Ученик', parent: 'Родитель', learner:'Самостоятельное обучение' };
 
 export const TUTOR_NAV = [
   { to: '/', label: 'Главная', icon: 'home', group: 'Работа' },
@@ -39,6 +39,8 @@ export const CLIENT_NAV = [
   { to: '/theory', label: 'Теория', icon: 'library', hideMobile: true },
   { to: '/progress', label: 'Прогресс', short: 'Успехи', icon: 'chart' },
   { to: '/payments', label: 'Оплата', icon: 'wallet', hideMobile: true },
+  { to: '/marketplace/mine', label: 'Мои курсы', icon: 'layers', hideMobile: true },
+  { to: '/marketplace', label: 'Каталог курсов', icon: 'grid', hideMobile: true },
   { to: '/learn', label: 'Как учиться', icon: 'bulb', hideMobile: true },
 ];
 
@@ -105,6 +107,7 @@ export function Shell({ nav, path, counts = {}, children }) {
   const [ownBack, setOwnBack] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [entities,setEntities]=useState({});
+  const activeTo=user.role==='learner'&&(path.startsWith('/learn-course/')||path==='/marketplace/mine')?'/':nav.filter(n=>isActive(path,n.to)).sort((a,b)=>b.to.length-a.to.length)[0]?.to;
   usePaletteHotkey(setPalette);
 
   useLayoutEffect(()=>{navHistory.clear();return()=>navHistory.clear();},[user.id,user.role,user.context]);
@@ -124,7 +127,7 @@ export function Shell({ nav, path, counts = {}, children }) {
           <button className="search-btn" onClick={() => setPalette(true)} title="Быстрый поиск (Ctrl+K)">
             <Icon name="search" size={16} /> <span>Поиск</span> <kbd>Ctrl K</kbd>
           </button>
-          <NotificationBell path={path} />
+          {user.role!=='learner'&&<NotificationBell path={path} />}
         </div>
 
         <nav className="nav" aria-label="Разделы">
@@ -145,7 +148,7 @@ export function Shell({ nav, path, counts = {}, children }) {
                   </button>
                 )}
                 {!isCollapsed && (
-                  <Link to={item.to} className={isActive(path, item.to) ? 'active' : ''} aria-current={isActive(path,item.to)?'page':undefined}>
+                  <Link to={item.to} className={activeTo===item.to ? 'active' : ''} aria-current={activeTo===item.to?'page':undefined}>
                     <Icon name={item.icon} />
                     {item.label}
                     {counts[item.countKey] > 0 && <span className="count">{counts[item.countKey]}</span>}
@@ -183,11 +186,11 @@ export function Shell({ nav, path, counts = {}, children }) {
 
       <div className="main">
         <header className="topbar">
-          <div className="workspace-heading"><b>{nav.find(n=>isActive(path,n.to))?.label||'Lessonfold'}</b><span className="workspace-role">{ROLE_LABEL[user.role]}</span></div>
+          <div className="workspace-heading"><b>{nav.find(n=>n.to===activeTo)?.label||'Lessonfold'}</b><span className="workspace-role">{ROLE_LABEL[user.role]}</span></div>
           <Link to="/" className="brand-name" aria-label="Lessonfold — главная кабинета"><img className="brand-symbol" src="/icon.svg" alt=""/>{BRAND.name}</Link>
           <div className="row" style={{ gap: 2 }}>
             <button className="icon-btn" onClick={() => setPalette(true)} aria-label="Поиск"><Icon name="search" size={20} /></button>
-            <NotificationBell path={path} compact />
+            {user.role!=='learner'&&<NotificationBell path={path} compact />}
             <Link to="/profile" className="icon-btn" aria-label="Профиль">
               <Icon name="user" size={20} />
             </Link>
@@ -210,7 +213,7 @@ export function Shell({ nav, path, counts = {}, children }) {
 
         <nav className="tabbar" aria-label="Разделы">
           {nav.filter((item) => !item.hideMobile).map((item) => (
-            <Link key={item.to} to={item.to} className={isActive(path, item.to) ? 'active' : ''} aria-current={isActive(path,item.to)?'page':undefined}>
+            <Link key={item.to} to={item.to} className={activeTo===item.to ? 'active' : ''} aria-current={activeTo===item.to?'page':undefined}>
               <Icon name={item.icon} />
               {item.short || item.label}
               {counts[item.countKey] > 0 && <span className="dot" />}
@@ -230,9 +233,10 @@ export function Shell({ nav, path, counts = {}, children }) {
 
 // «Ещё» на телефоне: разделы, которые не поместились в нижнее меню, и выход
 export function MoreMenu({ nav, counts = {} }) {
-  const { user, logout } = useAuth();
+  const { user, logout,students } = useAuth();
   // Витрина уроков нужна репетиторам; ученикам и родителям её не показываем
   const items = [
+    ...((user.role==='parent'||user.role==='student'&&students.some(s=>s.category==='adult'))?[{to:'/purchases',label:'Покупки курсов',icon:'wallet'}]:[]),
     ...nav.filter((i) => i.hideMobile),
     ...(user.role === 'tutor' ? [{ to: '/shop', label: 'Готовые интерактивные уроки', icon: 'grid' }] : []),
     { to: '/profile', label: 'Профиль', icon: 'user' },

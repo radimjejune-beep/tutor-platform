@@ -5,6 +5,7 @@ const db=require('./db');
 const {config}=require('./config');
 const pay=require('./pay');
 const TERMS='2026-11-18';
+const COURSE_TERMS='2026-11-19';
 const fail=(message,status=422)=>Object.assign(Error(message),{status});
 const plans=()=>require('../../src/services/plans');
 const orders=()=>require('./orders');
@@ -43,7 +44,7 @@ async function status(tutorId){
 }
 async function checkout(user,data,kind,{ip=null}={}){
  await ready();
- if(user.role!=='tutor')throw fail('Покупку оформляет преподаватель',403);
+ if(kind==='subscription'?user.role!=='tutor':!await require('../../src/services/course-buyers').canPurchase(user))throw fail('Этот тип покупки недоступен для аккаунта',403);
  if(!/^[0-9a-f-]{36}$/i.test(data.request_key||''))throw fail('Обновите форму оплаты');
  if(data.offer_accept!==true)throw fail('Необходимо принять оферту');
  const email=String(data.email||'').trim().toLowerCase();if(!orders().EMAIL_RE.test(email))throw fail('Проверьте email');
@@ -55,10 +56,10 @@ async function checkout(user,data,kind,{ip=null}={}){
   if(data.auto_renew && (!config.recurringEnabled||config.billingKey.length<32||data.recurring_accept!==true))throw fail('Автопродление недоступно или согласие не подтверждено');
  }
  if(!Number.isInteger(data.quoted_amount)||data.quoted_amount<=0)throw fail('Обновите цену в форме оплаты',409);
- const input={kind,email,quoted_amount:data.quoted_amount,...(kind==='subscription'?{period:data.period,auto_renew:data.auto_renew===true,terms_version:TERMS,offer_version:require('../../src/legal/platform').VERSION}:{course_id:Number(data.course_id),offer_version:TERMS})};
+ const input={kind,email,quoted_amount:data.quoted_amount,...(kind==='subscription'?{period:data.period,auto_renew:data.auto_renew===true,terms_version:TERMS,offer_version:require('../../src/legal/platform').VERSION}:{course_id:Number(data.course_id),offer_version:COURSE_TERMS})};
  const order=await db.transaction(async c=>{
   const account=(await c.query("SELECT id,role,is_active,plan,plan_until,is_admin FROM public.users WHERE id=$1 FOR UPDATE",[user.id])).rows[0];
-  if(!account?.is_active||account.role!=='tutor')throw fail('Аккаунт недоступен',403);
+  if(!account?.is_active||(kind==='subscription'?account.role!=='tutor':!await require('../../src/services/course-buyers').canPurchase(account,c)))throw fail('Аккаунт недоступен',403);
   if(kind==='subscription'&&['tutor','pro'].includes(account.plan)&&!account.plan_until)throw fail('Вам уже выдан бессрочный тариф',409);
   let o=(await c.query('SELECT * FROM orders WHERE platform_user_id=$1 AND request_key=$2',[user.id,data.request_key])).rows[0];
   if(o && JSON.stringify(o.payload.input)!==JSON.stringify(JSON.parse(JSON.stringify(input)))){
@@ -77,7 +78,8 @@ async function checkout(user,data,kind,{ip=null}={}){
     const course=(await c.query("SELECT * FROM public.marketplace_courses WHERE id=$1 AND status='published' FOR SHARE",[input.course_id])).rows[0];
     if(!course||course.price_type!=='paid'||course.currency!=='RUB'||!Number.isInteger(course.price_amount)||course.price_amount<=0||course.price_amount%100!==0)throw fail('Курс сейчас нельзя купить',409);
     if((await c.query('SELECT 1 FROM public.course_purchases WHERE buyer_id=$1 AND course_id=$2 AND is_active',[user.id,course.id])).rowCount)throw fail('Курс уже приобретён. Откройте «Мои курсы»',409);
-    payload.course={id:course.id,title:course.title,version:course.content_version,modules:course.modules};amount=course.price_amount/100;title=course.title;
+    if(account.role!=='tutor'&&course.audience==='tutor')throw fail('Курс предназначен для преподавателей',403);
+    payload.course={id:course.id,title:course.title,version:course.content_version,modules:course.modules,audience:course.audience||'both'};amount=course.price_amount/100;title=course.title;
    }
    if(amount*100!==data.quoted_amount)throw fail('Цена изменилась. Откройте форму покупки заново',409);
    const id=crypto.randomUUID(),token=crypto.randomBytes(24).toString('base64url');
@@ -140,7 +142,7 @@ async function settle(order,pmt){
    const existing=(await c.query('SELECT id FROM public.course_purchases WHERE buyer_id=$1 AND course_id=$2 AND is_active',[user.id,course.id])).rows[0];
    if(existing){await c.query("UPDATE orders SET auto_refund=TRUE,note='Повторная оплата курса: ожидается автоматический возврат' WHERE id=$1",[o.id]);}
    else {const p=(await c.query(`INSERT INTO public.course_purchases(course_id,buyer_id,buyer_type,payment_method,payment_id,amount_paid,currency,platform_fee,author_earnings,order_id,verified_at,content_snapshot)
-    VALUES($1,$2,'tutor','yookassa',$3,$4,'RUB',0,$4,$5,NOW(),$6) RETURNING id`,[course.id,user.id,o.yk_payment_id,o.amount_rub*100,o.id,JSON.stringify(course)])).rows[0];
+    VALUES($1,$2,$7,'yookassa',$3,$4,'RUB',0,$4,$5,NOW(),$6) RETURNING id`,[course.id,user.id,o.yk_payment_id,o.amount_rub*100,o.id,JSON.stringify(course),user.role==='tutor'?'tutor':'student'])).rows[0];
    await c.query('INSERT INTO public.marketplace_enrollments(purchase_id,user_id) VALUES($1,$2)',[p.id,user.id]);}
   }else throw Error('Неизвестный тип заказа');
   await c.query("UPDATE orders SET status='paid',paid_at=NOW() WHERE id=$1",[o.id]);

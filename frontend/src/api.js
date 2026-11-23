@@ -64,6 +64,10 @@ const qs = (params) => {
 };
 
 export const api = {
+  coursePosition:(id,data)=>request('PUT',`/marketplace/enrollments/${id}/position`,data),
+  registerLearner:data=>request('POST','/auth/register-learner',data),
+  coursePreview:(slug,mi,ui)=>request('GET',`/marketplace/public/courses/${encodeURIComponent(slug)}/preview/${mi}/${ui}`),
+  saveCourseDraft:(id,data)=>request('PUT',`/marketplace/enrollments/${id}/draft`,data),
   billing:()=>request('GET','/billing'),
   checkoutPlan:data=>request('POST','/billing/checkout',data),
   cancelRenewal:()=>request('POST','/billing/cancel-renewal',{}),
@@ -191,6 +195,7 @@ export const api = {
   summary: (month) => request('GET', `/finance/summary${qs({ month })}`),
 
   // Задания (преподаватель)
+  archiveAssignments:(ids,archived)=>request('POST','/assignments/archive',{ids,archived}),
   assignments: () => request('GET', '/assignments'),
   assignment: (id) => request('GET', `/assignments/${id}`),
   createAssignment: (data) => request('POST', '/assignments', data),
@@ -337,6 +342,7 @@ export const api = {
   pricing: () => request('GET', '/finance/pricing'),
   bankBooks: () => request('GET', '/bank/books'),
   bankItems: (book, unit) => request('GET', `/bank/items${qs({ book, unit })}`),
+  bankBookVocab:book=>request('GET',`/bank/vocab-book${qs({book})}`).then(r=>r.groups),
   bankVocab: (book, unit) => request('GET', `/bank/vocab${qs({ book, unit })}`),
   bankItem: (id) => request('GET', `/bank/items/${id}`),
   bankTake: (id) => request('POST', `/bank/items/${id}/take`),

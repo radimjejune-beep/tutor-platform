@@ -153,6 +153,7 @@ export default function Landing() {
             <a href="#calc" onClick={scrollTo('calc')}>Выгода</a>
             <a href="#pricing" onClick={scrollTo('pricing')}>Цена</a>
             <a href="#faq" onClick={scrollTo('faq')}>Вопросы</a>
+            <Link to="/marketplace" className="btn btn-sm btn-quiet">Курсы английского</Link>
             {session ? <Link to="/" className="btn btn-sm">Мой кабинет</Link> : <Link to="/login" className="btn btn-sm btn-secondary">Войти</Link>}
           </nav>
         </div>
@@ -287,6 +288,7 @@ export default function Landing() {
       <footer className="lp-wrap lp-foot">
         <span className="brand-name" style={{ fontSize: 20 }}>{BRAND.name}</span>
         <nav>
+          <Link to="/marketplace">Курсы английского</Link>
           <Link to="/shop">Готовые уроки</Link>
           <Link to="/login">Вход</Link>
         </nav>
