@@ -1,3 +1,5 @@
+import Workout from '../pages/learning/Workout';
+import WritingReview from '../pages/learning/WritingReview';
 // cabinets/TutorApp.jsx — кабинет преподавателя (грузится отдельно, после входа)
 import { TutorMethod } from '../pages/Method';
 import { SandboxBar } from '../components/Sandbox';
@@ -65,6 +67,8 @@ export default function TutorApp({ path, params }) {
   else if(parts[0]==='marketplace'&&parts[1]==='author')page=<MyCoursesAuthor id={parts[2]?Number(parts[2]):undefined}/>;
   else if(parts[0]==='marketplace'&&parts[1]==='courses'&&parts[2])page=<CoursePage key={parts[2]} slug={parts[2]}/>;
   else if(parts[0]==='marketplace')page=<CoursesMarketplace/>;
+  else if(parts[0]==='writing'&&parts[1])page=<WritingReview id={Number(parts[1])}/>;
+  else if(parts[0]==='workouts'&&parts[1])page=<Workout id={Number(parts[1])}/>;
   else if (parts[0] === 'coach' && parts[1]==='reviews' && parts[2]) page=<CoachReview id={Number(parts[2])}/>;
   else if (parts[0] === 'grammar') page = <Grammar topic={parts[1]} />;
   else if (parts[0] === 'diagnostics' && parts[1] === 'new') page = <DiagnosticBuilder />;

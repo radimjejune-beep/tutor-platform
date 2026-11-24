@@ -128,6 +128,8 @@ protectedApi.use('/legal', require('./routes/legal').protectedRouter);
 protectedApi.use('/activity-links', require('./routes/activities').router);
 protectedApi.use('/learning', require('./routes/learning'));
 protectedApi.use('/live', require('./routes/live'));
+protectedApi.use('/study', require('./routes/study-subjects'));
+protectedApi.use('/expedition', require('./routes/expedition'));
 protectedApi.use('/coaching', require('./routes/coaching'));
 protectedApi.use('/progress', require('./routes/language-progress'));
 protectedApi.use('/supplementary-courses', require('./routes/supplementary-courses'));

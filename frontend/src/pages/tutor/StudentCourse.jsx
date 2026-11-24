@@ -10,7 +10,7 @@ import { useSubject } from '../../subjects';
 export function CourseTab({ student, onChange }) {
   const subj = useSubject(student.subject);
   const toast = useToast();
-  const data = useLoad(() => Promise.all([api.studentCourse(student.id), api.courses()]), [student.id]);
+  const data = useLoad(() => Promise.all([api.studentCourse(student.id,student.subject), api.courses().then(rows=>rows.filter(c=>c.subject===student.subject))]), [student.id]);
   const [busy, setBusy] = useState(false);
 
   if (data.loading) return <Spinner />;
@@ -53,7 +53,7 @@ export function CourseTab({ student, onChange }) {
           <select className="select" value={sc.course?.id || ''} disabled={busy}
             onChange={(e) => {
               const id = Number(e.target.value) || null;
-              run(() => api.setStudentCourse(student.id, { course_id: id }), id ? 'Ученик записан на курс' : 'Курс снят')();
+              run(() => api.setStudentCourse(student.id, { course_id: id },student.subject), id ? 'Ученик записан на курс' : 'Курс снят')();
             }}>
             <option value="">Без курса</option>
             {courses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
@@ -68,7 +68,7 @@ export function CourseTab({ student, onChange }) {
                 const passed = sc.unit && sc.units.findIndex((x) => x.id === sc.unit.id) > sc.units.findIndex((x) => x.id === u.id);
                 return (
                   <button key={u.id} role="listitem" className={`unit-row ${current ? 'current' : ''} ${passed ? 'passed' : ''}`} disabled={busy || current}
-                    onClick={run(() => api.setStudentCourse(student.id, { course_id: sc.course.id, unit_id: u.id }), `Текущий юнит: ${unitLabel(u)}`)}>
+                    onClick={run(() => api.setStudentCourse(student.id, { course_id: sc.course.id, unit_id: u.id },student.subject), `Текущий юнит: ${unitLabel(u)}`)}>
                     <span className="unit-code">{u.code || '·'}</span>
                     <span className="unit-title">{u.title}</span>
                     <span className="small muted hide-sm">{[u.item_count && `${u.item_count} упр.`, u.vocab_count && `${u.vocab_count} сл.`].filter(Boolean).join(' · ')}</span>
@@ -82,7 +82,7 @@ export function CourseTab({ student, onChange }) {
                 <button className="btn btn-secondary btn-sm" disabled={busy} onClick={run(() => api.unitHomework(sc.unit.id, { student_id: student.id }), 'ДЗ по юниту выдано')}>
                   Выдать ДЗ по {sc.unit.code || 'юниту'}
                 </button>
-                <button className="btn btn-sm" disabled={busy} onClick={run(() => api.nextUnit(student.id), 'Следующий юнит')}>
+                <button className="btn btn-sm" disabled={busy} onClick={run(() => api.nextUnit(student.id,student.subject), 'Следующий юнит')}>
                   Следующий юнит <Icon name="arrowDown" />
                 </button>
               </div>
@@ -106,7 +106,7 @@ export function CourseTab({ student, onChange }) {
 
 export function WordsTab({ student }) {
   const subj = useSubject(student.subject);
-  const vocab = useLoad(() => api.vocab(student.id), [student.id]);
+  const vocab = useLoad(() => api.vocab(student.id,student.subject), [student.id]);
   const [adding, setAdding] = useState(false);
   const [giving, setGiving] = useState(false);
   const [session, setSession] = useState(false);

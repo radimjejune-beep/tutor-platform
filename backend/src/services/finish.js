@@ -2,7 +2,7 @@
 // Используется и для индивидуального урока, и для каждого ученика группового
 const { buildUpdate } = require('../utils');
 const { syncLessonCharge } = require('./billing');
-const { getUnit, startUnit, nextUnitId, assignUnitHomework } = require('./courses');
+const { currentUnit,getUnit, startUnit, nextUnitId, assignUnitHomework } = require('./courses');
 const notify = require('./notify');
 
 // b: { status, topic, summary, private_notes, homework, due_on, next_unit }
@@ -13,7 +13,8 @@ async function finishLesson(client, id, b) {
   );
   const l = cur[0];
   if (!l) return null;
-  const unitId = l.unit_id || l.course_unit_id || null;
+  const direction=await currentUnit(client,l.student_id,l.subject);
+  const unitId = l.unit_id || direction?.course_unit_id || null;
   const data = { status: b.status, unit_id: unitId };
   for (const k of ['topic', 'summary', 'private_notes']) if (b[k] !== undefined) data[k] = b[k] || null;
   const upd = buildUpdate('lessons', id, data);
@@ -23,13 +24,14 @@ async function finishLesson(client, id, b) {
   let assignment = null;
   let next = null;
   const done = b.status === 'done';
-  const unit = unitId ? await getUnit(client, unitId) : null;
+  const candidate=unitId?await getUnit(client,unitId):null;
+  const unit=candidate?.course_subject===l.subject?candidate:null;
   if (done && b.homework && unit) {
     assignment = await assignUnitHomework(client, unit, l.student_id, { lessonId: id, dueOn: b.due_on || null });
   }
-  if (done && b.next_unit && unit && l.course_unit_id === unit.id) {
+  if (done && b.next_unit && unit && direction?.course_unit_id === unit.id) {
     const nextId = await nextUnitId(client, unit.id);
-    if (nextId) next = (await startUnit(client, l.student_id, nextId)).unit;
+    if (nextId) next = (await startUnit(client, l.student_id, nextId,l.subject)).unit;
   }
   return { lesson, assignment, next_unit: next };
 }

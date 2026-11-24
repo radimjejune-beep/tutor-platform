@@ -1,3 +1,6 @@
+import {TopicProof} from '../../components/TopicEvidence';
+import TrailCard from '../../components/TrailCard';
+import {WorkoutCard} from '../learning/Workout';
 // pages/client/Progress.jsx — программа, навыки, отчёты
 import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Bar, Link, Badge } from '../../ui';
@@ -9,7 +12,7 @@ import SupplementaryCourses from '../../components/SupplementaryCourses';
 import { SKILLS, shortDate, monthName, plural } from '../../format';
 
 export default function ClientProgress({ student }) {
-  const p = useLoad(() => api.progress(student.id), [student.id]);
+  const p = useLoad(() => api.progress(student.id,student.subject), [student.id]);
   if (p.loading) return <Spinner />;
   if (p.error) return <ErrorBox error={p.error} onRetry={p.reload} />;
   const d = p.data;
@@ -31,12 +34,13 @@ export default function ClientProgress({ student }) {
           <div className="lead">Всё, что уже получилось: слова, упражнения, задания и курс. Обновляется само после каждого урока и задания.</div>
         </div>
       </div>
+      <TrailCard student={student}/><WorkoutCard student={student}/>
       <LanguageProgress key={student.id} student={student}/>
       <SupplementaryCourses key={`courses:${student.id}`} student={student}/>
       <MotivationCard studentId={student.id} />
       <Recommendations studentId={student.id} />
       <Achievements d={d} />
-      <MonthSummaries studentId={student.id} />
+      <MonthSummaries studentId={student.id} subject={student.subject}/>
       <div className="grid grid-main">
         <section className="panel">
           <div className="panel-head"><h2 className="section-title">Программа</h2></div>
@@ -55,7 +59,7 @@ export default function ClientProgress({ student }) {
                     <div className="list-main">
                       <div className="list-title" style={{ fontWeight: t.status === 'done' ? 500 : 600, color: t.status === 'done' ? 'var(--ink-2)' : undefined }}>
                         {t.title}
-                      </div>
+                      </div><TopicProof topic={t}/>
                       <div className="list-sub">{SKILLS[t.skill]}{t.completed_on ? `, пройдено ${shortDate(t.completed_on)}` : t.status === 'in_progress' ? ', проходим сейчас' : ''}</div>
                     </div>
                   </div>
@@ -96,7 +100,7 @@ export default function ClientProgress({ student }) {
           )}
 
           <section className="panel">
-            <h2 className="section-title">Отчёты</h2>
+            <h2 className="section-title">Общие отчёты по ученику</h2>
             {!d.reports.length && <p className="muted" style={{ marginBottom: 0 }}>Первый отчёт появится в начале следующего месяца.</p>}
             <div className="list" style={{ marginTop: 8 }}>
               {d.reports.map((r) => (
@@ -116,8 +120,8 @@ export default function ClientProgress({ student }) {
 /* ============================================================
    Итоги по месяцам — собираются сами из занятий, заданий и тем
    ============================================================ */
-function MonthSummaries({ studentId }) {
-  const months = useLoad(() => api.monthSummaries(studentId), [studentId]);
+function MonthSummaries({ studentId,subject }) {
+  const months = useLoad(() => api.monthSummaries(studentId,subject), [studentId,subject]);
   if (months.loading || months.error || !months.data?.length) return null;
 
   return (

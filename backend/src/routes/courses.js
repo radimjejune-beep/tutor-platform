@@ -1,3 +1,4 @@
+const {currentUnit}=require('../services/courses');
 // routes/courses.js — курсы по учебнику (только преподаватель)
 const express = require('express');
 const { z } = require('zod');
@@ -187,7 +188,8 @@ router.get(
   requireOwn('students', 'sid', 'Ученик не найден'),
   asyncHandler(async (req, res) => {
     const sid = Number(req.params.sid);
-    const { rows } = await query('SELECT id, course_id, course_unit_id FROM students WHERE id = $1', [sid]);
+    const current=await currentUnit({query},sid,req.query.subject);
+    const rows=current?[current]:[];
     if (!rows[0]) return res.status(404).json({ error: 'Ученик не найден' });
     const s = rows[0];
     if (!s.course_id) return res.json({ course: null, unit: null, units: [] });
@@ -216,7 +218,8 @@ router.post(
 
     if (courseId !== null && !(await owns(req.user, 'courses', courseId))) return res.status(404).json({ error: 'Курс не найден' });
     if (courseId === null) {
-      await query('UPDATE students SET course_id = NULL, course_unit_id = NULL WHERE id = $1', [sid]);
+      const ctx=await currentUnit({query},sid,req.query.subject);
+      await transaction(async db=>{await db.query('UPDATE student_subjects SET course_id=NULL,course_unit_id=NULL WHERE student_id=$1 AND subject=$2',[sid,ctx.subject]);if(ctx.subject===ctx.primary)await db.query('UPDATE students SET course_id=NULL,course_unit_id=NULL WHERE id=$1',[sid]);});
       return res.json({ ok: true });
     }
     const { rows: units } = await query(
@@ -224,7 +227,7 @@ router.post(
       [courseId, unitId ?? null]
     );
     if (!units[0]) return res.status(400).json({ error: unitId ? 'Юнит не из этого курса' : 'В курсе пока нет юнитов' });
-    const result = await transaction((client) => startUnit(client, sid, units[0].id));
+    const result = await transaction((client) => startUnit(client, sid, units[0].id,req.query.subject));
     res.json(result);
   })
 );
@@ -235,11 +238,12 @@ router.post(
   requireOwn('students', 'sid', 'Ученик не найден'),
   asyncHandler(async (req, res) => {
     const sid = Number(req.params.sid);
-    const { rows } = await query('SELECT course_unit_id FROM students WHERE id = $1', [sid]);
+    const current=await currentUnit({query},sid,req.query.subject);
+    const rows=current?[current]:[];
     if (!rows[0]?.course_unit_id) return res.status(400).json({ error: 'Ученик не на курсе' });
     const next = await nextUnitId({ query }, rows[0].course_unit_id);
     if (!next) return res.status(409).json({ error: 'Это последний юнит курса' });
-    const result = await transaction((client) => startUnit(client, sid, next));
+    const result = await transaction((client) => startUnit(client, sid, next,req.query.subject));
     res.json(result);
   })
 );

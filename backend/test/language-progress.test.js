@@ -65,10 +65,12 @@ test('language route: HTTP, PostgreSQL, family scope and level confirmation',{sk
   assert.ok(data.history.some(h=>h.event==='level_confirmed'));assert.equal((await query('SELECT level FROM students WHERE id=$1',[sid])).rows[0].level,'Old free text');
   await req(a,url(sid)+'/confirm','POST',{version,subject,basis:'Повторная отправка'},409);
  });
- await t.test('a changed language cannot reuse another language evidence or be overwritten by an old tab',async()=>{
-  const v=data.profile.version;await query("UPDATE students SET subject='Немецкий язык' WHERE id=$1",[sid]);
-  assert.equal((await req(u,url(sid))).profile,null);await req(a,url(sid),'PUT',{...config(0),subject:'Немецкий язык'});
-  await req(a,url(sid),'PUT',config(v),409);await query("UPDATE students SET subject='Английский язык' WHERE id=$1",[sid]);data=await req(a,url(sid));assert.equal(data.profile.current_level,'A2');
+ await t.test('two enrolled languages retain independent evidence when the primary language changes',async()=>{
+  const v=data.profile.version;await query("INSERT INTO student_subjects(student_id,subject) VALUES($1,'Английский язык'),($1,'Немецкий язык') ON CONFLICT DO NOTHING",[sid]);
+  await query("UPDATE students SET subject='Немецкий язык' WHERE id=$1",[sid]);
+  assert.equal((await req(u,url(sid))).profile,null);const german=await req(a,url(sid),'PUT',{...config(0),subject:'Немецкий язык'});assert.equal(german.route.confirmed,0);
+  assert.equal((await req(u,url(sid)+'?subject='+encodeURIComponent(subject))).profile.current_level,'A2');
+  await req(a,url(sid),'PUT',config(v-1),409);await query("UPDATE students SET subject='Английский язык' WHERE id=$1",[sid]);data=await req(a,url(sid));assert.equal(data.profile.current_level,'A2');
  });
  await t.test('other subjects are excluded; foreign language is enabled without English grammar signals; C2 caps without C3',async()=>{
   await query("UPDATE students SET subject='Математика' WHERE id=$1",[oid]);assert.equal((await req(other,url(oid))).enabled,false);await req(a,url(oid),'PUT',config(),422);

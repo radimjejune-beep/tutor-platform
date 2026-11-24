@@ -13,28 +13,28 @@ const { recommendations } = require('../services/recommend');
 const router = express.Router();
 const tutorOnly = requireRole('tutor');
 
-const skill = z.enum(['grammar', 'vocabulary', 'speaking', 'listening', 'reading', 'writing']);
+const skill = z.enum(['grammar', 'vocabulary', 'speaking', 'listening', 'reading', 'writing','concepts','problem_solving','practical','other']);
 const monthStr = z.string().regex(/^\d{4}-\d{2}$/, 'Месяц в формате ГГГГ-ММ');
 
 // Цифры за месяц: занятия, посещаемость, ДЗ, пройденные темы
-async function monthStats(studentId, month /* 'YYYY-MM' */) {
+async function monthStats(studentId, month /* 'YYYY-MM' */,subject=null) {
   const { rows } = await query(
     `WITH m AS (SELECT ($2 || '-01')::date AS s)
      SELECT
-       (SELECT COUNT(*)::int FROM lessons, m WHERE student_id = $1 AND status = 'done'
+       (SELECT COUNT(*)::int FROM lessons, m WHERE student_id = $1 AND ($3::varchar IS NULL OR subject=$3) AND status = 'done'
           AND starts_at >= m.s AND starts_at < m.s + INTERVAL '1 month') AS lessons_done,
-       (SELECT COUNT(*)::int FROM lessons, m WHERE student_id = $1 AND status IN ('missed', 'cancelled_late')
+       (SELECT COUNT(*)::int FROM lessons, m WHERE student_id = $1 AND ($3::varchar IS NULL OR subject=$3) AND status IN ('missed', 'cancelled_late')
           AND starts_at >= m.s AND starts_at < m.s + INTERVAL '1 month') AS lessons_missed,
-       (SELECT COUNT(*)::int FROM homework, m WHERE student_id = $1
+       (SELECT COUNT(*)::int FROM homework, m WHERE student_id = $1 AND ($3::varchar IS NULL OR subject=$3)
           AND created_at >= m.s AND created_at < m.s + INTERVAL '1 month') AS homework_given,
-       (SELECT COUNT(*)::int FROM homework, m WHERE student_id = $1 AND status IN ('submitted', 'checked')
+       (SELECT COUNT(*)::int FROM homework, m WHERE student_id = $1 AND ($3::varchar IS NULL OR subject=$3) AND status IN ('submitted', 'checked')
           AND created_at >= m.s AND created_at < m.s + INTERVAL '1 month') AS homework_done,
-       (SELECT ROUND(AVG(score))::int FROM homework, m WHERE student_id = $1 AND score IS NOT NULL
+       (SELECT ROUND(AVG(score))::int FROM homework, m WHERE student_id = $1 AND ($3::varchar IS NULL OR subject=$3) AND score IS NOT NULL
           AND created_at >= m.s AND created_at < m.s + INTERVAL '1 month') AS homework_avg_score,
        (SELECT COALESCE(json_agg(title ORDER BY completed_on), '[]') FROM progress_topics, m
-         WHERE student_id = $1 AND status = 'done'
+         WHERE student_id = $1 AND ($3::varchar IS NULL OR subject=$3) AND status = 'done'
            AND completed_on >= m.s AND completed_on < m.s + INTERVAL '1 month') AS topics_completed`,
-    [studentId, month]
+    [studentId, month,subject]
   );
   return rows[0];
 }
@@ -47,15 +47,16 @@ router.get(
   requireStudentAccess(),
   asyncHandler(async (req, res) => {
     const isTutor = req.user.role === 'tutor';
+    const subject=await require('../learning/study-subjects').resolve(req.studentId,req.user.tid,req.query.subject);
 
     const { rows: topics } = await query(
-      'SELECT * FROM progress_topics WHERE student_id = $1 ORDER BY sort_order, id',
-      [req.studentId]
+      'SELECT * FROM progress_topics WHERE student_id = $1 AND subject=$2 ORDER BY sort_order, id',
+      [req.studentId,subject]
     );
     const { rows: bySkill } = await query(
       `SELECT skill, COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status = 'done')::int AS done
-         FROM progress_topics WHERE student_id = $1 GROUP BY skill ORDER BY skill`,
-      [req.studentId]
+         FROM progress_topics WHERE student_id = $1 AND subject=$2 GROUP BY skill ORDER BY skill`,
+      [req.studentId,subject]
     );
     const { rows: reports } = await query(
       `SELECT *, to_char(month, 'YYYY-MM') AS month_key FROM monthly_reports
@@ -67,9 +68,9 @@ router.get(
     const { rows: lessonsByMonth } = await query(
       `SELECT to_char(date_trunc('month', starts_at), 'YYYY-MM') AS month, COUNT(*)::int AS lessons_done
          FROM lessons
-        WHERE student_id = $1 AND status = 'done' AND starts_at >= date_trunc('month', NOW()) - INTERVAL '5 months'
+        WHERE student_id = $1 AND subject=$2 AND status = 'done' AND starts_at >= date_trunc('month', NOW()) - INTERVAL '5 months'
         GROUP BY 1 ORDER BY 1`,
-      [req.studentId]
+      [req.studentId,subject]
     );
 
     // Словарь: сколько слов на каждом уровне (0 — новое, 5 — выучено надолго)
@@ -77,8 +78,8 @@ router.get(
       `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE box >= 4)::int AS learned,
               COUNT(*) FILTER (WHERE due_on <= CURRENT_DATE)::int AS due,
               COALESCE(json_agg(box ORDER BY box) FILTER (WHERE TRUE), '[]') AS boxes
-         FROM vocab_items WHERE student_id = $1`,
-      [req.studentId]
+         FROM vocab_items WHERE student_id = $1 AND subject=$2`,
+      [req.studentId,subject]
     );
     const boxes = [0, 0, 0, 0, 0, 0];
     for (const bx of vocab[0].boxes) boxes[bx]++;
@@ -87,14 +88,14 @@ router.get(
     const { rows: games } = await query(
       `SELECT r.item_id, i.title, r.score, r.correct, r.total, r.created_at
          FROM game_results r JOIN library_items i ON i.id = r.item_id
-        WHERE r.student_id = $1 ORDER BY r.created_at DESC LIMIT 12`,
-      [req.studentId]
+        WHERE r.student_id = $1 AND r.subject=$2 ORDER BY r.created_at DESC LIMIT 12`,
+      [req.studentId,subject]
     );
     const { rows: gameAvg } = await query(
       `SELECT COUNT(*)::int AS attempts, COALESCE(ROUND(AVG(score)), 0)::int AS avg_score,
               COUNT(*) FILTER (WHERE score = 100)::int AS perfect
-         FROM game_results WHERE student_id = $1 AND created_at > NOW() - INTERVAL '90 days'`,
-      [req.studentId]
+         FROM game_results WHERE student_id = $1 AND subject=$2 AND created_at > NOW() - INTERVAL '90 days'`,
+      [req.studentId,subject]
     );
 
     // Домашние задания за 90 дней
@@ -104,8 +105,8 @@ router.get(
               COUNT(*) FILTER (WHERE h.status <> 'assigned' AND (a.due_on IS NULL OR h.submitted_at::date <= a.due_on))::int AS on_time,
               COALESCE(ROUND(AVG(COALESCE(h.score, h.quiz_score)) FILTER (WHERE h.status = 'checked')), 0)::int AS avg_score
          FROM homework h JOIN assignments a ON a.id = h.assignment_id
-        WHERE h.student_id = $1 AND h.created_at > NOW() - INTERVAL '90 days'`,
-      [req.studentId]
+        WHERE h.student_id = $1 AND h.subject=$2 AND h.created_at > NOW() - INTERVAL '90 days'`,
+      [req.studentId,subject]
     );
 
     // Курс: сколько юнитов пройдено
@@ -113,11 +114,12 @@ router.get(
       `SELECT c.title, u.code, u.title AS unit_title,
               (SELECT COUNT(*)::int FROM course_units x WHERE x.course_id = c.id) AS units_total,
               (SELECT COUNT(*)::int FROM course_units x WHERE x.course_id = c.id AND (x.position, x.id) < (u.position, u.id)) AS units_done
-         FROM students s JOIN courses c ON c.id = s.course_id LEFT JOIN course_units u ON u.id = s.course_unit_id
-        WHERE s.id = $1`,
-      [req.studentId]
+         FROM students s JOIN student_subjects ss ON ss.student_id=s.id AND ss.subject=$2 JOIN courses c ON c.id = ss.course_id LEFT JOIN course_units u ON u.id = ss.course_unit_id
+        WHERE s.id = $1 AND c.subject=$2`,
+      [req.studentId,subject]
     );
 
+    await Promise.all(topics.filter(t=>t.evidence_kind).map(async t=>{const ref=await require('../learning/evidence-links').resolve(req.studentId,req.user.tid,{kind:t.evidence_kind,id:t.evidence_id},{query});t.reference=ref&&ref.subject===subject?ref:null;t.evidence_unavailable=!t.reference;}));
     const total = topics.length;
     const done = topics.filter((t) => t.status === 'done').length;
     res.json({
@@ -140,6 +142,7 @@ router.get(
 const topicsSchema = z
   .object({
     student_id: z.number().int().positive(),
+    subject:z.string().trim().min(1).max(255).optional(),
     section: z.string().trim().max(255).nullable().optional(),
     items: z
       .array(z.object({ title: z.string().trim().min(1).max(255), skill: skill.optional(), grammar_key: grammarKey.optional() }).strict())
@@ -155,18 +158,21 @@ router.post(
   asyncHandler(async (req, res) => {
     const { student_id, section, items } = req.body;
     if (!(await canAccessStudent(req.user, student_id))) return res.status(404).json({ error: 'Ученик не найден' });
+    const subject=await require('../learning/study-subjects').resolve(student_id,req.user.id,req.body.subject);
     const { rows: maxRow } = await query(
       'SELECT COALESCE(MAX(sort_order), 0) AS m FROM progress_topics WHERE student_id = $1',
       [student_id]
     );
+    const defaultSkill=require('../learning/language-catalog').isLanguage(subject)?'grammar':'concepts';
     let order = maxRow[0].m;
     const created = [];
+    if(items.some(it=>it.grammar_key&&grammar.byId.get(it.grammar_key)?.subject!==subject))return res.status(422).json({error:'Грамматическая тема должна относиться к выбранному языку'});
     for (const it of items) {
       order += 10;
       const { rows } = await query(
-        `INSERT INTO progress_topics (student_id, section, title, skill, sort_order, grammar_key)
-         VALUES ($1, $2, $3, COALESCE($4, 'grammar'), $5, $6) RETURNING *`,
-        [student_id, section || null, it.title, it.skill || null, order, it.grammar_key || ((it.skill || 'grammar') === 'grammar' ? grammar.matchTopic(it.title) : null)]
+        `INSERT INTO progress_topics (student_id, section, title, skill, sort_order, grammar_key,subject)
+         VALUES ($1, $2, $3, COALESCE($4, 'grammar'), $5, $6,$7) RETURNING *`,
+        [student_id, section || null, it.title, it.skill || defaultSkill, order, it.grammar_key || ((it.skill || defaultSkill) === 'grammar' ? grammar.matchTopic(it.title,subject) : null),subject]
       );
       created.push(rows[0]);
     }
@@ -182,6 +188,8 @@ const topicUpdateSchema = z
     skill,
     grammar_key: grammarKey,
     status: z.enum(['planned', 'in_progress', 'done']),
+    evidence_note:z.string().trim().max(1500),
+    evidence_ref:z.object({kind:z.enum(['homework','writing','diagnostic','workout']),id:z.number().int().positive()}).strict().nullable(),
     sort_order: z.number().int(),
     completed_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
   })
@@ -199,10 +207,18 @@ router.patch(
     if (data.status === 'done' && data.completed_on === undefined) data.completed_on = new Date().toISOString().slice(0, 10);
     if (data.status && data.status !== 'done') data.completed_on = null;
 
+    const {rows:[topic]}=await query('SELECT * FROM progress_topics WHERE id=$1',[Number(req.params.id)]);
+    if(data.grammar_key&&grammar.byId.get(data.grammar_key)?.subject!==topic.subject)return res.status(422).json({error:'Грамматическая тема должна относиться к языку программы'});
+    if(Object.hasOwn(data,'evidence_ref')){
+      const ref=data.evidence_ref;delete data.evidence_ref;
+      if(ref){const proof=await require('../learning/evidence-links').resolve(topic.student_id,req.user.id,ref,{query});if(!proof||proof.subject!==topic.subject)return res.status(422).json({error:'Выберите проверенную работу этого ученика по тому же предмету'});}
+      data.evidence_kind=ref?.kind||null;data.evidence_id=ref?.id||null;data.evidence_at=ref?new Date().toISOString():null;
+    }else if(data.status==='done'&&topic.evidence_kind)data.evidence_at=new Date().toISOString();
     const upd = buildUpdate('progress_topics', Number(req.params.id), data);
     if (!upd) return res.status(400).json({ error: 'Нет изменений' });
     const { rows } = await query(upd.text, upd.values);
     if (!rows[0]) return res.status(404).json({ error: 'Тема не найдена' });
+    await require('../learning/trail').refresh(rows[0].student_id,rows[0].subject);
     res.json(rows[0]);
   })
 );
@@ -231,7 +247,7 @@ router.get(
   '/students/:studentId/recommendations',
   requireStudentAccess(),
   asyncHandler(async (req, res) => {
-    res.json(await recommendations(Number(req.params.studentId)));
+    const subject=await require('../learning/study-subjects').resolve(req.studentId,req.user.tid,req.query.subject);res.json(await recommendations(req.studentId,subject));
   })
 );
 
@@ -239,13 +255,14 @@ router.get(
   '/students/:studentId/months',
   requireStudentAccess(),
   asyncHandler(async (req, res) => {
+    const subject=await require('../learning/study-subjects').resolve(req.studentId,req.user.tid,req.query.subject);
     // Месяцы, в которых были проведённые занятия (последние 6)
     const { rows: months } = await query(
       `SELECT DISTINCT to_char(date_trunc('month', starts_at), 'YYYY-MM') AS month
          FROM lessons
-        WHERE student_id = $1 AND status = 'done' AND starts_at >= date_trunc('month', NOW()) - INTERVAL '5 months'
+        WHERE student_id = $1 AND subject=$2 AND status = 'done' AND starts_at >= date_trunc('month', NOW()) - INTERVAL '5 months'
         ORDER BY 1 DESC`,
-      [req.studentId]
+      [req.studentId,subject]
     );
     const { rows: reports } = await query(
       `SELECT id, to_char(month, 'YYYY-MM') AS month_key, summary FROM monthly_reports
@@ -255,7 +272,7 @@ router.get(
     const out = [];
     for (const { month } of months) {
       const r = reports.find((x) => x.month_key === month);
-      out.push({ month, ...(await monthStats(req.studentId, month)), report_id: r?.id || null, tutor_summary: r?.summary || null });
+      out.push({ month, ...(await monthStats(req.studentId, month,subject)), report_id: r?.id || null, tutor_summary: r?.summary || null });
     }
     res.json(out);
   })

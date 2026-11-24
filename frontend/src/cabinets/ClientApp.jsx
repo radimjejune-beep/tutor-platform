@@ -1,3 +1,7 @@
+import Workout from '../pages/learning/Workout';
+import WritingReview from '../pages/learning/WritingReview';
+import {cloneElement,Fragment} from 'react';
+import StudyArea from '../components/StudyArea';
 import CoursesMarketplace from '../pages/CoursesMarketplace';
 import CoursePage from '../pages/CoursePage';
 import {BillingHistory} from '../components/Checkout';
@@ -91,6 +95,8 @@ function ClientCabinet({ path }) {
   else if(path==='/purchases'&&(user.role==='parent'||students.some(s=>s.category==='adult')))page=<><h1 className="page-title">Покупки</h1><BillingHistory/></>;
   else if(parts[0]==='marketplace'&&parts[1]==='mine')page=<CourseMine key={child.id}/>;
   else if(parts[0]==='learn-course'&&parts[1])page=<CoursePlayer key={parts[1]} id={Number(parts[1])}/>;
+  else if(parts[0]==='writing'&&parts[1])page=<WritingReview id={Number(parts[1])}/>;
+  else if(parts[0]==='workouts'&&parts[1])page=<Workout id={Number(parts[1])}/>;
   else if (parts[0] === 'coach' && parts[1]==='reviews' && parts[2]) page=<CoachReview id={Number(parts[2])}/>;
   else if (parts[0] === 'coach') page=<Coach key={child.id} {...props}/>;
   else if (parts[0] === 'family') page=<FamilyPage/>;
@@ -134,7 +140,7 @@ function ClientCabinet({ path }) {
         </div>
       )}
       {switchError&&<div className="alert" role="alert">{switchError}</div>}
-      {page}
+      <StudyArea key={child.id} student={child}>{active=>page?.type===Fragment?page:cloneElement(page,{student:active,key:`${child.id}:${active.subject}:${path}`})}</StudyArea>
     </Shell>
   );
 }

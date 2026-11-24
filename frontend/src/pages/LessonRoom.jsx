@@ -1,3 +1,4 @@
+import {LessonRecap} from '../components/LessonRecap';
 import { BackLink } from '../Shell';
 // pages/LessonRoom.jsx — комната урока: звонок, доска и задачи урока
 // Ученик видит задачи сразу, как только преподаватель их добавил (обновляется сама)
@@ -93,6 +94,7 @@ export default function LessonRoom({ id }) {
         </div>
       </div>
 
+      <LessonRecap lesson={l} tutor={isTutor}/>
       {!isTutor && <div style={{ marginTop: 20 }}><WarmupBanner lesson={l} studentId={l.student_id} onDone={room.reload} /></div>}
 
       {isTutor && (
@@ -164,7 +166,7 @@ export default function LessonRoom({ id }) {
         </div>
         {isTutor && l.items.length > 0 && (
           <div className="row wrap" style={{ gap: 8, marginTop: 14 }}>
-            <Link to={`/homework/new?student=${l.student_id}&items=${ids.join(',')}`} className="btn btn-secondary btn-sm">Отправить эти задачи в ДЗ</Link>
+            <Link to={`/homework/new?lesson=${l.id}&subject=${encodeURIComponent(l.subject||'')}&student=${l.student_id}&items=${ids.join(',')}`} className="btn btn-secondary btn-sm">Отправить эти задачи в ДЗ</Link>
           </div>
         )}
       </section>

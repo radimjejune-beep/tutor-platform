@@ -6,9 +6,11 @@ const d=require('../src/learning/diagnostics');
 const {randomUUID}=require('crypto');
 const solve=qs=>Object.fromEntries(qs.map(q=>[q.id,q.correct[0]]));
 
-test('справочник: 41 общая тема, 260 юнитов, поиск и валидные вопросы',()=>{
- assert.equal(catalog.topics.length,301);assert.equal(catalog.topics.filter(t=>!t.book_id).length,41);assert.equal(new Set(catalog.topics.map(t=>t.id)).size,301);
- for(const t of catalog.topics){assert.equal(t.questions.length,6,t.id);d.questions.parse(t.questions);assert.equal(d.assess(t.questions,solve(t.questions)).score,100);}
+test('справочник: английская программа сохранена, французские темы обособлены и проверяются',()=>{
+ assert.equal(catalog.topics.filter(t=>t.subject==='Английский язык').length,301);
+ assert.equal(catalog.topics.filter(t=>t.subject==='Французский язык').length,6);
+ assert.equal(new Set(catalog.topics.map(t=>t.id)).size,catalog.topics.length);
+ for(const t of catalog.topics){assert.equal(t.questions.length,t.subject==='Французский язык'?8:6,t.id);d.questions.parse(t.questions);assert.equal(d.assess(t.questions,solve(t.questions)).score,100);}
  for(const q of ['объяснение Present Simple','презент симпл','я забыл Present Simple','что такое Present Simple'])assert.ok(catalog.search(q).some(t=>t.id==='present-simple'));
  assert.ok(catalog.search('прошедшее').some(t=>t.id==='past-simple'));
  assert.equal(catalog.matchTopic('Present Simple: questions'),'present-simple');assert.equal(catalog.matchTopic('какая-то новая тема'),null);

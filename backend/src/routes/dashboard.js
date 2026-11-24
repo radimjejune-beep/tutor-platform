@@ -14,7 +14,7 @@ router.get(
     if (req.user.role === 'tutor') return res.json(await tutorDashboard(req.user.id));
     const ids = await accessibleStudentIds(req.user);
     const students = [];
-    for (const id of ids) students.push(await studentDashboard(id));
+    for (const id of ids){const subject=Number(req.query.student_id)===id&&req.query.subject?await require('../learning/study-subjects').resolve(id,req.user.tid,req.query.subject):null;students.push(await studentDashboard(id,subject));}
     res.json({ students });
   })
 );
@@ -185,30 +185,30 @@ async function lessonBrief(l) {
 }
 
 // Ученик / родитель: по каждому ребёнку
-async function studentDashboard(studentId) {
+async function studentDashboard(studentId,subject=null) {
   const { rows: st } = await query('SELECT id, full_name, level, goal, textbook, board_link, call_link FROM students WHERE id = $1', [
     studentId,
   ]);
   const { rows: upcoming } = await query(
-    `SELECT * FROM lessons WHERE student_id = $1 AND status = 'scheduled' AND starts_at >= NOW()
+    `SELECT * FROM lessons WHERE student_id = $1 AND ($2::varchar IS NULL OR subject=$2) AND status = 'scheduled' AND starts_at >= NOW()
       ORDER BY starts_at LIMIT 5`,
-    [studentId]
+    [studentId,subject]
   );
   const { rows: lastLesson } = await query(
-    `SELECT * FROM lessons WHERE student_id = $1 AND status = 'done' ORDER BY starts_at DESC LIMIT 1`,
-    [studentId]
+    `SELECT * FROM lessons WHERE student_id = $1 AND ($2::varchar IS NULL OR subject=$2) AND status = 'done' ORDER BY starts_at DESC LIMIT 1`,
+    [studentId,subject]
   );
   const { rows: homework } = await query(
-    `SELECT h.id, h.status, h.assignment_id, a.title, a.due_on
+    `SELECT h.id, h.status,h.subject,h.lesson_id, h.assignment_id, a.title, a.due_on
        FROM homework h JOIN assignments a ON a.id = h.assignment_id
-      WHERE h.student_id = $1 AND h.status <> 'checked'
+      WHERE h.student_id = $1 AND ($2::varchar IS NULL OR h.subject=$2) AND h.status <> 'checked'
       ORDER BY a.due_on NULLS LAST, h.id`,
-    [studentId]
+    [studentId,subject]
   );
   const { rows: progress } = await query(
     `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE status = 'done')::int AS done
-       FROM progress_topics WHERE student_id = $1`,
-    [studentId]
+       FROM progress_topics WHERE student_id = $1 AND ($2::varchar IS NULL OR subject=$2)`,
+    [studentId,subject]
   );
   const { rows: report } = await query(
     `SELECT id, to_char(month, 'YYYY-MM') AS month_key, published_at FROM monthly_reports
@@ -217,13 +217,13 @@ async function studentDashboard(studentId) {
   );
   const f = await studentFinance({ query }, studentId);
   const { rows: vocab } = await query(
-    `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE due_on <= CURRENT_DATE)::int AS due FROM vocab_items WHERE student_id = $1`,
-    [studentId]
+    `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE due_on <= CURRENT_DATE)::int AS due FROM vocab_items WHERE student_id = $1 AND ($2::varchar IS NULL OR subject=$2)`,
+    [studentId,subject]
   );
   const { rows: unit } = await query(
     `SELECT u.code, u.title, c.title AS course_title FROM students s
-       JOIN course_units u ON u.id = s.course_unit_id JOIN courses c ON c.id = u.course_id WHERE s.id = $1`,
-    [studentId]
+       JOIN student_subjects ss ON ss.student_id=s.id AND ss.subject=COALESCE($2,s.subject,(SELECT subject FROM users WHERE id=s.tutor_id),'Английский язык') JOIN course_units u ON u.id = ss.course_unit_id JOIN courses c ON c.id = u.course_id WHERE s.id = $1`,
+    [studentId,subject]
   );
 
   const p = progress[0];

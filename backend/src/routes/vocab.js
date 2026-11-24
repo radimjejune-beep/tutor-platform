@@ -1,3 +1,4 @@
+const studySubjects=require('../learning/study-subjects');
 // routes/vocab.js — личный словарь ученика
 // Ученик и родитель видят и повторяют слова своего ребёнка, преподаватель ещё и добавляет/правит
 const express = require('express');
@@ -18,6 +19,7 @@ async function resolveStudent(req) {
   let id = Number(req.query.student_id) || null;
   if (!id && req.user.role !== 'tutor') id = (await accessibleStudentIds(req.user))[0] ?? null;
   if (!id || !(await canAccessStudent(req.user, id))) return null;
+  req.studySubject=await studySubjects.resolve(id,req.user.tid,req.query.subject);
   return id;
 }
 
@@ -33,9 +35,9 @@ router.get(
     const { rows: items } = await query(
       `SELECT v.*, u.code AS unit_code, u.title AS unit_title
          FROM vocab_items v LEFT JOIN course_units u ON u.id = v.unit_id
-        WHERE v.student_id = $1
+        WHERE v.student_id = $1 AND v.subject=$2
         ORDER BY v.due_on, v.box, v.created_at DESC`,
-      [studentId]
+      [studentId,req.studySubject]
     );
     const today = (await query('SELECT CURRENT_DATE::text AS d')).rows[0].d;
     res.json({
@@ -61,10 +63,10 @@ router.get(
     const limit = Math.min(Number(req.query.limit) || 30, 100);
     const { rows } = await query(
       `SELECT id, term, translation, example, box, source FROM vocab_items
-        WHERE student_id = $1 AND due_on <= CURRENT_DATE
+        WHERE student_id = $1 AND subject=$3 AND due_on <= CURRENT_DATE
         ORDER BY box, lapses DESC, due_on, random()
         LIMIT $2`,
-      [studentId, limit]
+      [studentId, limit,req.studySubject]
     );
     res.json(rows);
   })
@@ -83,18 +85,18 @@ router.get(
     const { rows } = await query(
       `SELECT v.id, v.term, v.translation, v.example, v.box, v.source
          FROM vocab_items v LEFT JOIN students s ON s.id = v.student_id
-        WHERE v.student_id = $1
+        WHERE v.student_id = $1 AND v.subject=$3
         ORDER BY (v.due_on <= CURRENT_DATE) DESC,
                  (v.source = 'mistake' AND v.box = 0) DESC,
                  (v.unit_id IS NOT NULL AND v.unit_id = s.course_unit_id) DESC,
                  v.box, random()
         LIMIT $2`,
-      [studentId, count]
+      [studentId, count,req.studySubject]
     );
     // Для вариантов ответа нужны «чужие» переводы
     const { rows: pool } = await query(
-      `SELECT term, translation FROM vocab_items WHERE student_id = $1 AND translation IS NOT NULL ORDER BY random() LIMIT 40`,
-      [studentId]
+      `SELECT term, translation FROM vocab_items WHERE student_id = $1 AND subject=$2 AND translation IS NOT NULL ORDER BY random() LIMIT 40`,
+      [studentId,req.studySubject]
     );
     res.json({ words: rows, pool });
   })
@@ -180,11 +182,11 @@ const wordSchema = z
 router.post(
   '/',
   tutorOnly,
-  validateBody(z.object({ student_id: z.number().int().positive(), items: z.array(wordSchema).min(1).max(300) }).strict()),
+  validateBody(z.object({ student_id: z.number().int().positive(), items: z.array(wordSchema).min(1).max(300),subject:z.string().trim().min(1).max(255).optional() }).strict()),
   asyncHandler(async (req, res) => {
     const { rows } = await query('SELECT id FROM students WHERE id = $1 AND tutor_id = $2', [req.body.student_id, req.user.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Ученик не найден' });
-    const added = await addWords({ query }, req.body.student_id, req.body.items, 'tutor');
+    const added = await addWords({ query }, req.body.student_id, req.body.items, 'tutor',null,await studySubjects.resolve(req.body.student_id,req.user.tid,req.body.subject));
     res.status(201).json({ added, total: req.body.items.length });
   })
 );
@@ -192,10 +194,10 @@ router.post(
 // Ученик (или родитель) добавляет свои слова: вставкой списком
 router.post(
   '/mine',
-  validateBody(z.object({ student_id: z.number().int().positive(), items: z.array(wordSchema).min(1).max(300) }).strict()),
+  validateBody(z.object({ student_id: z.number().int().positive(), items: z.array(wordSchema).min(1).max(300),subject:z.string().trim().min(1).max(255).optional() }).strict()),
   asyncHandler(async (req, res) => {
     if (!(await canAccessStudent(req.user, req.body.student_id))) return res.status(404).json({ error: 'Ученик не найден' });
-    const added = await addWords({ query }, req.body.student_id, req.body.items, req.user.role === 'tutor' ? 'tutor' : 'self');
+    const added = await addWords({ query }, req.body.student_id, req.body.items, req.user.role === 'tutor' ? 'tutor' : 'self',null,await studySubjects.resolve(req.body.student_id,req.user.tid,req.body.subject));
     res.status(201).json({ added, total: req.body.items.length });
   })
 );

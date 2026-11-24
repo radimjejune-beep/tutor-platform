@@ -1,3 +1,4 @@
+const studySubjects = require('../learning/study-subjects');
 // routes/assignments.js — задания: одно задание — несколько учеников
 const express = require('express');
 const { syncSet } = require('../services/setsync');
@@ -103,6 +104,8 @@ router.post('/archive',validateBody(z.object({ids:z.array(z.number().int().posit
 const createSchema = z
   .object({
     ...fields,
+    subject: z.string().trim().min(1).max(255).optional(),
+    lesson_id: z.number().int().positive().optional(),
     student_ids: z.array(z.number().int().positive()).min(1, 'Выберите хотя бы одного ученика').max(100),
   })
   .partial({ section_id: true, description: true, links: true, due_on: true, questions: true, library_item_ids: true, vocab_practice: true, word_set_id: true, answer_mode: true })
@@ -116,7 +119,15 @@ router.post(
     const result = await transaction(async (client) => {
       const { rows: found } = await client.query('SELECT id FROM students WHERE id = ANY($1) AND tutor_id = $2', [b.student_ids, req.user.id]);
       if (found.length !== new Set(b.student_ids).size) return { error: 'Некоторые ученики не найдены' };
-      if (!(await ownSection(client,b.section_id,req.user.id))) return { error:'Раздел не найден' };
+      let linkedLesson = null;
+      if(b.lesson_id){
+        linkedLesson=(await client.query('SELECT l.id,l.student_id,l.subject FROM lessons l JOIN students s ON s.id=l.student_id WHERE l.id=$1 AND s.tutor_id=$2',[b.lesson_id,req.user.id])).rows[0];
+        if(!linkedLesson||b.student_ids.length!==1||b.student_ids[0]!==linkedLesson.student_id)return {error:'Занятие не относится к выбранному ученику'};
+        if(b.subject&&b.subject!==linkedLesson.subject)return {error:'Направление домашки должно совпадать с занятием'};
+      }
+      const subjects = new Map();
+      for(const sid of new Set(b.student_ids))subjects.set(sid,await studySubjects.resolve(sid,req.user.id,linkedLesson?.subject||b.subject,client));
+      for(const subject of new Set(subjects.values()))if (!(await ownSection(client,b.section_id,req.user.id,subject))) return { error:'Раздел не найден для выбранного предмета' };
       const setId = await ownSet(client, b.word_set_id, req.user.id);
       if (setId === undefined) return { error: 'Набор карточек не найден' };
 
@@ -126,10 +137,11 @@ router.post(
         [b.title, b.description || null, b.links || [], b.due_on || null, JSON.stringify(b.questions || []),
           await ownItems(client, b.library_item_ids, req.user.id), b.vocab_practice ? JSON.stringify(b.vocab_practice) : null, req.user.id, setId, b.answer_mode || 'both', b.section_id || null]
       );
+      if(new Set(subjects.values()).size===1){rows[0].subject=subjects.values().next().value;await client.query('UPDATE assignments SET subject=$2 WHERE id=$1',[rows[0].id,rows[0].subject]);}
       await shareSet(client, setId, [...new Set(b.student_ids)]);
       const given = [];
       for (const sid of new Set(b.student_ids)) {
-        const { rows: hw } = await client.query('INSERT INTO homework (assignment_id, student_id) VALUES ($1, $2) RETURNING id', [rows[0].id, sid]);
+        const { rows: hw } = await client.query('INSERT INTO homework (assignment_id, student_id, lesson_id, subject) VALUES ($1, $2, $3, $4) RETURNING id', [rows[0].id, sid, linkedLesson?.id||null, subjects.get(sid)]);
         given.push({ sid, hid: hw[0].id });
       }
       return { assignment: rows[0], given };
@@ -211,8 +223,8 @@ router.patch(
       const { rows: ownIds } = await client.query('SELECT id FROM students WHERE id = ANY($1::int[]) AND tutor_id = $2', [add_student_ids || [], req.user.id]);
       for (const sid of new Set(ownIds.map((r) => r.id))) {
         const { rows: hw } = await client.query(
-          'INSERT INTO homework (assignment_id, student_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id',
-          [id, sid]
+          'INSERT INTO homework (assignment_id, student_id, subject) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING RETURNING id',
+          [id, sid, await studySubjects.resolve(sid,req.user.id,assignment.subject,client)]
         );
         if (hw[0]) added.push({ sid, hid: hw[0].id });
       }

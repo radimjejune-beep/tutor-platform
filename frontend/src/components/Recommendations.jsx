@@ -26,7 +26,7 @@ function tutorLink(r, studentId) {
 
 export default function Recommendations({ studentId, tutor, compact }) {
   const subj = useSubject();
-  const rec = useLoad(() => api.recommendations(studentId), [studentId]);
+  const rec = useLoad(() => api.recommendations(studentId,subj.subject), [studentId,subj.subject]);
   if (!rec.data) return null;
   const { items, more, strong } = rec.data;
   if (!items.length && !(tutor && strong.length)) {

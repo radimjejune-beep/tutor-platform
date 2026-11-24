@@ -1,3 +1,4 @@
+import {StudySubjectContext} from '../study-context';
 // components/LibraryItem.jsx — карточка материала библиотеки (теория или задача)
 // showPrivate — показывать ответ и заметку преподавателя
 import { MathText } from './MathText';
@@ -36,7 +37,7 @@ export default function LibraryItem({ item, index, showPrivate, actions, onGameF
   const used = new Set([...(item.game?.type === 'sheet' ? item.game.blocks : []).flatMap((b) => [b.image, b.audio]), ...(deck?.slides || []).map((x) => x.image)].filter(Boolean));
   const files = (item.files || []).filter((f) => !used.has(f.id));
   return (
-    <article className="lib-card">
+    <StudySubjectContext.Provider value={{subject:item.subject}}><article className="lib-card">
       <div className="row-between" style={{ alignItems: 'flex-start', gap: 12 }}>
         <div style={{ minWidth: 0 }}>
           <h3 className="lib-title">{index !== undefined ? `${index + 1}. ` : ''}{item.title}</h3>
@@ -71,7 +72,7 @@ export default function LibraryItem({ item, index, showPrivate, actions, onGameF
         </div>
       )}
       {files.length > 0 && <div style={{ marginTop: 12 }}><FileList files={files} /></div>}
-      {showPrivate && user?.role==='tutor' && item.kind==='game' && <MaterialTopic id={item.id}/>}
+      {showPrivate && user?.role==='tutor' && item.kind==='game' && <MaterialTopic id={item.id} subject={item.subject}/>}
       {showPrivate && (item.answer || item.tutor_note) && (
         <div className="lib-private">
           {item.tutor_note && (
@@ -85,6 +86,6 @@ export default function LibraryItem({ item, index, showPrivate, actions, onGameF
           )}
         </div>
       )}
-    </article>
+    </article></StudySubjectContext.Provider>
   );
 }

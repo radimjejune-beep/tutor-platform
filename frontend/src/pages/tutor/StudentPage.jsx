@@ -1,3 +1,7 @@
+import TopicEvidence from '../../components/TopicEvidence';
+import StudyArea from '../../components/StudyArea';
+import TrailCard from '../../components/TrailCard';
+import {WorkoutCard} from '../learning/Workout';
 import { BackLink, BreadcrumbEntity } from '../../Shell';
 // pages/tutor/StudentPage.jsx — карточка ученика с вкладками
 import { useState } from 'react';
@@ -104,16 +108,19 @@ export default function StudentPage({ id, tab }) {
         ))}
       </div>
 
-      {tab === 'lessons' && <LessonsTab student={s} onChange={student.reload} />}
-      {tab === 'course' && <><CourseTab student={s} onChange={student.reload} /><SupplementaryCourses key={s.id} student={s} tutor/></>}
-      {tab === 'words' && <WordsTab student={s} />}
-      {tab === 'homework' && <HomeworkTab student={s} />}
-      {(tab === 'progress' || tab === 'lessons') && <Recommendations studentId={s.id} tutor compact={tab === 'lessons'} />}
-      {tab === 'coach' && <Coach key={s.id} student={s} tutor/>}
-      {tab === 'progress' && <><LanguageProgress key={s.id} student={s} tutor/><ProgressTab student={s} /></>}
-      {tab === 'reports' && <ReportsTab student={s} />}
-      {tab === 'finance' && <FinanceTab student={s} onChange={student.reload} />}
-      {tab === 'access' && <AccessTab student={s} onChange={student.reload} />}
+      <StudyArea student={s} tutor>{active=><>
+      {tab === 'lessons' && <LessonsTab student={active} onChange={student.reload} />}
+      {tab === 'course' && <><CourseTab student={active} onChange={student.reload} /><SupplementaryCourses key={active.id} student={active} tutor/></>}
+      {tab === 'words' && <WordsTab student={active} />}
+      {tab === 'homework' && <HomeworkTab student={active} />}
+      {(tab === 'progress' || tab === 'lessons') && <Recommendations studentId={active.id} tutor compact={tab === 'lessons'} />}
+      {tab === 'coach' && <Coach key={active.id} student={active} tutor/>}
+      {tab === 'progress' && <><TrailCard student={active} tutor/><WorkoutCard student={active} tutor/><LanguageProgress key={active.id} student={active} tutor/><ProgressTab student={active} /></>}
+      {tab === 'reports' && <ReportsTab student={active} />}
+      {tab === 'finance' && <FinanceTab student={active} onChange={student.reload} />}
+      {tab === 'access' && <AccessTab student={active} onChange={student.reload} />}
+
+      </>}</StudyArea>
 
       {editing && (
         <StudentModal student={s} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); student.reload(); }} />
@@ -127,7 +134,7 @@ function LessonsTab({ student, onChange }) {
   const [modal, setModal] = useState(null);
   const from = new Date(Date.now() - 60 * 864e5).toISOString();
   const to = new Date(Date.now() + 90 * 864e5).toISOString();
-  const lessons = useLoad(() => api.lessons({ student_id: student.id, from, to }), [student.id]);
+  const lessons = useLoad(() => api.lessons({ student_id: student.id, subject: student.subject, from, to }), [student.id]);
   const saved = () => { setModal(null); lessons.reload(); onChange(); };
 
   const now = Date.now();
@@ -169,8 +176,8 @@ const TOPIC_STATUS = { planned: 'В плане', in_progress: 'Проходим'
 
 function ProgressTab({ student }) {
   const [adding, setAdding] = useState(false);
-  const p = useLoad(() => api.progress(student.id), [student.id]);
-  const grammar = useLoad(() => api.grammarTopics(), []);
+  const p = useLoad(() => api.progress(student.id,student.subject), [student.id]);
+  const grammar = useLoad(() => api.grammarTopics('',student.subject), [student.subject]);
   const toast = useToast();
 
   const cycle = async (t) => {
@@ -222,6 +229,7 @@ function ProgressTab({ student }) {
                       <option value="">Связать со справочником</option>{(grammar.data||[]).map(g=><option key={g.id} value={g.id}>{g.label||g.title}</option>)}
                     </select>}
                     <div className="list-sub">{SKILLS[t.skill]}{t.completed_on ? `, ${shortDate(t.completed_on)}` : ''}</div>
+                    <TopicEvidence topic={t} student={student} onSaved={p.reload}/>
                   </div>
                   <button className="icon-btn" aria-label="Удалить" onClick={() => remove(t)}><Icon name="trash" size={18} /></button>
                 </div>
@@ -243,7 +251,7 @@ function ProgressTab({ student }) {
           ))}
         </div>
       </section>
-      {adding && <TopicsModal studentId={student.id} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); p.reload(); }} />}
+      {adding && <TopicsModal studentId={student.id} subject={student.subject} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); p.reload(); }} />}
     </div>
   );
 }
@@ -251,7 +259,7 @@ function ProgressTab({ student }) {
 /* ---------- Отчёты ---------- */
 function ReportsTab({ student }) {
   const [modal, setModal] = useState(null);
-  const p = useLoad(() => api.progress(student.id), [student.id]);
+  const p = useLoad(() => api.progress(student.id,student.subject), [student.id]);
   const toast = useToast();
   const reports = p.data?.reports || [];
   const hasPrev = reports.some((r) => r.month_key === prevMonth());

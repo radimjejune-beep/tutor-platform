@@ -5,18 +5,22 @@ import {useLoad,Spinner,ErrorBox,Empty,Link,Badge,Field,navigate,readDraft,write
 import {BackLink} from '../../Shell';
 import {QuizForm} from '../../components/Quiz';
 import {TopicReport} from './Diagnostics';
+import {WorkoutCard} from './Workout';
+import {WritingInbox} from './WritingReview';
 import LessonPlanner from '../../components/LessonPlanner';
 
 const STATUS={repeat:'Стоит повторить',practice:'Нужна практика',insufficient:'Мало данных',confident:'Хороший результат',waiting:'Повторная проверка позже',due:'Пора проверить снова',no_data:'Без проверки'};
 const date=v=>new Date(v).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'});
-export function CoachSummary({studentId}) {
- const data=useLoad(()=>api.coach(studentId),[studentId]);
+export function CoachSummary({studentId,subject}) {
+ const data=useLoad(()=>api.coach(studentId,subject),[studentId,subject]);
+ if(!['Английский язык','Французский язык'].includes(subject))return <Link to="/coach" className="words-strip"><span><span className="meta-label">Помощь по результатам работ</span><span className="serif words-strip-title">Мои ошибки, правки и следующие шаги</span></span><span className="btn btn-sm">Открыть</span></Link>;
  if(!data.data)return null;const p=data.data,due=p.topics.filter(t=>t.status==='due').length;
  return <Link to="/coach" className="words-strip"><span><span className="meta-label">Повторение по ошибкам</span><span className="serif words-strip-title">{due?`Пора проверить снова: ${due}`:p.weak?`Темы для повторения: ${p.weak}`:'Объяснения, практика и проверка через неделю'}</span></span><span className="btn btn-sm">Открыть</span></Link>;
 }
 export default function Coach({student,isParent=false,tutor=false}) {
- const data=useLoad(()=>api.coach(student.id),[student.id]),[busy,setBusy]=useState(''),[error,setError]=useState(''),[manual,setManual]=useState(false);
- const start=async topic=>{setBusy(topic);setError('');try{const r=await api.startReview(student.id,topic);navigate(`/coach/reviews/${r.id}`);}catch(e){setError(e.message);}finally{setBusy('');}};
+ const data=useLoad(()=>api.coach(student.id,student.subject),[student.id]),[busy,setBusy]=useState(''),[error,setError]=useState(''),[manual,setManual]=useState(false);
+ const start=async topic=>{setBusy(topic);setError('');try{const r=await api.startReview(student.id,topic,student.subject);navigate(`/coach/reviews/${r.id}`);}catch(e){setError(e.message);}finally{setBusy('');}};
+ if(!['Английский язык','Французский язык'].includes(student.subject))return <><header className="page-head"><div><h1 className="page-title">{tutor?'Помощник преподавателя':'Моя практика'}</h1><p className="lead">{student.subject}: повторение ошибок из выполненных упражнений, разбор письменных работ и подтверждённые навыки.</p></div></header><WorkoutCard student={student} tutor={tutor}/><WritingInbox studentId={student.id} subject={student.subject}/><p className="small muted">Задания берутся из материалов преподавателя с указанными ответами. Развёрнутые ответы проверяет преподаватель. Навыки и подтверждающие работы находятся во вкладке «Прогресс».</p>{tutor&&<LessonPlanner student={student}/>}</>;
  return <><div className="page-head"><div><h1 className="page-title">{tutor?'Помощник преподавателя':'Что повторить'}</h1><p className="lead">{tutor?'Результаты ученика → объяснение и практика → повторная проверка через неделю.':'Вспомни объяснение, выполни три задания и проверь себя через неделю.'}</p></div></div>
   {data.loading?<Spinner/>:data.error?<ErrorBox error={data.error} onRetry={data.reload}/>:<>
    <p className="small muted">{data.data.note}</p>
@@ -31,12 +35,12 @@ export default function Coach({student,isParent=false,tutor=false}) {
    </article>)}</div>
   </>}
   {error&&<div className="alert" role="alert">{error}</div>}
-  {!isParent&&<div className="panel" style={{marginTop:20}}><button className="btn btn-secondary" onClick={()=>setManual(!manual)}>Выбрать другую тему</button>{manual&&<TopicChooser onChoose={start} busy={!!busy}/>}</div>}
+  {!isParent&&<div className="panel" style={{marginTop:20}}><button className="btn btn-secondary" onClick={()=>setManual(!manual)}>Выбрать другую тему</button>{manual&&<TopicChooser subject={student.subject} onChoose={start} busy={!!busy}/>}</div>}
   {tutor&&<LessonPlanner key={student.id} student={student}/>}
  </>;
 }
-export function TopicChooser({onChoose,busy}) {
- const data=useLoad(()=>api.grammarTopics(),[]),[value,setValue]=useState(''),[q,setQ]=useState('');
+export function TopicChooser({onChoose,busy,subject}) {
+ const data=useLoad(()=>api.grammarTopics('',subject),[subject]),[value,setValue]=useState(''),[q,setQ]=useState('');
  const visible=(data.data||[]).filter(t=>`${t.title} ${t.book_short||''} ${t.unit||''}`.toLowerCase().includes(q.toLowerCase()));
  return <div className="stack" style={{gap:10,marginTop:16}}><Field label="Найти тему"><input aria-label="Найти тему" className="input" value={q} onChange={e=>setQ(e.target.value)} placeholder="Present Simple, вопросы…"/></Field>{data.error?<ErrorBox error={data.error} onRetry={data.reload}/>:<Field label="Тема грамматики"><select aria-label="Тема грамматики" className="select" value={value} onChange={e=>setValue(e.target.value)}><option value="">Выберите тему</option>{visible.map(t=><option key={t.id} value={t.id}>{t.title}{t.book_short?` · ${t.book_short} U${t.unit}`:''}</option>)}</select></Field>}<button className="btn btn-sm" disabled={busy||!value} onClick={()=>onChoose(value)}>Выбрать тему</button></div>;
 }

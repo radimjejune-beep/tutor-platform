@@ -135,11 +135,13 @@ export default function WeekGrid({ from, lessons, onOpen, onCreate, onMove }) {
                   }}
                   onPointerDown={onDown(b)}
                   onKeyDown={(e) => e.key === 'Enter' && onOpen(b)}
-                  aria-label={`${b.group ? l.group_name : l.student_name}, ${time(start)}`}>
+                  title={`${b.group ? l.group_name : l.student_name}, ${time(start)}, ${l.subject||''}`}>
                   <span className="wl-time">{time(start)}</span>
+                  {l.subject&&<span className="wl-subject" title={l.subject}>{l.subject==='Английский язык'?'EN':l.subject==='Французский язык'?'FR':l.subject.slice(0,2).toUpperCase()}</span>}
                   <span className="wl-name">{b.group ? l.group_name : givenName(l.student_name)}</span>
                   {b.group && <span className="wl-sub">{b.members.length} уч.</span>}
                   {st !== 'scheduled' && <span className="wl-sub">{LESSON_STATUS[st]?.label}</span>}
+                  <span className="sr-only"> · {l.subject} · {b.group?l.group_name:l.student_name}</span>
                 </button>
               );
             })}

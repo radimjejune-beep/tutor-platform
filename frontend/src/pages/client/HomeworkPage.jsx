@@ -1,3 +1,5 @@
+import {WritingInbox} from '../learning/WritingReview';
+import {HomeworkRecap} from '../../components/LessonRecap';
 import { BackLink } from '../../Shell';
 // pages/client/HomeworkPage.jsx — задание глазами ученика
 import { MathText } from '../../components/MathText';
@@ -80,6 +82,9 @@ function HomeworkView({ h, isParent, reload }) {
             </div>
           </div>
 
+          {h.subject&&<span className="badge badge-green">{h.subject}</span>}
+          <HomeworkRecap homework={h}/>
+          <WritingInbox studentId={h.student_id} subject={h.subject} homeworkId={h.id}/>
           {h.description && <MathText as="p" className="instructions" style={{ marginTop: 0 }}>{h.description}</MathText>}
           {canEdit && mode === 'text' && <p className="small muted" style={{ marginTop: 0 }}>Ответы пишите в поле «Ваш ответ» в блоке «Ваша работа».</p>}
           {(h.materials.length > 0 || h.links.length > 0) && (

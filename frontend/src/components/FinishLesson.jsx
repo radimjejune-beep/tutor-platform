@@ -2,7 +2,7 @@
 // отметка, итог для родителей, заметка для себя, ДЗ по юниту и переход к следующему юниту
 import { useState } from 'react';
 import { api } from '../api';
-import { Modal, Field, Icon, useSubmit, useToast, useLoad } from '../ui';
+import { Modal, Field, Icon, useSubmit, useToast, useLoad,navigate } from '../ui';
 import { dayKey, dayMonth, time, weekday, cap } from '../format';
 
 const STATUSES = [
@@ -20,13 +20,14 @@ export default function FinishLessonModal({ lesson, unit, onClose, onDone }) {
   const [summary, setSummary] = useState(lesson.summary || '');
   const [notes, setNotes] = useState(lesson.private_notes || '');
   const [homework, setHomework] = useState(Boolean(unit && (unit.homework_count || unit.item_count)));
+  const [manualHomework,setManualHomework]=useState(false);
   const [nextUnit, setNextUnit] = useState(false);
   const [due, setDue] = useState('');
 
   // Срок ДЗ по умолчанию: день следующего урока
   const next = useLoad(
     () =>
-      api.lessons({ student_id: lesson.student_id, from: new Date(new Date(lesson.starts_at).getTime() + 3600e3).toISOString() })
+      api.lessons({ student_id: lesson.student_id, subject: lesson.subject, from: new Date(new Date(lesson.starts_at).getTime() + 3600e3).toISOString() })
         .then((ls) => ls.find((l) => l.status === 'scheduled' && l.id !== lesson.id) || null),
     [lesson.id]
   );
@@ -60,11 +61,13 @@ export default function FinishLessonModal({ lesson, unit, onClose, onDone }) {
     }
     toast(parts.join(', '));
     onDone(r);
+    if(done&&!unit&&manualHomework)navigate(`/homework/new?lesson=${lesson.id}&student=${lesson.student_id}&subject=${encodeURIComponent(lesson.subject||'')}`);
   });
 
   return (
     <Modal title="Завершить урок" onClose={onClose} wide>
       <form className="form" onSubmit={save.submit}>
+        {done&&!unit&&<label className="row" style={{gap:10}}><input type="checkbox" checked={manualHomework} onChange={e=>setManualHomework(e.target.checked)}/>После сохранения создать домашку по этому уроку</label>}
         <div className="seg" role="radiogroup" aria-label="Как прошёл урок">
           {STATUSES.map(([k, label]) => (
             <button key={k} type="button" role="radio" aria-checked={status === k} className={status === k ? 'on' : ''} onClick={() => setStatus(k)}>

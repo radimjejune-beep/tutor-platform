@@ -14,15 +14,17 @@ async function topicMaterial(tutorId,topic,practice,used){
  if(t.book_id){const {rows:[bank]}=await query('SELECT id,title,kind FROM bank_items WHERE book=$1 AND unit=$2 AND kind=$3 AND NOT hidden ORDER BY author_id IS NOT NULL,id LIMIT 1',[t.book_id,t.unit,practice?'game':'theory']);if(bank)return {type:'bank',id:bank.id,title:bank.title,kind:bank.kind,topic_id:topic};}
  return {type:'generated',item:generated(topic,practice),title:coach.label(t),kind:practice?'game':'theory'};
 }
-async function prepare(tutorId,studentId,{duration,topic_ids=[]}){
+async function prepare(tutorId,studentId,{duration,topic_ids=[]},subject='Английский язык'){
  const {rows:[s]}=await query('SELECT * FROM students WHERE id=$1 AND tutor_id=$2',[studentId,tutorId]);if(!s)fail(404,'Ученик не найден');
- const profile=await coach.profile(studentId),chosen=topic_ids.length?[...new Set(topic_ids)]:profile.topics.filter(t=>['repeat','practice','due'].includes(t.status)).slice(0,2).map(t=>t.topic_id),topics=chosen.slice(0,2);
+ await require('./study-subjects').resolve(studentId,tutorId,subject);
+ if(topic_ids.some(id=>grammar.byId.get(id)?.subject!==subject))fail(422,'Выберите темы языка этого занятия');
+ const profile=await coach.profile(studentId,{query},subject),chosen=topic_ids.length?[...new Set(topic_ids)]:profile.topics.filter(t=>['repeat','practice','due'].includes(t.status)).slice(0,2).map(t=>t.topic_id),topics=chosen.slice(0,2);
  const reasons=topics.map(key=>{const known=profile.topics.find(t=>t.topic_id===key);return {title:coach.label(grammar.byId.get(key)),reason:topic_ids.length?'Тема выбрана преподавателем':known.reason,source:known?.source||null};});
  const {rows:used}=await query('SELECT DISTINCT item_id FROM game_results WHERE student_id=$1 AND created_at>NOW()-INTERVAL \'30 days\' LIMIT 80',[studentId]);
  const usedIds=used.map(x=>x.item_id),stages=[];
  const add=(key,title,minutes,source,note='')=>stages.push({id:key,title,minutes,selected:true,note,source,material_id:null});
  const warm=Math.max(3,Math.round(duration*.1)),explain=Math.max(4,Math.round(duration*.2)),practice=Math.max(5,Math.round(duration*.3)),exit=Math.max(3,Math.round(duration*.1)),main=duration-warm-explain-practice-exit;
- const {rows:words}=await query('SELECT term,translation FROM vocab_items WHERE student_id=$1 AND due_on<=CURRENT_DATE ORDER BY due_on,box,id LIMIT 5',[studentId]);
+ const {rows:words}=await query('SELECT term,translation FROM vocab_items WHERE student_id=$1 AND subject=$2 AND due_on<=CURRENT_DATE ORDER BY due_on,box,id LIMIT 5',[studentId,subject]);
  add('warmup','Начало и повторение',warm,{type:'generated',item:{kind:'task',title:'Начало занятия',body:words.length?'Вспомните слова и составьте с ними примеры:\n'+words.map(w=>`${w.term} — ${w.translation||''}`).join('\n'):'Вспомните главное с прошлого занятия. Приведите два своих примера и задайте один вопрос.',grammar_key:null}},words.length?'Выбраны слова, которым подошёл срок повторения.':'Короткое повторение прошлого занятия.');
  if(topics[0]){
   add('explanation','Разобрать затруднение',explain,await topicMaterial(tutorId,topics[0],false,usedIds),reasons[0].reason);
@@ -44,10 +46,10 @@ async function prepare(tutorId,studentId,{duration,topic_ids=[]}){
  // Округление всегда оставляет точную длительность плана.
  stages[3].minutes+=duration-stages.reduce((n,s)=>n+s.minutes,0);
  const title=`Следующее занятие: ${s.full_name}`.slice(0,255),id=randomUUID();
- await query('INSERT INTO lesson_preparations(id,tutor_id,student_id,title,duration,stages,reasons) VALUES($1,$2,$3,$4,$5,$6,$7)',[id,tutorId,studentId,title,duration,JSON.stringify(stages),JSON.stringify(reasons)]);return get(id,tutorId);
+ await query('INSERT INTO lesson_preparations(id,tutor_id,student_id,title,duration,stages,reasons,subject) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',[id,tutorId,studentId,title,duration,JSON.stringify(stages),JSON.stringify(reasons),subject]);return get(id,tutorId);
 }
 async function get(id,tutorId){const {rows:[p]}=await query('SELECT * FROM lesson_preparations WHERE id=$1 AND tutor_id=$2',[id,tutorId]);if(!p)fail(404,'Черновик не найден');p.previews={};for(const s of p.stages){let item;if(s.source.type==='generated')item=s.source.item;else{const table=s.source.type==='bank'?'bank_items':'library_items';item=(await query(`SELECT kind,title,body,game FROM ${table} WHERE id=$1 AND ${s.source.type==='bank'?'NOT hidden':'tutor_id=$2'}`,s.source.type==='bank'?[s.source.id]:[s.source.id,tutorId])).rows[0];}if(item)p.previews[s.id]=item;}return p;}
-async function options(studentId,tutorId){const {rows:lessons}=await query("SELECT l.id,l.starts_at,l.duration_min,l.topic FROM lessons l JOIN students s ON s.id=l.student_id WHERE l.student_id=$1 AND s.tutor_id=$2 AND l.status='scheduled' AND l.group_id IS NULL AND l.starts_at>NOW() ORDER BY l.starts_at LIMIT 30",[studentId,tutorId]);const {rows:materials}=await query('SELECT id,title,kind FROM library_items WHERE tutor_id=$1 ORDER BY favorite DESC,updated_at DESC LIMIT 300',[tutorId]);const {rows:drafts}=await query('SELECT id,title,duration,version,applied_at,applied_lesson_id,created_at FROM lesson_preparations WHERE student_id=$1 AND tutor_id=$2 ORDER BY created_at DESC LIMIT 20',[studentId,tutorId]);return {lessons,materials,drafts};}
+async function options(studentId,tutorId,subject='Английский язык'){const {rows:lessons}=await query("SELECT l.id,l.starts_at,l.duration_min,l.topic FROM lessons l JOIN students s ON s.id=l.student_id WHERE l.student_id=$1 AND s.tutor_id=$2 AND l.subject=$3 AND l.status='scheduled' AND l.group_id IS NULL AND l.starts_at>NOW() ORDER BY l.starts_at LIMIT 30",[studentId,tutorId,subject]);const {rows:materials}=await query('SELECT id,title,kind FROM library_items WHERE tutor_id=$1 AND subject=$2 ORDER BY favorite DESC,updated_at DESC LIMIT 300',[tutorId,subject]);const {rows:drafts}=await query('SELECT id,title,duration,version,applied_at,applied_lesson_id,created_at FROM lesson_preparations WHERE student_id=$1 AND tutor_id=$2 AND subject=$3 ORDER BY created_at DESC LIMIT 20',[studentId,tutorId,subject]);return {lessons,materials,drafts};}
 async function update(id,tutorId,{version,title,stages}){return transaction(async db=>{
  const {rows:[p]}=await db.query('SELECT * FROM lesson_preparations WHERE id=$1 AND tutor_id=$2 FOR UPDATE',[id,tutorId]);if(!p)fail(404,'Черновик не найден');if(p.applied_at)fail(409,'Этот план уже добавлен в занятие');if(p.version!==version)fail(409,'Черновик изменён в другой вкладке. Загрузите актуальную версию.');
  const byId=new Map(p.stages.map(s=>[s.id,s]));if(stages.length!==p.stages.length||new Set(stages.map(s=>s.id)).size!==stages.length||stages.some(s=>!byId.has(s.id)))fail(422,'Проверьте этапы плана');
@@ -71,6 +73,7 @@ async function apply(id,tutorId,{version,lesson_id}){const max=(await require('.
  const bankIds=p.stages.filter(s=>s.selected&&!s.material_id&&s.source.type==='bank').map(s=>s.source.id);
  if(bankIds.length)await db.query('SELECT id FROM bank_items WHERE id=ANY($1::int[]) ORDER BY id FOR UPDATE',[bankIds]);
  const {rows:[lesson]}=await db.query(`SELECT l.* FROM lessons l JOIN students s ON s.id=l.student_id WHERE l.id=$1 AND l.student_id=$2 AND s.tutor_id=$3 AND l.status='scheduled' AND l.group_id IS NULL AND l.starts_at>NOW() FOR UPDATE OF l`,[lesson_id,p.student_id,tutorId]);if(!lesson)fail(404,'Выберите предстоящее индивидуальное занятие этого ученика');
+ if(lesson.subject!==p.subject)fail(422,'Выберите занятие того же языка, что и план');
  if(lesson.duration_min<p.duration)fail(422,'План длиннее занятия. Сократите этапы или выберите другое занятие');
  let pos=Number((await db.query('SELECT COALESCE(MAX(position),-1) AS p FROM lesson_items WHERE lesson_id=$1',[lesson_id])).rows[0].p)+1,added=0;const materialIds=[];
  for(const stage of p.stages.filter(s=>s.selected)){
@@ -78,7 +81,7 @@ async function apply(id,tutorId,{version,lesson_id}){const max=(await require('.
   if(!itemId&&stage.source.type==='library')itemId=stage.source.id;
   if(itemId){if(!(await db.query('SELECT id FROM library_items WHERE id=$1 AND tutor_id=$2 FOR SHARE',[itemId,tutorId])).rowCount)fail(409,'Один из материалов удалён. Обновите черновик.');}
   else if(stage.source.type==='bank')itemId=await takeBank(db,stage.source.id,tutorId,stage.source.topic_id,max);
-  else{const i=stage.source.item,game=i.game?gameSchema.parse(i.game):null;itemId=(await db.query(`INSERT INTO library_items(tutor_id,kind,subject,title,body,game,grammar_key) VALUES($1,$2,(SELECT COALESCE(s.subject,u.subject,'Английский язык') FROM students s JOIN users u ON u.id=s.tutor_id WHERE s.id=$3),$4,$5,$6,$7) RETURNING id`,[tutorId,i.kind,p.student_id,i.title,i.body||null,game?JSON.stringify(game):null,i.grammar_key||null])).rows[0].id;}
+  else{const i=stage.source.item,game=i.game?gameSchema.parse(i.game):null;itemId=(await db.query(`INSERT INTO library_items(tutor_id,kind,subject,title,body,game,grammar_key) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id`,[tutorId,i.kind,p.subject,i.title,i.body||null,game?JSON.stringify(game):null,i.grammar_key||null])).rows[0].id;}
   const inserted=await db.query('INSERT INTO lesson_items(lesson_id,item_id,position) VALUES($1,$2,$3) ON CONFLICT DO NOTHING RETURNING item_id',[lesson_id,itemId,pos++]);added+=inserted.rowCount;materialIds.push(itemId);
  }
  const size=(await db.query('SELECT count(*)::int AS n FROM lesson_items WHERE lesson_id=$1',[lesson_id])).rows[0].n;if(size>60)fail(422,'В одном занятии можно разместить до 60 материалов. Уберите лишние материалы или выберите другое занятие.');

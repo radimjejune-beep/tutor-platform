@@ -1,12 +1,12 @@
 import {useState} from 'react';
 import {api} from '../api';
 import {Modal,Field,useLoad,Spinner,ErrorBox} from '../ui';
-export default function MaterialTopic({id}) {
+export default function MaterialTopic({id,subject}) {
  const [open,setOpen]=useState(false);
  return <div style={{marginTop:12}}><button className="btn btn-quiet btn-sm" onClick={()=>setOpen(true)}>Тема для анализа ошибок</button>{open&&<Editor id={id} onClose={()=>setOpen(false)}/>}</div>;
 }
 function Editor({id,onClose}) {
- const data=useLoad(()=>Promise.all([api.grammarTopics(),api.materialTopic(id)]),[id]);
+ const data=useLoad(()=>Promise.all([api.grammarTopics('',subject),api.materialTopic(id)]),[id]);
  return <Modal title="Тема упражнения" onClose={onClose}>{data.loading?<Spinner/>:data.error?<ErrorBox error={data.error} onRetry={data.reload}/>:<Form id={id} data={data.data} onClose={onClose}/>}</Modal>;
 }
 function Form({id,data:[topics,current],onClose}) {

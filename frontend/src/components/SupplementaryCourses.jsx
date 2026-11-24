@@ -13,14 +13,14 @@ export function CourseTemplates(){
 }
 
 export default function SupplementaryCourses({student,tutor=false}){
- const data=useLoad(()=>Promise.all([api.supplementaryCourses(student.id),tutor?api.courses():Promise.resolve([])]),[student.id,tutor]);
+ const data=useLoad(()=>Promise.all([api.supplementaryCourses(student.id,student.subject),tutor?api.courses():Promise.resolve([])]),[student.id,tutor]);
  const [courseId,setCourseId]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
  if(data.loading)return <Spinner/>;
  if(data.error)return <ErrorBox error={data.error} onRetry={data.reload}/>;
- const [d,courses]=data.data;
+ const [d,allCourses]=data.data;const courses=allCourses.filter(c=>c.subject===student.subject);
  if(!tutor&&!d.enrollments.length)return null;
  const enroll=async(id,active=true)=>{if(busy)return;setBusy(true);setError('');try{await api.enrollSupplementary(student.id,{course_id:Number(id),active});setCourseId('');data.reload();}catch(e){setError(e.message);}finally{setBusy(false);}};
- return <section className="panel supplemental-courses" aria-label="Дополнительная практика" style={{margin:'24px 0'}}><div className="panel-head"><h2 className="section-title">Дополнительная практика</h2>{tutor&&<Link className="small" to="/courses">Выбрать готовый курс</Link>}</div><p className="small muted">{tutor?'Подключайте словарный курс рядом с основным учебником. Темы и этапы можно выдавать в любом порядке.':'Здесь курсы, которые преподаватель подключил для дополнительной практики. Выданные этапы также находятся в домашних заданиях.'}</p>
+ return <section className="panel supplemental-courses" aria-label="Дополнительная практика" style={{margin:'24px 0'}}><div className="panel-head"><h2 className="section-title">Дополнительная практика</h2>{tutor&&<Link className="small" to="/courses">Выбрать готовый курс</Link>}</div><p className="small muted">{tutor?'Подключайте дополнительный курс по выбранному предмету рядом с основной программой. Темы и этапы можно выдавать в любом порядке.':'Здесь курсы, которые преподаватель подключил для дополнительной практики. Выданные этапы также находятся в домашних заданиях.'}</p>
   {tutor&&<form className="row wrap supplemental-enroll" onSubmit={e=>{e.preventDefault();if(courseId)enroll(courseId);}}><Field label="Дополнительный курс"><select className="select" value={courseId} onChange={e=>setCourseId(e.target.value)} disabled={busy}><option value="">Выберите курс</option>{courses.filter(c=>!d.enrollments.some(e=>e.course_id===c.id&&e.active)).map(c=><option key={c.id} value={c.id}>{c.title}</option>)}</select></Field><button className="btn btn-secondary" disabled={busy||!courseId}>Подключить ученику</button></form>}
   {d.enrollments.map(e=><Enrollment key={e.id} enrollment={e} stages={d.stages} student={student} tutor={tutor} reload={data.reload} onPause={()=>enroll(e.course_id,!e.active)} busy={busy}/>)}
   {error&&<p className="alert" role="alert">{error}</p>}

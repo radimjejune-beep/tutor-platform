@@ -45,8 +45,9 @@ router.get(
         WHERE ($1::int IS NULL OR h.student_id = $1)
           AND ($2::text IS NULL OR h.status = $2)
           AND ($3::int[] IS NULL OR h.student_id = ANY($3))
+          AND ($4::varchar IS NULL OR h.subject=$4)
         ORDER BY (h.status = 'checked'), a.due_on NULLS LAST, h.id DESC`,
-      [studentId, status, allowed]
+      [studentId, status, allowed, req.query.subject||null]
     );
     // Ответы теста в списке не нужны; автооценку ученик видит только после проверки
     const isTutor = req.user.role === 'tutor';
@@ -164,6 +165,7 @@ router.post(
       'SELECT s.full_name, a.title FROM homework h JOIN students s ON s.id = h.student_id JOIN assignments a ON a.id = h.assignment_id WHERE h.id = $1',
       [hw.id]
     );
+    await require('../learning/trail').refresh(hw.student_id,hw.subject);
     notify.toTutor(req.user.tid, {
       kind: 'homework_submitted',
       title: `${info[0].full_name} сдал(а) работу`,
@@ -205,10 +207,11 @@ router.patch(
       .strict()
   ),
   asyncHandler(async (req, res) => {
-    const upd = buildUpdate('homework', Number(req.params.id), req.body);
+    const upd = buildUpdate('homework', Number(req.params.id), { ...req.body, ...(req.body.status === 'checked' ? { reviewed_at: new Date().toISOString() } : {}) });
     if (!upd) return res.status(400).json({ error: 'Нет изменений' });
     const { rows } = await query(upd.text, upd.values);
     if (!rows[0]) return res.status(404).json({ error: 'Работа не найдена' });
+    await require('../learning/trail').refresh(rows[0].student_id,rows[0].subject);
     console.log(`📝 Работа #${rows[0].id}: ${rows[0].status}`);
     if (req.body.status === 'checked' || (req.body.status === 'assigned' && req.body.tutor_feedback)) {
       const { rows: a } = await query('SELECT title FROM assignments WHERE id = $1', [rows[0].assignment_id]);

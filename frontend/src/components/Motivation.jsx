@@ -43,7 +43,7 @@ export function MotivationCard({ studentId, compact }) {
           </div>
         )}
       </div>
-      <div className="motiv-days" aria-label="Активность за 14 дней">
+      <div className="motiv-days" role="group" aria-label="Активность за 14 дней">
         {d.days.map((x) => (
           <i key={x.day} title={`${x.day}: ${x.points} ${pointsWord(x.points)}`}
             style={{ opacity: x.points ? 0.25 + (0.75 * x.points) / max : 1 }} className={x.points ? 'on' : ''} />

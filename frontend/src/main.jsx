@@ -22,7 +22,7 @@ createRoot(document.getElementById('root')).render(
 
 // Строки списков, по которым переходят щелчком (ученики, задания, материалы), доступны и с клавиатуры:
 // Tab до строки, Enter или пробел открывает её
-const ROWS = '.assign-row:not(.book-row):not([data-row-native]), .list-item.clickable:not([data-row-native]), tr.clickable:not([data-row-native])';
+const ROWS = '.assign-row:not(.book-row):not([data-row-native]):not(a):not(button), .list-item.clickable:not([data-row-native]):not(a):not(button), tr.clickable:not([data-row-native])';
 const markRows = () => document.querySelectorAll(ROWS).forEach((el) => {
   if (!el.hasAttribute('tabindex')) { el.setAttribute('tabindex', '0'); el.setAttribute('role', 'button'); }
 });

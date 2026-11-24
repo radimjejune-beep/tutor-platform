@@ -7,6 +7,7 @@ import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Link, navigate, useToas
 import WordPaste from '../../components/WordPaste';
 import Study, { wordsCount } from '../../components/Study';
 import { shortDate } from '../../format';
+import SubjectInput from '../../components/SubjectInput';
 import { useSubject } from '../../subjects';
 
 export function WordSetsList() {
@@ -69,19 +70,20 @@ function Editor({ set, students, onSaved }) {
   const [draft] = useState(() => readDraft(dkey));
   const dv = draft?.value;
   const baseRows = set?.words?.length ? set.words.map((w) => ({ term: w.term, translation: w.translation || '', example: w.example || '' })) : [emptyRow(), emptyRow(), emptyRow()];
+  const [subject,setSubject]=useState(dv?.subject||set?.subject||subj.subject);
   const [title, setTitle] = useState(dv ? dv.title : set?.title || '');
   const [description, setDescription] = useState(dv ? dv.description : set?.description || '');
   const [rows, setRows] = useState(dv ? dv.rows : baseRows);
   const [forAll, setForAll] = useState(dv ? dv.forAll : set ? set.for_all : true);
   const [picked, setPicked] = useState(new Set(dv ? dv.picked : set?.student_ids || []));
   const [restoredAt, setRestoredAt] = useState(dv ? draft.at : null);
-  const [baseJson] = useState(() => JSON.stringify({ title: set?.title || '', description: set?.description || '', rows: baseRows, forAll: set ? set.for_all : true, picked: set?.student_ids || [] }));
-  const snap = { title, description, rows, forAll, picked: [...picked] };
+  const [baseJson] = useState(() => JSON.stringify({ subject:set?.subject||subj.subject, title: set?.title || '', description: set?.description || '', rows: baseRows, forAll: set ? set.for_all : true, picked: set?.student_ids || [] }));
+  const snap = { subject, title, description, rows, forAll, picked: [...picked] };
   useDraftSave(dkey, snap, JSON.stringify(snap) !== baseJson);
   const resetDraft = () => {
     clearDraft(dkey);
     const b = JSON.parse(baseJson);
-    setTitle(b.title); setDescription(b.description); setRows(b.rows); setForAll(b.forAll); setPicked(new Set(b.picked)); setRestoredAt(null);
+    setSubject(b.subject); setTitle(b.title); setDescription(b.description); setRows(b.rows); setForAll(b.forAll); setPicked(new Set(b.picked)); setRestoredAt(null);
   };
   const [pasted, setPasted] = useState({ words: [], clear: null });
   const [showPaste, setShowPaste] = useState(!set);
@@ -117,6 +119,7 @@ function Editor({ set, students, onSaved }) {
     setBusy(true);
     try {
       const body = {
+        subject,
         title: title.trim(),
         description: description.trim() || null,
         words: filled.map((r) => ({ term: r.term.trim(), translation: r.translation.trim() || null, example: r.example.trim() || null })),
@@ -169,6 +172,7 @@ function Editor({ set, students, onSaved }) {
       <FormulaBar />
       <section className="panel">
         <div className="form">
+          <Field label="Язык или предмет">{set?<p className="small">{subject} · язык сохранённого набора закреплён, чтобы не смешивать результаты.</p>:<SubjectInput value={subject} onChange={setSubject}/>}</Field>
           <Field label="Название"><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={subj.isLang ? 'Solutions 1G: внешность' : 'Формулы сокращённого умножения'} maxLength={200} /></Field>
           <Field label="Описание" hint="Необязательно. Ученик увидит его над набором"><input className="input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Выучить к следующему уроку" maxLength={2000} /></Field>
         </div>

@@ -479,14 +479,17 @@ for (const book of MURPHY_BOOKS) for (const unit of book.units) {
     questions:selected.map((q,i)=>({...q,id:`q${i+1}`,topic_id:unit.grammar_key}))});
 }
 
+for(const t of topics)t.subject='Английский язык';
+const frenchStart=topics.length;require('./french-grammar')(topic);for(const t of topics.slice(frenchStart))t.subject='Французский язык';
+
 const byId = new Map(topics.map(t=>[t.id,t]));
-const norm = s => String(s||'').toLowerCase().replace(/ё/g,'е').replace(/[^a-zа-я0-9]+/g,' ').trim();
-function matchTopic(title) {
+const norm = s => String(s||'').normalize('NFD').replace(/\p{M}/gu,'').toLowerCase().replace(/ё/g,'е').replace(/[^a-zа-я0-9]+/g,' ').trim();
+function matchTopic(title,subject) {
   const n = norm(title);
   const exact=t=>[t.id,t.title,...t.aliases].some(a=>norm(a)===n);
-  const core=topics.filter(t=>!t.book_id&&exact(t));
+  const core=topics.filter(t=>(!subject||t.subject===subject)&&!t.book_id&&exact(t));
   if(core.length===1)return core[0].id;
-  const found = topics.filter(exact);
+  const found = topics.filter(t=>(!subject||t.subject===subject)&&exact(t));
   return found.length===1 ? found[0].id:null;
 }
 function search(q='') {

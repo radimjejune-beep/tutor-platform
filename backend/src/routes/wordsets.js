@@ -26,6 +26,7 @@ const wordSchema = z
 const ids = z.array(z.number().int().positive()).max(500);
 const setSchema = z
   .object({
+    subject:z.string().trim().min(1).max(255).optional(),
     title: z.string().trim().min(1, 'Укажите название').max(200),
     description: z.string().trim().max(2000).nullable().optional(),
     words: z.array(wordSchema).min(1, 'Добавьте хотя бы одну карточку').max(500, 'Не больше 500 карточек в наборе'),
@@ -119,8 +120,8 @@ router.post(
     const words = cleanWords(b.words);
     const forAll = b.for_all ?? !b.student_ids?.length;
     const { rows } = await query(
-      'INSERT INTO word_sets (tutor_id, title, description, words, for_all) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-      [req.user.id, b.title, b.description || null, JSON.stringify(words), forAll]
+      'INSERT INTO word_sets (tutor_id, title, description, words, for_all, subject) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+      [req.user.id, b.title, b.description || null, JSON.stringify(words), forAll,b.subject||null]
     );
     if (!forAll) await setStudents(rows[0].id, req.user.id, b.student_ids);
     const synced = await syncSet(rows[0].id); // слова сразу появляются в словаре учеников
@@ -140,9 +141,9 @@ router.get(
       `SELECT ws.id, ws.title, ws.description, ws.words, ws.updated_at,
               (SELECT MAX(created_at) FROM practice_log p WHERE p.set_id = ws.id AND p.student_id = s.id) AS last_practice
          FROM word_sets ws JOIN students s ON s.tutor_id = ws.tutor_id
-        WHERE s.id = $1 AND (ws.for_all OR EXISTS (SELECT 1 FROM word_set_students x WHERE x.set_id = ws.id AND x.student_id = s.id))
+        WHERE s.id = $1 AND ($2::varchar IS NULL OR ws.subject=$2) AND (ws.for_all OR EXISTS (SELECT 1 FROM word_set_students x WHERE x.set_id = ws.id AND x.student_id = s.id))
         ORDER BY ws.updated_at DESC`,
-      [studentId]
+      [studentId,req.query.subject||null]
     );
     const { rows: prog } = await query('SELECT set_id, term_key, level FROM word_set_progress WHERE student_id = $1', [studentId]);
     const bySet = new Map();
@@ -164,13 +165,13 @@ router.get(
     if (!studentId) return res.status(404).json({ error: 'Ученик не найден' });
     const { rows } = await query(
       `SELECT id, set_id, title, mode, correct, total, duration_sec, created_at FROM practice_log
-        WHERE student_id = $1 ORDER BY created_at DESC LIMIT 40`,
-      [studentId]
+        WHERE student_id = $1 AND ($2::varchar IS NULL OR set_id IN(SELECT id FROM word_sets WHERE subject=$2)) ORDER BY created_at DESC LIMIT 40`,
+      [studentId,req.query.subject||null]
     );
     const { rows: week } = await query(
       `SELECT COUNT(*)::int AS sessions, COALESCE(SUM(total), 0)::int AS answers, COUNT(DISTINCT created_at::date)::int AS days
-         FROM practice_log WHERE student_id = $1 AND created_at > NOW() - INTERVAL '7 days'`,
-      [studentId]
+         FROM practice_log WHERE student_id = $1 AND ($2::varchar IS NULL OR set_id IN(SELECT id FROM word_sets WHERE subject=$2)) AND created_at > NOW() - INTERVAL '7 days'`,
+      [studentId,req.query.subject||null]
     );
     res.json({ items: rows, week: week[0] });
   })
@@ -223,9 +224,10 @@ router.patch(
   validateBody(setSchema.partial().strict()),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
-    const { rows } = await query('SELECT id FROM word_sets WHERE id = $1 AND tutor_id = $2', [id, req.user.id]);
+    const { rows } = await query('SELECT id,subject FROM word_sets WHERE id = $1 AND tutor_id = $2', [id, req.user.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Набор не найден' });
     const b = req.body;
+    if(b.subject!==undefined && b.subject!==rows[0].subject)return res.status(409).json({error:'Язык сохранённого набора не меняется. Создайте новый набор для другого языка, чтобы сохранить словарь и результаты учеников.'});
     const sets = [];
     const vals = [];
     const push = (col, v) => { vals.push(v); sets.push(`${col} = $${vals.length}`); };

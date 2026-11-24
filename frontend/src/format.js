@@ -92,6 +92,10 @@ export const SKILLS = {
   listening: 'Аудирование',
   reading: 'Чтение',
   writing: 'Письмо',
+  concepts:'Понимание понятий',
+  problem_solving:'Решение задач',
+  practical:'Практические навыки',
+  other:'Другой навык',
 };
 
 export const CATEGORY = { adult: 'Взрослый', teen: 'Подросток', child: 'Ребёнок' };

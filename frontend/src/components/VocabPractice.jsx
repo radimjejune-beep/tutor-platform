@@ -50,7 +50,7 @@ export default function VocabPractice({ studentId, subject, homeworkId, lessonId
   const [final, setFinal] = useState(null);
 
   useEffect(() => {
-    api.vocabPractice(studentId, count).then(setData).catch((e) => toast(e.message, 'error'));
+    api.vocabPractice(studentId, count,subject).then(setData).catch((e) => toast(e.message, 'error'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId, count]);
 

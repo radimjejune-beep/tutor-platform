@@ -38,7 +38,7 @@ export function FlashSession({ studentId, subject, onDone }) {
   const toast = useToast();
 
   useEffect(() => {
-    api.vocabDue(studentId, 40).then(setDeck).catch((e) => toast(e.message, 'error'));
+    api.vocabDue(studentId, 40,subject).then(setDeck).catch((e) => toast(e.message, 'error'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId]);
 
@@ -221,7 +221,7 @@ export function AddWordsModal({ studentId, subject, onClose, onSaved }) {
   const save = useSubmit(async () => {
     if (!words.length) throw new Error('Добавьте хотя бы одну строку');
     if (words.length > 300) throw new Error('За раз можно добавить до 300 карточек');
-    const r = await api.addWords(studentId, words);
+    const r = await api.addWords(studentId, words,subject);
     toast(r.added === r.total ? `Добавлено: ${r.added}` : `Добавлено: ${r.added}, остальные уже были`);
     onSaved();
   });

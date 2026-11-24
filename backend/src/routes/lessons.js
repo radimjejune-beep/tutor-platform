@@ -1,3 +1,4 @@
+const studySubjects = require('../learning/study-subjects');
 // routes/lessons.js — расписание и проведение занятий
 const express = require('express');
 const { z } = require('zod');
@@ -48,6 +49,7 @@ router.get(
     const from = req.query.from || new Date(Date.now() - 7 * 864e5).toISOString();
     const to = req.query.to || new Date(Date.now() + 30 * 864e5).toISOString();
     const studentId = req.query.student_id ? Number(req.query.student_id) : null;
+    const subjectFilter = req.query.subject ? String(req.query.subject) : null;
 
     const allowed = await accessibleStudentIds(req.user); // null = все
     if (allowed !== null && studentId && !allowed.includes(studentId)) {
@@ -61,8 +63,9 @@ router.get(
         WHERE l.starts_at >= $1 AND l.starts_at < $2
           AND ($3::int IS NULL OR l.student_id = $3)
           AND ($4::int[] IS NULL OR l.student_id = ANY($4))
+          AND ($5::varchar IS NULL OR l.subject=$5)
         ORDER BY l.starts_at`,
-      [from, to, studentId, allowed]
+      [from, to, studentId, allowed, subjectFilter]
     );
 
     const isTutor = req.user.role === 'tutor';
@@ -77,6 +80,7 @@ router.get(
 const createSchema = z
   .object({
     student_id: z.number().int().positive(),
+    subject: z.string().trim().min(1).max(255).optional(),
     starts_at: isoDateTime,
     duration_min: z.number().int().min(15).max(240).optional(),
     price: z.number().int().min(0).max(100000).optional(),
@@ -94,6 +98,7 @@ router.post(
     const b = req.body;
     const { rows: st } = await query('SELECT * FROM students WHERE id = $1 AND tutor_id = $2', [b.student_id, req.user.id]);
     const student = st[0];
+    const subject = student ? await studySubjects.resolve(student.id, req.user.id, b.subject) : null;
     if (!student) return res.status(404).json({ error: 'Ученик не найден' });
 
     const duration = b.duration_min ?? student.default_duration;
@@ -125,9 +130,9 @@ router.post(
       const out = [];
       for (const slot of slots) {
         const { rows } = await client.query(
-          `INSERT INTO lessons (student_id, starts_at, duration_min, price, topic)
-           VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-          [b.student_id, slot.toISOString(), duration, price, b.topic || null]
+          `INSERT INTO lessons (student_id, starts_at, duration_min, price, topic, subject)
+           VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+          [b.student_id, slot.toISOString(), duration, price, b.topic || null, subject]
         );
         out.push(rows[0]);
       }
@@ -160,7 +165,7 @@ router.post(
             AND student_id IN (SELECT id FROM students WHERE tutor_id = $1)
           GROUP BY 1
        )
-       SELECT DISTINCT ON (l.student_id, l.starts_at) l.student_id, l.group_id, l.starts_at, l.duration_min, l.price, l.call_link,
+       SELECT DISTINCT ON (l.student_id, l.starts_at) l.student_id, l.group_id, l.starts_at, l.duration_min, l.price, l.call_link, l.subject,
               s.full_name AS student_name, g.name AS group_name, last.last_at
          FROM lessons l
          JOIN last ON last.owner = COALESCE('g' || l.group_id::text, 's' || l.student_id::text)
@@ -198,8 +203,8 @@ router.post(
     await transaction(async (client) => {
       for (const p of free) {
         await client.query(
-          `INSERT INTO lessons (student_id, starts_at, duration_min, price, group_id, call_link) VALUES ($1, $2, $3, $4, $5, $6)`,
-          [p.student_id, p.starts_at, p.duration_min, p.price, p.group_id, p.call_link]
+          `INSERT INTO lessons (student_id, starts_at, duration_min, price, group_id, call_link, subject) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [p.student_id, p.starts_at, p.duration_min, p.price, p.group_id, p.call_link, p.subject]
         );
       }
     });
@@ -219,6 +224,7 @@ const updateSchema = z
     price: z.number().int().min(0).max(100000),
     status: z.enum(['scheduled', 'done', 'cancelled', 'cancelled_late', 'missed']),
     topic: z.string().trim().max(255).nullable(),
+    subject: z.string().trim().min(1).max(255),
     summary: z.string().max(5000).nullable(),
     private_notes: z.string().max(5000).nullable(),
     call_link: z.string().trim().url().max(1000).nullable(),
@@ -240,6 +246,12 @@ router.patch(
       if (!cur[0]) return null;
       prev = cur[0];
 
+      if(req.body.subject){
+        req.body.subject=await studySubjects.resolve(cur[0].student_id,req.user.id,req.body.subject,client);
+        await client.query('UPDATE homework SET subject=$2 WHERE lesson_id=$1',[id,req.body.subject]);
+        await client.query('UPDATE game_results SET subject=$2 WHERE lesson_id=$1 OR homework_id IN(SELECT id FROM homework WHERE lesson_id=$1)',[id,req.body.subject]);
+        await client.query("UPDATE writing_threads SET subject=$2 WHERE homework_id IN(SELECT id FROM homework WHERE lesson_id=$1) OR (source_kind='game' AND source_id IN(SELECT id FROM game_results WHERE lesson_id=$1))",[id,req.body.subject]);
+      }
       const upd = buildUpdate('lessons', id, req.body);
       let updated = cur[0];
       if (upd) ({ rows: [updated] } = await client.query(upd.text, upd.values));
@@ -338,10 +350,14 @@ router.get(
       : { rows: [] };
 
     const { rows: st } = await query('SELECT course_unit_id FROM students WHERE id = $1', [l.student_id]);
-    const unitId = l.unit_id || st[0]?.course_unit_id;
-    const unit = unitId ? await getUnit({ query }, unitId) : null;
+    const direction=await require('../services/courses').currentUnit({query},l.student_id,l.subject);
+    const unitId = l.unit_id || direction?.course_unit_id;
+    const candidateUnit=unitId?await getUnit({query},unitId):null;
+    const unit=candidateUnit?.course_subject===l.subject?candidateUnit:null;
 
+    const linkedHomework=(await query('SELECT h.id,a.id AS assignment_id,a.title,h.status,h.subject,a.due_on FROM homework h JOIN assignments a ON a.id=h.assignment_id WHERE h.lesson_id=$1 AND h.student_id=$2 ORDER BY h.id',[l.id,l.student_id])).rows;
     res.json({
+      homework:linkedHomework,
       ...(isTutor ? l : stripPrivate(l, ['private_notes'])),
       unit: unit && { id: unit.id, code: unit.code, title: unit.title, course_title: unit.course_title, goals: unit.goals,
         item_count: unit.item_ids.length, homework_count: unit.homework_item_ids.length, vocab_count: unit.vocab.length },

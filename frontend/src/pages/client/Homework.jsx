@@ -5,7 +5,7 @@ import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, navigate } from '../../
 import { shortDate, HW_STATUS, todayISO } from '../../format';
 
 export default function ClientHomework({ student, isParent }) {
-  const hw = useLoad(() => api.homework({ student_id: student.id }), [student.id]);
+  const hw = useLoad(() => api.homework({ student_id: student.id, subject:student.subject }), [student.id]);
   if (hw.loading) return <Spinner />;
   if (hw.error) return <ErrorBox error={hw.error} onRetry={hw.reload} />;
 

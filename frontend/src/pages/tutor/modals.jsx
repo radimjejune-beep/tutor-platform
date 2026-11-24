@@ -1,3 +1,4 @@
+import LessonSubjectField from '../../components/LessonSubjectField';
 // pages/tutor/modals.jsx — формы преподавателя в модальных окнах
 import { useState } from 'react';
 import SubjectInput from '../../components/SubjectInput';
@@ -43,6 +44,7 @@ export function NewLessonModal({ studentId, groupId: fixedGroup, defaultStart, o
     duration_min: '',
     price: '',
     topic: '',
+    subject: '',
     repeat_weeks: 1,
   });
   const [conflicts, setConflicts] = useState(null);
@@ -55,6 +57,7 @@ export function NewLessonModal({ studentId, groupId: fixedGroup, defaultStart, o
   const { busy, error, submit } = useSubmit(async () => {
     const body = {
       student_id: Number(f.student_id),
+      subject: f.subject||undefined,
       starts_at: fromLocalInput(f.starts_at),
       duration_min: num(f.duration_min),
       price: num(f.price),
@@ -63,7 +66,7 @@ export function NewLessonModal({ studentId, groupId: fixedGroup, defaultStart, o
       force: Boolean(conflicts),
     };
     if (groupId) {
-      const { student_id: _s, force: _f, ...rest } = body;
+      const { student_id: _s, force: _f, subject: _subject, ...rest } = body;
       const r = await api.createGroupLessons(groupId, rest);
       toast(r.sessions > 1 ? `Создано занятий группы: ${r.sessions}` : 'Занятие группы добавлено');
       onSaved();
@@ -154,6 +157,7 @@ const STATUS_ORDER = ['done', 'missed', 'cancelled_late', 'cancelled', 'schedule
 export function LessonModal({ lesson, onClose, onSaved }) {
   const toast = useToast();
   const [f, setF] = useState({
+    subject: lesson.subject||'',
     status: lesson.status,
     starts_at: toLocalInput(lesson.starts_at),
     duration_min: lesson.duration_min,
@@ -169,6 +173,7 @@ export function LessonModal({ lesson, onClose, onSaved }) {
 
   const { busy, error, submit } = useSubmit(async () => {
     const saved = await api.updateLesson(lesson.id, {
+      subject: f.subject||undefined,
       status: f.status,
       starts_at: fromLocalInput(f.starts_at),
       duration_min: Number(f.duration_min),
@@ -216,6 +221,7 @@ export function LessonModal({ lesson, onClose, onSaved }) {
         )}
       </div>
       <form className="form" onSubmit={submit}>
+        {!lesson.group_id&&<LessonSubjectField studentId={lesson.student_id} value={f.subject} onChange={subject=>setF({...f,subject})}/>}
         <Field label="Как прошло">
           <div className="row wrap" style={{ gap: 8 }}>
             {STATUS_ORDER.map((s) => (
@@ -673,14 +679,14 @@ export function PaymentModal({ student, payment, onClose, onSaved }) {
 /* ============================================================
    Темы программы: список строк → темы
    ============================================================ */
-export function TopicsModal({ studentId, onClose, onSaved }) {
-  const grammar = useLoad(() => api.grammarTopics(), []);
+export function TopicsModal({ studentId,subject,onClose, onSaved }) {
+  const grammar = useLoad(() => api.grammarTopics('',subject), [subject]);
   const toast = useToast();
-  const [f, setF] = useState({ section: '', skill: 'grammar', items: '' });
+  const [f, setF] = useState({ section: '', skill: subjectInfo(subject).isLang?'grammar':'concepts', items: '' });
   const { busy, error, submit } = useSubmit(async () => {
     const items = f.items.split('\n').map((s) => s.trim()).filter(Boolean).map((title) => ({ title, skill: f.skill }));
     if (!items.length) throw new Error('Добавьте хотя бы одну тему');
-    await api.addTopics({ student_id: studentId, section: orNull(f.section), items });
+    await api.addTopics({ student_id: studentId,subject, section: orNull(f.section), items });
     toast(`Добавлено тем: ${items.length}`);
     onSaved();
   });

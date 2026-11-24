@@ -19,6 +19,7 @@ function weekStart(offset) {
 }
 
 export default function TutorSchedule() {
+  const [direction,setDirection]=useState('');
   const [offset, setOffset] = useState(0);
   const [modal, setModal] = useState(null);
   const [view, setViewState] = useState(savedView);
@@ -32,7 +33,7 @@ export default function TutorSchedule() {
     setModal(null);
     lessons.reload();
   };
-  const active = (lessons.data || []).filter((l) => l.status !== 'cancelled');
+  const active = (lessons.data || []).filter((l) => l.status !== 'cancelled'&&(!direction||l.subject===direction));
 
   // Перенос перетаскиванием
   const move = async (b, to) => {
@@ -78,9 +79,10 @@ export default function TutorSchedule() {
         </div>
       </div>
 
+      <label className="field" style={{maxWidth:300,marginBottom:18}}>Направление в расписании<select className="select" value={direction} onChange={e=>setDirection(e.target.value)}><option value="">Все направления</option>{[...new Set((lessons.data||[]).map(l=>l.subject).filter(Boolean))].map(subject=><option key={subject}>{subject}</option>)}</select></label>
       {view === 'week' && lessons.data && (
         <section className="panel week-panel">
-          <WeekGrid from={from} lessons={lessons.data} onOpen={openBlock} onMove={move}
+          <WeekGrid from={from} lessons={active} onOpen={openBlock} onMove={move}
             onCreate={(d) => setModal({ type: 'new', start: d })} />
           <div className="small muted" style={{ marginTop: 10 }}>Перетащите занятие, чтобы перенести. Нажмите на пустое место, чтобы поставить новое.</div>
         </section>

@@ -1,3 +1,4 @@
+import {LessonRecap} from '../../components/LessonRecap';
 // pages/client/Home.jsx — главная ученика / родителя
 import { api } from '../../api';
 import { useSubject } from '../../subjects';
@@ -14,7 +15,7 @@ import { time, dayMonth, relativeDay, rub, shortDate, monthName, lessonsWord, HW
 
 export default function ClientHome({ student, isParent }) {
   const subj = useSubject(student.subject);
-  const dash = useLoad(() => Promise.all([api.dashboard(), api.finance(student.id)]), [student.id]);
+  const dash = useLoad(() => Promise.all([api.dashboard({student_id:student.id,subject:student.subject}), api.finance(student.id)]), [student.id]);
 
   if (dash.loading) return <Spinner />;
   if (dash.error) return <ErrorBox error={dash.error} onRetry={dash.reload} />;
@@ -50,8 +51,8 @@ export default function ClientHome({ student, isParent }) {
         </Link>
       )}
 
-      <CoachSummary key={student.id} studentId={student.id}/>
-      <SelfStudyStrip studentId={student.id} />
+      <CoachSummary key={student.id} studentId={student.id} subject={student.subject}/>
+      {student.subject==='Английский язык'&&<SelfStudyStrip studentId={student.id}/>}
       <Recommendations studentId={student.id} compact />
 
       <div className="grid grid-main">
@@ -170,14 +171,10 @@ export default function ClientHome({ student, isParent }) {
         </section>
       </div>
 
-      {s.last_lesson?.summary && (
-        <section className="panel" style={{ marginTop: 20 }}>
-          <h2 className="section-title">На прошлом занятии</h2>
-          <div className="muted small" style={{ margin: '4px 0 10px' }}>{dayMonth(s.last_lesson.starts_at)}{s.last_lesson.topic ? `, ${s.last_lesson.topic}` : ''}</div>
-          <p style={{ margin: 0, whiteSpace: 'pre-line' }}>{s.last_lesson.summary}</p>
-        </section>
-      )}
+      {s.last_lesson&&<RecentLesson lesson={s.last_lesson}/>}
       <TelegramCard />
     </>
   );
 }
+
+function RecentLesson({lesson}){const data=useLoad(()=>api.lessonRoom(lesson.id),[lesson.id]);return <section className="panel" style={{marginTop:20}}><h2 className="section-title">На прошлом занятии</h2>{data.error?<ErrorBox error={data.error} onRetry={data.reload}/>:<LessonRecap lesson={data.data||lesson}/>}</section>;}

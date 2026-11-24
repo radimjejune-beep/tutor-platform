@@ -48,10 +48,10 @@ export function Breadcrumbs({ path, entities = {} }) {
     for (let i = 0; i < segments.length; i++) {
       currentPath += `/${segments[i]}`;
       const tabs={lessons:'Занятия',course:'Курс',words:'Словарь',homework:'Задания',coach:'Помощник',progress:'Прогресс',reports:'Отчёты',finance:'Оплаты',access:'Доступ',plan:'Тариф',mine:'Мои курсы',author:'Курсы автора'};
-      const label = entities[currentPath] || ROUTE_LABELS[currentPath] || tabs[segments[i]] || (/^\d+$/.test(segments[i])?'Карточка':segments[i]);
+      const label = entities[currentPath] || ROUTE_LABELS[currentPath] || tabs[segments[i]] || (/^\d+$/.test(segments[i])?(segments[0]==='writing'?'Письменная работа':segments[0]==='workouts'?'Персональная разминка':'Карточка'):segments[i]);
 
       // Пропускаем технические сегменты
-      if (['new','edit','reviews','runs'].includes(segments[i])) continue;
+      if (['new','edit','reviews','runs'].includes(segments[i])||(i===0&&['writing','workouts'].includes(segments[i]))) continue;
       if(i>0 && i<segments.length-1 && !entities[currentPath] && !ROUTE_LABELS[currentPath] && !/^\d+$/.test(segments[i])) continue;
 
       result.push({ to:currentPath==='/learn-course'?'/marketplace/mine':currentPath, label });

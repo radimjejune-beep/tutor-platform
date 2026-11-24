@@ -1,3 +1,5 @@
+import {useContext} from 'react';
+import {StudySubjectContext} from './study-context';
 // subjects.js — предметы: от предмета зависят словарь или термины, озвучка, подсказки
 import { useAuth } from './auth';
 import { setSpeechLang } from './components/Vocab';
@@ -89,7 +91,8 @@ const EXAMPLES = {
 // Предмет текущего ученика (если задан) или репетитора
 export function useSubject(studentSubject) {
   const { user, students } = useAuth() || {};
-  const info = subjectInfo(studentSubject || (students?.length === 1 ? students[0].subject : null) || user?.subject);
+  const study=useContext(StudySubjectContext);
+  const info = subjectInfo(studentSubject || study?.subject || (students?.length === 1 ? students[0].subject : null) || user?.subject);
   setSpeechLang(info.speech);
   return info;
 }

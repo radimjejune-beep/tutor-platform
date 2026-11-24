@@ -1,3 +1,5 @@
+import {StartWritingReview} from '../pages/learning/WritingReview';
+import {useAuth} from '../auth';
 // components/GameResults.jsx — результаты упражнений
 import { relativeDay, time } from '../format';
 import { FileAudio } from '../games/Sheet';
@@ -29,6 +31,7 @@ export function ResultLine({ results, who = 'Ваш' }) {
 
 // Подробно для проверки ДЗ: лучший результат и ошибки последней попытки
 export function GameResultsPanel({ items, results }) {
+  const tutor=useAuth()?.user?.role==='tutor';
   const map = byItem(results);
   const games = items.filter((i) => i.kind === 'game' || i.kind === 'html');
   if (!games.length) return null;
@@ -54,6 +57,7 @@ export function GameResultsPanel({ items, results }) {
                     <div key={i} className="manual-answer">
                       <div className="small"><b>{d.prompt}</b></div>
                       {d.file_id ? <FileAudio id={d.file_id} /> : <div className="manual-text">{d.given || <span className="muted">без ответа</span>}</div>}
+                      {tutor&&typeof d.block==='number'&&typeof d.given==='string'&&d.given.trim()&&!d.file_id&&<StartWritingReview sourceKind="game" sourceId={last.id} block={d.block}/>}
                     </div>
                   ))}
                 </div>

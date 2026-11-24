@@ -25,8 +25,8 @@ function ensure() {
 async function syncStudent(studentId) {
   await ensure();
   const { rows: sets } = await query(
-    `SELECT ws.id, ws.words FROM word_sets ws JOIN students s ON s.tutor_id = ws.tutor_id
-      WHERE s.id = $1 AND (ws.for_all OR EXISTS (SELECT 1 FROM word_set_students x WHERE x.set_id = ws.id AND x.student_id = s.id))`,
+    `SELECT ws.id, ws.words,ws.subject FROM word_sets ws JOIN students s ON s.tutor_id = ws.tutor_id
+      WHERE s.id = $1 AND (ws.subject=COALESCE(s.subject,(SELECT subject FROM users WHERE id=s.tutor_id),'Английский язык') OR EXISTS(SELECT 1 FROM student_subjects ss WHERE ss.student_id=s.id AND ss.subject=ws.subject)) AND (ws.for_all OR EXISTS (SELECT 1 FROM word_set_students x WHERE x.set_id = ws.id AND x.student_id = s.id))`,
     [studentId]
   );
   if (!sets.length) return 0;
@@ -36,7 +36,7 @@ async function syncStudent(studentId) {
   for (const set of sets) {
     const fresh = (set.words || []).filter((w) => w && w.term && !seen.has(`${set.id}\u0001${keyOf(w.term)}`));
     if (!fresh.length) continue;
-    added += await addWords({ query }, studentId, fresh, 'set');
+    added += await addWords({ query }, studentId, fresh, 'set',null,set.subject);
     await query(
       'INSERT INTO vocab_set_sync (student_id, set_id, term_key) SELECT $1, $2, unnest($3::text[]) ON CONFLICT DO NOTHING',
       [studentId, set.id, [...new Set(fresh.map((w) => keyOf(w.term)))]]

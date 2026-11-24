@@ -1,3 +1,4 @@
+import HomeworkContext from './HomeworkContext';
 import {useState} from 'react';
 import {api} from '../api';
 import {useLoad,Spinner,ErrorBox,Empty,Badge,Icon,Link,Modal,Field,useToast} from '../ui';
@@ -5,10 +6,10 @@ import {SectionPicker} from './StudySections';
 import {HW_STATUS,shortDate,plural} from '../format';
 
 export default function StudentHomework({student}) {
- const hw=useLoad(()=>api.homework({student_id:student.id}),[student.id]);
- const sections=useLoad(()=>api.studySections(),[]),toast=useToast();
+ const hw=useLoad(()=>api.homework({student_id:student.id,subject:student.subject}),[student.id]);
+ const sections=useLoad(()=>api.studySections(null,student.subject),[student.subject]),toast=useToast();
  const [active,setActive]=useState('all'),[q,setQ]=useState(''),[status,setStatus]=useState('all'),[picked,setPicked]=useState([]);
- const [dialog,setDialog]=useState(null),[creating,setCreating]=useState(false);
+ const [context,setContext]=useState(null),[dialog,setDialog]=useState(null),[creating,setCreating]=useState(false);
  const items=hw.data||[],known=new Map((sections.data||[]).map(s=>[s.id,s]));
  for(const h of items)if(h.section_id&&!known.has(h.section_id))known.set(h.section_id,{id:h.section_id,title:h.section_title||'Раздел'});
  const ids=new Set(items.map(h=>h.section_id).filter(Boolean));if(active!=='all'&&active!=='0')ids.add(Number(active));
@@ -19,7 +20,7 @@ export default function StudentHomework({student}) {
  return <section className="panel">
   <div className="panel-head row wrap"><h2 className="section-title">Задания ученика</h2><div className="row wrap" style={{gap:8}}>
    <button type="button" className="btn btn-secondary btn-sm" onClick={()=>setCreating(true)}>Новый раздел</button>
-   <Link to={`/homework/new?student=${student.id}`} className="btn btn-sm"><Icon name="plus"/> Задание</Link>
+   <Link to={`/homework/new?student=${student.id}&subject=${encodeURIComponent(student.subject)}`} className="btn btn-sm"><Icon name="plus"/> Задание</Link>
   </div></div>
   <p className="small muted">Распределяйте уже выданные задания по темам. Перенос действует только для этого ученика; ответы и оценки сохраняются.</p>
   {sections.error&&<ErrorBox error={sections.error} onRetry={sections.reload}/>}
@@ -41,18 +42,20 @@ export default function StudentHomework({student}) {
     <input type="checkbox" aria-label={`Выбрать задание «${h.title}»`} checked={picked.includes(h.id)} onChange={()=>toggle(h.id)}/>
     <Link className="student-homework-main" to={`/homework/${h.assignment_id}/review/${h.id}`}><b>{h.title}</b><span className="small muted">{h.section_title||'Без раздела'} · {h.due_on?`До ${shortDate(h.due_on)}`:'Без срока'}</span></Link>
     <Badge tone={h.status==='checked'?'green':HW_STATUS[h.status].tone}>{h.status==='checked'&&h.score!==null?`${h.score}%`:HW_STATUS[h.status].label}</Badge>
+    <button type="button" className="btn btn-quiet btn-sm" onClick={()=>setContext(h)} aria-label={`Урок и предмет задания «${h.title}»`}>Урок и предмет</button>
     <button type="button" className="btn btn-secondary btn-sm" aria-label={`Перенести задание «${h.title}»`} onClick={()=>setDialog({mode:'move',ids:[h.id],target:h.section_id})}>Перенести</button>
    </div>)}
   </>}
-  {creating&&<CreateSection sections={sections.data||[]} onClose={()=>setCreating(false)} onCreated={s=>{setCreating(false);setActive(String(s.id));setPicked([]);sections.reload();toast(s.reused?'Раздел выбран для этого ученика':'Раздел создан');}}/>}
+  {context&&<HomeworkContext homework={context} student={student} onClose={()=>setContext(null)} onSaved={()=>{setContext(null);setPicked([]);hw.reload();toast('Предмет и урок обновлены; ответы и оценки сохранены');}}/>}
+  {creating&&<CreateSection subject={student.subject} sections={sections.data||[]} onClose={()=>setCreating(false)} onCreated={s=>{setCreating(false);setActive(String(s.id));setPicked([]);sections.reload();toast(s.reused?'Раздел выбран для этого ученика':'Раздел создан');}}/>}
   {dialog&&<MoveHomework key={`${dialog.mode}-${dialog.target}-${dialog.ids?.join(',')}`} student={student} items={items} dialog={dialog} onClose={()=>setDialog(null)} onDone={moved}/>}
  </section>;
 }
-function CreateSection({sections,onClose,onCreated}) {
+function CreateSection({subject,sections,onClose,onCreated}) {
  const [title,setTitle]=useState(''),[grammar,setGrammar]=useState(''),[existingId,setExistingId]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
- const topics=useLoad(()=>api.grammarTopics(),[]);
+ const topics=useLoad(()=>api.grammarTopics('',subject),[subject]);
  const existing=sections.find(s=>existingId?String(s.id)===existingId:s.title.toLowerCase()===title.trim().toLowerCase());
- const save=async e=>{e.preventDefault();setBusy(true);setError('');try{onCreated(await api.createStudySection({title:existing?.title||title.trim(),grammar_key:(existing?existing.grammar_key:grammar)||null}));}catch(e){setError(e.message);}finally{setBusy(false);}};
+ const save=async e=>{e.preventDefault();setBusy(true);setError('');try{onCreated(await api.createStudySection({title:existing?.title||title.trim(),grammar_key:(existing?existing.grammar_key:grammar)||null,subject}));}catch(e){setError(e.message);}finally{setBusy(false);}};
  return <Modal title="Новый раздел" onClose={onClose}><form className="form" onSubmit={save}>
   {sections.length>0&&<Field label="Использовать существующий раздел"><select className="select" aria-label="Существующий раздел" value={existingId} onChange={e=>{setExistingId(e.target.value);setError('');}}><option value="">Создать новый или ввести название</option>{sections.map(s=><option key={s.id} value={s.id}>{s.title}</option>)}</select></Field>}
   {!existingId&&<Field label="Название раздела"><input className="input" aria-label="Название раздела" value={title} maxLength={160} onChange={e=>{setTitle(e.target.value);setError('');}} placeholder="Например, Present Simple" autoFocus required/></Field>}
@@ -73,7 +76,7 @@ function MoveHomework({student,items,dialog,onClose,onDone}) {
   {dialog.mode==='add'?<>
    <input type="search" className="input" aria-label="Найти выданное задание" placeholder="Найти задание…" value={q} onChange={e=>setQ(e.target.value)}/>
    <div className="learning-topic-picker">{candidates.filter(h=>h.title.toLowerCase().includes(q.toLowerCase())).map(h=><label className="check" key={h.id}><input type="checkbox" checked={ids.includes(h.id)} onChange={()=>setIds(prev=>prev.includes(h.id)?prev.filter(x=>x!==h.id):prev.length<200?[...prev,h.id]:prev)}/><span>{h.title}<small className="muted" style={{display:'block'}}>{h.section_title||'Без раздела'} · {HW_STATUS[h.status].label}</small></span></label>)}</div>
-  </>:<SectionPicker value={target} onChange={setTarget}/>}
+  </>:<SectionPicker subject={student.subject} value={target} onChange={setTarget}/>}
   <p className="small muted">Выбрано {ids.length} {plural(ids.length,'задание','задания','заданий')}. За один перенос — до 200.</p>
   {error&&<div className="alert" role="alert">{error}</div>}
   <div className="modal-actions"><button type="button" className="btn btn-secondary" onClick={onClose}>Отмена</button><button type="button" className="btn" disabled={busy||!ids.length} onClick={save}>{busy?'Переносим…':'Сохранить раздел заданий'}</button></div>

@@ -79,7 +79,7 @@ router.post(
     if (!g.total && !g.manual) return res.status(400).json({ error: 'В результате нет ни одного задания' });
     const { rows: saved } = await query(
       `INSERT INTO game_results (item_id, student_id, user_id, homework_id, lesson_id, correct, total, score, details, duration_sec, grammar_key)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, score, correct, total, created_at`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, score, correct, total, created_at, subject`,
       [item.id, b.student_id, req.user.id, b.homework_id || null, b.lesson_id || null, g.correct, g.total, g.score,
         JSON.stringify(g.details), b.duration_sec ?? null, await require('../learning/coaching').libraryTopic(item.id)]
     );
@@ -87,7 +87,7 @@ router.post(
     let vocabAdded = 0;
     try {
       const words = item.kind === 'game' ? wordsFromMistakes(item.game, g.details) : g.words;
-      vocabAdded = await addWords({ query }, b.student_id, words, 'mistake');
+      vocabAdded = await addWords({ query }, b.student_id, words, 'mistake',null,saved[0].subject);
     } catch (err) {
       console.error('Словарь: не удалось добавить слова из ошибок:', err.message);
     }

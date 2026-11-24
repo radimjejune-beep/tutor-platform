@@ -15,7 +15,8 @@ const clean = (s, max) => {
 
 // Добавить слова ученику. source: 'tutor' | 'unit' | 'mistake'
 // Ошибка возвращает уже известное слово в начало повторения
-async function addWords(db, studentId, words, source, unitId = null) {
+async function addWords(db, studentId, words, source, unitId = null, subject = null) {
+  if(!subject)subject=(await db.query("SELECT COALESCE((SELECT c.subject FROM course_units cu JOIN courses c ON c.id=cu.course_id WHERE cu.id=$2),s.subject,u.subject,'Английский язык') subject FROM students s JOIN users u ON u.id=s.tutor_id WHERE s.id=$1",[studentId,unitId])).rows[0]?.subject||'Английский язык';
   let added = 0;
   for (const w of words) {
     const term = clean(w.term, 200);
@@ -29,11 +30,11 @@ async function addWords(db, studentId, words, source, unitId = null) {
                       example = COALESCE(EXCLUDED.example, vocab_items.example),
                       unit_id = COALESCE(vocab_items.unit_id, EXCLUDED.unit_id)`;
     const { rows } = await db.query(
-      `INSERT INTO vocab_items (student_id, term, translation, example, source, unit_id)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT (student_id, lower(term)) DO ${onConflict}
+      `INSERT INTO vocab_items (student_id, term, translation, example, source, unit_id, subject)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (student_id, subject, lower(term)) DO ${onConflict}
        RETURNING (xmax = 0) AS inserted`,
-      [studentId, term, clean(w.translation, 300), clean(w.example, 1000), source, unitId]
+      [studentId, term, clean(w.translation, 300), clean(w.example, 1000), source, unitId, subject]
     );
     if (rows[0]?.inserted) added++;
   }

@@ -43,12 +43,12 @@ function assess(qs, given={}) {
   return {...result,topics:[...groups.values()].map(t=>({...t,score:Math.round(t.earned/t.points*100),
     status:t.total<3?'insufficient':t.earned/t.points<.6?'repeat':t.earned/t.points<.8?'practice':'confident'}))};
 }
-async function completed(studentId, db={query}) {
-  const {rows}=await db.query("SELECT title, grammar_key FROM progress_topics WHERE student_id=$1 AND status='done' AND skill='grammar' ORDER BY completed_on DESC NULLS LAST,id DESC",[studentId]);
+async function completed(studentId, db={query}, subject=null) {
+  const {rows}=await db.query("SELECT title, grammar_key FROM progress_topics WHERE student_id=$1 AND status='done' AND skill='grammar' AND ($2::text IS NULL OR subject=$2) ORDER BY completed_on DESC NULLS LAST,id DESC",[studentId,subject]);
   return [...new Set(rows.map(r=>r.grammar_key).filter(id=>catalog.byId.has(id)))];
 }
-async function ownSection(db,id,tutorId) {
+async function ownSection(db,id,tutorId,subject=null) {
   if(!id)return true;
-  return Boolean((await db.query('SELECT id FROM study_sections WHERE id=$1 AND tutor_id=$2',[id,tutorId])).rows[0]);
+  return Boolean((await db.query('SELECT id FROM study_sections WHERE id=$1 AND tutor_id=$2 AND ($3::text IS NULL OR subject=$3)',[id,tutorId,subject])).rows[0]);
 }
 module.exports={topicKey,question,questions,date,answers,shuffle,shuffledQuestion,generate,publicQuestions,assess,completed,ownSection};

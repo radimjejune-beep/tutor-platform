@@ -1,11 +1,13 @@
+import {useSubject} from '../subjects';
 import { useState } from 'react';
 import { api } from '../api';
 import { useLoad, ErrorBox, Field, Link, useToast } from '../ui';
 
-export function SectionPicker({value,onChange}) {
-  const list=useLoad(()=>api.studySections(),[]),topics=useLoad(()=>api.grammarTopics(),[]),toast=useToast();
+export function SectionPicker({value,onChange,subject:explicitSubject}) {
+  const {subject}=useSubject(explicitSubject);
+  const list=useLoad(()=>api.studySections(null,subject),[subject]),topics=useLoad(()=>api.grammarTopics('',subject),[subject]),toast=useToast();
   const [adding,setAdding]=useState(false),[managing,setManaging]=useState(false),[title,setTitle]=useState(''),[grammar,setGrammar]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
-  const create=async()=>{setBusy(true);setError('');try{const s=await api.createStudySection({title:title.trim(),grammar_key:grammar||null});onChange(s.id);setAdding(false);setTitle('');list.reload();if(s.reused)toast('Выбран существующий раздел; его объяснение сохранено');}catch(e){setError(e.message);}finally{setBusy(false);}};
+  const create=async()=>{setBusy(true);setError('');try{const s=await api.createStudySection({title:title.trim(),grammar_key:grammar||null,subject});onChange(s.id);setAdding(false);setTitle('');list.reload();if(s.reused)toast('Выбран существующий раздел; его объяснение сохранено');}catch(e){setError(e.message);}finally{setBusy(false);}};
   return <div className="form">
     <Field label="Раздел обучения" hint="Раздел появится в кабинете выбранного ученика. Например, Present Simple или Spotlight 6 · Модуль 3.">
       <select className="select" aria-label="Раздел обучения" value={value||''} onChange={e=>{onChange(Number(e.target.value)||null);setManaging(false);setAdding(false);}} disabled={list.loading}>

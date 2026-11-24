@@ -13,7 +13,7 @@ import { useSubject } from '../../subjects';
 import { shortDate, plural, givenName } from '../../format';
 
 export default function Words({ student, isParent }) {
-  const data = useLoad(() => Promise.all([api.vocab(student.id), api.mySets(student.id).catch(() => []), api.practiceActivity(student.id).catch(() => null)]), [student.id]);
+  const data = useLoad(() => Promise.all([api.vocab(student.id,student.subject), api.mySets(student.id,student.subject).catch(() => []), api.practiceActivity(student.id,student.subject).catch(() => null)]), [student.id]);
   const [session, setSession] = useState(false);
   const [adding, setAdding] = useState(false);
   const subj = useSubject(student.subject);
@@ -119,7 +119,7 @@ function AddMine({ student, subj, onClose, onSaved }) {
     setBusy(true);
     setError('');
     try {
-      const r = await api.addMyWords(student.id, words.slice(0, 300));
+      const r = await api.addMyWords(student.id, words.slice(0, 300),student.subject);
       toast(r.added === r.total ? `Добавлено: ${r.added}` : `Добавлено: ${r.added}, остальные уже были`);
       onSaved();
     } catch (err) {

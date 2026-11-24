@@ -39,7 +39,8 @@ async function vocabWords(studentId) {
     : { forms: ['термин', 'термина', 'терминов'], Items: 'Термины', where: 'в терминах' };
 }
 
-async function recommendations(studentId) {
+async function recommendations(studentId,subject) {
+  if(subject)return scopedRecommendations(studentId,subject);
   const recs = [];
   const vw = await vocabWords(studentId);
   const strong = [];
@@ -172,4 +173,13 @@ async function recommendations(studentId) {
   return { items: recs.slice(0, 6), more: Math.max(0, recs.length - 6), strong: strong.slice(0, 4) };
 }
 
+async function scopedRecommendations(studentId,subject){
+ const profile=await require('../learning/coaching').profile(studentId,{query},subject);
+ const items=profile.topics.filter(t=>['repeat','practice','due'].includes(t.status)).slice(0,3).map(t=>({kind:'topic',title:t.title,reason:t.reason,link:t.grammar_link}));
+ const {rows:due}=await query('SELECT count(*)::int n FROM vocab_items WHERE student_id=$1 AND subject=$2 AND due_on<=CURRENT_DATE',[studentId,subject]);
+ if(due[0].n)items.push({kind:'due',title:'Повторить слова этого направления',reason:`На сегодня: ${due[0].n}`,link:'/words'});
+ const {rows:homework}=await query("SELECT h.id,a.title,h.score FROM homework h JOIN assignments a ON a.id=h.assignment_id WHERE h.student_id=$1 AND h.subject=$2 AND h.status='checked' AND h.score<70 ORDER BY h.id DESC LIMIT 2",[studentId,subject]);
+ for(const h of homework)items.push({kind:'homework',title:h.title,reason:`Результат: ${h.score}%. Вернитесь к комментарию преподавателя.`,link:`/homework/${h.id}`});
+ return {items:items.slice(0,6),more:Math.max(0,items.length-6),strong:profile.topics.filter(t=>t.status==='confident').slice(0,4).map(t=>({title:t.title,reason:t.reason}))};
+}
 module.exports = { recommendations };

@@ -133,6 +133,7 @@ router.get(
 const requestSchema = z
   .object({
     student_id: z.number().int().positive(),
+    subject:z.string().trim().min(1).max(255).optional(),
     kind: z.enum(['book', 'reschedule']),
     lesson_id: z.number().int().positive().optional(),
     starts_at: z.string().datetime({ offset: true }),
@@ -193,10 +194,11 @@ router.post(
       });
       if (!ok.length) return { status: 409, error: 'Это время уже занято или недоступно. Выберите другое' };
 
+      const direction=b.kind==='reschedule'?(await client.query('SELECT subject FROM lessons WHERE id=$1',[b.lesson_id])).rows[0].subject:await require('../learning/study-subjects').resolve(b.student_id,req.user.tid,b.subject,client);
       const { rows } = await client.query(
-        `INSERT INTO booking_requests (student_id, kind, lesson_id, starts_at, duration_min, comment, requested_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-        [b.student_id, b.kind, b.lesson_id || null, b.starts_at, duration, b.comment || null, req.user.id]
+        `INSERT INTO booking_requests (student_id, kind, lesson_id, starts_at, duration_min, comment, requested_by,subject)
+         VALUES ($1, $2, $3, $4, $5, $6, $7,$8) RETURNING *`,
+        [b.student_id, b.kind, b.lesson_id || null, b.starts_at, duration, b.comment || null, req.user.id,direction]
       );
       return { request: rows[0] };
     });
@@ -256,8 +258,8 @@ router.post(
       if (r.kind === 'book') {
         const { rows: st } = await client.query('SELECT default_price FROM students WHERE id = $1', [r.student_id]);
         ({ rows: [lesson] } = await client.query(
-          `INSERT INTO lessons (student_id, starts_at, duration_min, price) VALUES ($1, $2, $3, $4) RETURNING *`,
-          [r.student_id, r.starts_at, r.duration_min, st[0].default_price]
+          `INSERT INTO lessons (student_id, starts_at, duration_min, price,subject) VALUES ($1, $2, $3, $4,$5) RETURNING *`,
+          [r.student_id, r.starts_at, r.duration_min, st[0].default_price,r.subject]
         ));
       } else {
         ({ rows: [lesson] } = await client.query(

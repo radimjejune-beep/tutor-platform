@@ -1,3 +1,6 @@
+import {StartWritingReview,WritingInbox} from '../learning/WritingReview';
+import {HomeworkRecap,LessonRecap} from '../../components/LessonRecap';
+import SubjectInput from '../../components/SubjectInput';
 import {useAuth} from '../../auth';
 import {readWorkspace,saveWorkspace,finishWorkspaceScroll} from '../../workspace-state';
 import {assignmentForStudent,assignmentView,sortAssignments} from '../../assignment-workspace';
@@ -69,27 +72,29 @@ export function AssignmentsList() {
    ============================================================ */
 export function AssignmentEditor({ id, presetStudentId, presetStudents, presetItems }) {
   const isNew = !id;
-  const data = useLoad(() => Promise.all([api.students(), id ? api.assignment(id) : Promise.resolve(null)]), [id]);
+  const linkedId=isNew?Number(new URLSearchParams(location.hash.split('?')[1]||'').get('lesson'))||null:null;
+  const data = useLoad(() => Promise.all([api.students(), id ? api.assignment(id) : Promise.resolve(null),linkedId?api.lessonRoom(linkedId):Promise.resolve(null)]), [id,linkedId]);
   if (data.loading) return <Spinner />;
   if (data.error) return <ErrorBox error={data.error} onRetry={data.reload} />;
-  const [students, assignment] = data.data;
-  return <EditorForm isNew={isNew} students={students} assignment={assignment} presetStudentId={presetStudentId} presetStudents={presetStudents} presetItems={presetItems} onFilesChanged={data.reload} />;
+  const [students, assignment,lesson] = data.data;
+  return <EditorForm lesson={lesson} isNew={isNew} students={students} assignment={assignment} presetStudentId={presetStudentId} presetStudents={presetStudents} presetItems={presetItems} onFilesChanged={data.reload} />;
 }
 
-function EditorForm({ isNew, students, assignment, presetStudentId, presetStudents, presetItems, onFilesChanged }) {
+function EditorForm({ lesson,isNew, students, assignment, presetStudentId, presetStudents, presetItems, onFilesChanged }) {
   const subj = useSubject();
   const toast = useToast();
   const assignedIds = new Set((assignment?.submissions || []).map((s) => s.student_id));
   // Черновик: незаконченное задание сохраняется в браузере и возвращается при следующем открытии
-  const dkey = isNew ? 'assign:new' : `assign:${assignment.id}`;
+  const dkey = isNew ? (lesson?`assign:new:lesson:${lesson.id}`:'assign:new') : `assign:${assignment.id}`;
   const [base] = useState(() => ({
-    title: assignment?.title || '',
+    subject:lesson?.subject||assignment?.subject||new URLSearchParams(location.hash.split('?')[1]||'').get('subject')||'',
+    title: assignment?.title || (lesson?.topic?`После урока: ${lesson.topic}`:''),
     section_id: assignment?.section_id || null,
     description: assignment?.description || '',
     links: (assignment?.links || []).join('\n'),
     due_on: assignment?.due_on || '',
     questions: assignment?.questions || [],
-    students: new Set(presetStudents?.length ? presetStudents : presetStudentId ? [presetStudentId] : []),
+    students: new Set(lesson?[lesson.student_id]:presetStudents?.length ? presetStudents : presetStudentId ? [presetStudentId] : []),
     vocab: assignment ? Boolean(assignment.vocab_practice) : false,
     vocabCount: assignment?.vocab_practice?.count || 12,
     items: assignment?.library_item_ids || presetItems || [],
@@ -136,14 +141,14 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
         const have = new Set(cur.words.map((w) => w.term.toLowerCase()));
         await api.updateWordSet(f.setId, { words: [...cur.words, ...newWords.filter((w) => !have.has(w.term.toLowerCase()))].slice(0, 500) });
       } else {
-        const created = await api.createWordSet({ title: `${subj.Items}: ${f.title.trim()}`.slice(0, 200), words: newWords.slice(0, 500), for_all: false, student_ids: who.length ? who : undefined });
+        const created = await api.createWordSet({ subject:f.subject||lesson?.subject||undefined,title: `${subj.Items}: ${f.title.trim()}`.slice(0, 200), words: newWords.slice(0, 500), for_all: false, student_ids: who.length ? who : undefined });
         body.word_set_id = created.id;
       }
     }
     if (!body.word_set_id) body.word_set_id = f.setId || null;
     if (isNew) {
       if (!f.students.size) throw new Error('Выберите хотя бы одного ученика');
-      const created = await api.createAssignment({ ...body, student_ids: [...f.students] });
+      const created = await api.createAssignment({ ...body, subject:f.subject||undefined,lesson_id:lesson?.id, student_ids: [...f.students] });
       clearDraft(dkey);
       for (const file of pendingFiles) await api.uploadFile({ assignment_id: created.id }, file);
       toast(`Задание выдано: ${f.students.size} ${plural(f.students.size, 'ученик', 'ученика', 'учеников')}`);
@@ -156,7 +161,7 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
     }
   });
 
-  const active = students.filter((s) => !assignedIds.has(s.id));
+  const active = students.filter((s) => !assignedIds.has(s.id)&&(!lesson||s.id===lesson.student_id));
 
   return (
     <>
@@ -168,13 +173,15 @@ function EditorForm({ isNew, students, assignment, presetStudentId, presetStuden
       <div className="editor-guide" aria-label="Как выдать задание"><span><b>1</b>Название и инструкция</span><span><b>2</b>Материалы</span><span><b>3</b>Ученики и срок</span></div>
       <form onSubmit={submit} className="assign-layout">
         <div className="stack">
+          {lesson&&<LessonRecap lesson={lesson} tutor compact/>}
           <FormulaBar />
           <section className="panel form">
             <Field label="Название">
               <input className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} required autoFocus={isNew}
                 placeholder={subj.isLang ? 'Workbook, Unit 4: упражнения 1–4' : 'Параграф 12: задачи 1–5'} />
             </Field>
-            <SectionPicker value={f.section_id} onChange={section_id=>setF({...f,section_id})}/>
+            {isNew&&<Field label="Направление задания">{lesson?<p>{lesson.subject} · выбран язык занятия</p>:<SubjectInput value={f.subject} onChange={subject=>setF({...f,subject,section_id:null})} placeholder="Основное направление выбранных учеников"/>}</Field>}
+            <SectionPicker subject={lesson?.subject||f.subject} value={f.section_id} onChange={section_id=>setF({...f,section_id})}/>
             {assignment&&<p className="small muted">Раздел применяется к работам без личного переноса. Размещение, изменённое в карточке ученика, сохраняется.</p>}
             <Field label="Инструкция">
               <textarea className="textarea" style={{ minHeight: 140 }} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })}
@@ -474,6 +481,9 @@ function ReviewForm({ hw, assignment, items, results, reload }) {
           </div>
 
           <h2 className="section-title" style={{ marginBottom: 8 }}>Ответ</h2>
+          {hw.student_answer&&['submitted','checked'].includes(hw.status)&&<StartWritingReview sourceKind="homework" sourceId={hw.id}/>}
+          <HomeworkRecap homework={hw} tutor/>
+          <WritingInbox studentId={hw.student_id} subject={hw.subject} homeworkId={hw.id}/>
           {hw.student_answer ? <MathText as="p" className="instructions" style={{ marginTop: 0 }}>{hw.student_answer}</MathText> : <p className="muted" style={{ marginTop: 0 }}>Без текста</p>}
 
           <h2 className="section-title" style={{ margin: '22px 0 10px' }}>Файлы ученика</h2>

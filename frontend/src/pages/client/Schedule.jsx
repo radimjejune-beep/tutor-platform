@@ -13,7 +13,7 @@ export default function ClientSchedule({ student }) {
   const from = new Date(Date.now() - 30 * 864e5).toISOString();
   const to = new Date(Date.now() + 90 * 864e5).toISOString();
   const data = useLoad(
-    () => Promise.all([api.lessons({ student_id: student.id, from, to }), api.bookingInfo(), api.bookingRequests()]),
+    () => Promise.all([api.lessons({ student_id: student.id, subject: student.subject, from, to }), api.bookingInfo(), api.bookingRequests()]),
     [student.id]
   );
 
@@ -21,7 +21,7 @@ export default function ClientSchedule({ student }) {
   if (data.error) return <ErrorBox error={data.error} onRetry={data.reload} />;
 
   const [lessons, info, allRequests] = data.data;
-  const requests = allRequests.filter((r) => r.student_id === student.id);
+  const requests = allRequests.filter((r) => r.student_id === student.id&&(!r.subject||r.subject===student.subject));
   const pending = requests.filter((r) => r.status === 'pending');
   const declined = requests.filter((r) => r.status === 'declined');
   const now = Date.now();
@@ -172,6 +172,7 @@ function SlotPicker({ student, lesson, onClose, onSent }) {
   const { busy, error, submit } = useSubmit(async () => {
     await api.createBookingRequest({
       student_id: student.id,
+      subject:lesson?.subject||student.subject,
       kind: lesson ? 'reschedule' : 'book',
       lesson_id: lesson?.id,
       starts_at: new Date(chosen).toISOString(),
