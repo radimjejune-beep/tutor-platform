@@ -127,7 +127,7 @@ export function ResetPassword({ token }) {
   const [done, setDone] = useState(false);
   const { busy, error, submit, setError } = useSubmit(async () => {
     if (f.password !== f.repeat) return setError('Пароли не совпадают');
-    await api.resetPassword(token, f.password);
+    await api.completePasswordReset(token, f.password);
     setToken(null);
     setDone(true);
   });

@@ -164,6 +164,21 @@ app.use((err, req, res, next) => {
   if (res.headersSent) return next(err);
   if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Некорректный JSON' });
   if (err.type === 'entity.too.large') return res.status(413).json({ error: 'Слишком большой файл (до 10 МБ)' });
+  if (err instanceof require('./services/s3').S3Error) {
+    console.error(`❌ Хранилище: ${err.message}; попыток: ${err.attempts}`);
+    require('./services/monitor').capture(err, { where: `${req.method} ${req.originalUrl.split('?')[0]}` });
+    // Download routes may already have selected PDF/image headers before reading S3.
+    res.removeHeader('Content-Disposition');
+    res.type('application/json');
+    if (err.retryable) res.set('Retry-After', '5');
+    const action = err.method === 'PUT' ? 'загрузить' : 'открыть';
+    return res.status(err.retryable ? 503 : 502).json({
+      code: err.retryable ? 'STORAGE_UNAVAILABLE' : 'STORAGE_ERROR',
+      error: err.retryable
+        ? `Не удалось ${action} файл: хранилище временно недоступно. Попробуйте ещё раз через минуту.`
+        : `Не удалось ${action} файл из-за ошибки хранилища. Обратитесь в поддержку Lessonfold.`,
+    });
+  }
   if (err.status) return res.status(err.status).json({ error: err.message });
   console.error(`❌ ${req.method} ${req.originalUrl}:`, err);
   require('./services/monitor').capture(err, { where: `${req.method} ${req.originalUrl.split('?')[0]}` });

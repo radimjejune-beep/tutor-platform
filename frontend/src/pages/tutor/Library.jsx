@@ -9,7 +9,7 @@ import FormulaBar from '../../components/FormulaBar';
 import { useEffect,useRef,useState } from 'react';
 import { api } from '../../api';
 import { useAuth } from '../../auth';
-import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Field, Link, Modal, navigate, useToast, useSubmit, readDraft, clearDraft, useDraftSave, DraftNotice } from '../../ui';
+import { ScrollTabs, useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Field, Link, Modal, navigate, useToast, useSubmit, readDraft, clearDraft, useDraftSave, DraftNotice } from '../../ui';
 import { FileList, FileUploadButton } from '../../components/Files';
 import HtmlLesson from '../../components/HtmlLesson';
 import LibraryItem, { ItemMeta, examLabel } from '../../components/LibraryItem';
@@ -166,13 +166,13 @@ export function LibraryPage({ kind = 'all' }) {
         </div>
       </div>
 
-      <div className="tabs" role="tablist">
+      <ScrollTabs label="Виды материалов">
         {Object.entries(KINDS).map(([k, label]) => (
           <button key={k} role="tab" aria-selected={kind === k} className={kind === k ? 'active' : ''}
             onClick={() => { setSelected(new Set()); navigate(`/library/${KIND_PATH[k]}`); }}>{label}</button>
         ))}
         {hasBank(subj.subject) && <button role="tab" aria-selected={false} onClick={() => navigate('/bank')}><Icon name="library" size={16} /> Банк заданий</button>}
-      </div>
+      </ScrollTabs>
 
       <div className="lib-layout">
       {folders.data && <details className="library-folder-browser" open={wideFolders}><summary>Папки · {curFolder?.title|| (folderNow==='none'?'Без папки':'Все материалы')}</summary><FolderTree data={folders.data} current={folderNow} onPick={pickFolder} onChanged={(items) => { folders.reload(); if (items) { list.reload(); setSelected(new Set()); } }} /></details>}
@@ -418,7 +418,7 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
             <FormulaBar />
             {isNew && (
               <div className="row wrap" style={{ gap: 6 }}>
-                {[...Object.keys(KINDS).filter((k) => k !== 'books').flatMap((k) => (k === 'html' ? ['deck', 'html'] : [k]))].map((k) => (
+                {Object.keys(NEW_LABEL).filter((k) => k !== 'books').map((k) => (
                   <button type="button" key={k} className={`btn btn-sm ${f.kind === k ? '' : 'btn-secondary'}`} onClick={() => setF({ ...f, kind: k })}>{NEW_LABEL[k]}</button>
                 ))}
               </div>

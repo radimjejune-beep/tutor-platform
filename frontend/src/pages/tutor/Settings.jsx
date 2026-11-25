@@ -1,7 +1,7 @@
 // pages/tutor/Settings.jsx — настройки: окна для записи и юридические документы
 import { useState } from 'react';
 import { api } from '../../api';
-import { useLoad, Spinner, ErrorBox, Badge, Icon, Field, Link, navigate, useToast, useSubmit } from '../../ui';
+import { ScrollTabs, useLoad, Spinner, ErrorBox, Badge, Icon, Field, Link, navigate, useToast, useSubmit } from '../../ui';
 import { fullDate, plural } from '../../format';
 import PageSettings from './PageSettings';
 import SubjectInput from '../../components/SubjectInput';
@@ -16,7 +16,7 @@ export default function Settings({ tab }) {
   return (
     <>
       <div className="page-head"><h1 className="page-title">Настройки</h1></div>
-      <div className="tabs" role="tablist">
+      <ScrollTabs label="Разделы настроек">
         <button role="tab" aria-selected={tab === 'subject'} className={tab === 'subject' ? 'active' : ''} onClick={() => navigate('/settings/subject')}>Предмет</button>
         <button role="tab" aria-selected={tab === 'lessons'} className={tab === 'lessons' ? 'active' : ''} onClick={() => navigate('/settings/lessons')}>Списание</button>
         <button role="tab" aria-selected={tab === 'booking'} className={tab === 'booking' ? 'active' : ''} onClick={() => navigate('/settings/booking')}>Запись учеников</button>
@@ -24,7 +24,7 @@ export default function Settings({ tab }) {
         <button role="tab" aria-selected={tab === 'documents'} className={tab === 'documents' ? 'active' : ''} onClick={() => navigate('/settings/documents')}>Документы</button>
         <button role="tab" aria-selected={tab === 'telegram'} className={tab === 'telegram' ? 'active' : ''} onClick={() => navigate('/settings/telegram')}>Telegram</button>
         <button role="tab" aria-selected={tab === 'plan'} className={tab === 'plan' ? 'active' : ''} onClick={() => navigate('/settings/plan')}>Тариф</button>
-      </div>
+      </ScrollTabs>
       {tab === 'subject' ? <SubjectTab /> : tab === 'lessons' ? <AutoTab /> : tab === 'page' ? <PageSettings /> : tab === 'documents' ? <DocumentsTab /> : tab === 'telegram' ? <TelegramTab /> : tab === 'plan' ? <PlanTab /> : <BookingTab />}
     </>
   );

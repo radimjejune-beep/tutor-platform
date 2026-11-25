@@ -29,32 +29,16 @@ export default function ClientHome({ student, isParent }) {
 
   return (
     <>
-      <section className="panel"><Link className="btn btn-secondary" to="/marketplace/mine">Мои курсы и дополнительные занятия</Link></section>
       <div className="page-head">
         <div>
           <h1 className="page-title">{isParent ? firstName : `Привет, ${firstName}`}</h1>
           <div className="lead">{[s.student.level, s.unit ? `${s.unit.course_title}, ${[s.unit.code, s.unit.title].filter(Boolean).join(' ')}` : s.student.textbook].filter(Boolean).join(', ') || subj.subject}{s.student.goal ? `. ${s.student.goal}` : ''}</div>
         </div>
+        <Link className="btn btn-secondary btn-sm" to="/marketplace/mine">Мои курсы</Link>
       </div>
 
       <ClientAnnouncements />
       <WarmupBanner lesson={next} studentId={student.id} onDone={dash.reload} />
-      <MotivationCard studentId={student.id} compact />
-
-      {s.vocab?.due > 0 && (
-        <Link to="/words" className="words-strip">
-          <span>
-            <span className="meta-label">Словарь</span>
-            <span className="serif words-strip-title">{s.vocab.due} {plural(s.vocab.due, 'слово ждёт', 'слова ждут', 'слов ждут')} повторения</span>
-          </span>
-          <span className="btn btn-sm"><Icon name="play" /> Повторить</span>
-        </Link>
-      )}
-
-      <CoachSummary key={student.id} studentId={student.id} subject={student.subject}/>
-      {student.subject==='Английский язык'&&<SelfStudyStrip studentId={student.id}/>}
-      <Recommendations studentId={student.id} compact />
-
       <div className="grid grid-main">
         {/* Следующее занятие */}
         <section className="hero">
@@ -90,6 +74,26 @@ export default function ClientHome({ student, isParent }) {
           </div>
         </section>
 
+        {/* ДЗ */}
+        <section className="panel">
+          <div className="panel-head">
+            <h2 className="section-title">Домашнее задание</h2>
+            {openHw.length > 0 && <Badge tone="brass">{openHw.length}</Badge>}
+          </div>
+          {!s.homework.length && <Empty title="Заданий нет">Новое появится здесь после занятия.</Empty>}
+          <div className="list">
+            {s.homework.slice(0, 4).map((h) => (
+              <Link key={h.id} to={`/homework/${h.id}`} className="list-item clickable" style={{ color: 'inherit', textDecoration: 'none' }}>
+                <div className="list-main">
+                  <div className="list-title truncate">{h.title}</div>
+                  <div className="list-sub">{h.due_on ? `К ${shortDate(h.due_on)}` : 'Без срока'}</div>
+                </div>
+                <Badge tone={HW_STATUS[h.status].tone}>{HW_STATUS[h.status].label}</Badge>
+              </Link>
+            ))}
+          </div>
+        </section>
+
         {/* Абонемент */}
         <section className="panel">
           <h2 className="section-title">{activeSub ? 'Абонемент' : 'Оплата'}</h2>
@@ -118,29 +122,6 @@ export default function ClientHome({ student, isParent }) {
           )}
           <Link to="/payments" className="small" style={{ display: 'inline-block', marginTop: 14 }}>История оплат</Link>
         </section>
-      </div>
-
-      <div className="grid grid-2" style={{ marginTop: 20 }}>
-        {/* ДЗ */}
-        <section className="panel">
-          <div className="panel-head">
-            <h2 className="section-title">Домашнее задание</h2>
-            {openHw.length > 0 && <Badge tone="brass">{openHw.length}</Badge>}
-          </div>
-          {!s.homework.length && <Empty title="Заданий нет">Новое появится здесь после занятия.</Empty>}
-          <div className="list">
-            {s.homework.slice(0, 4).map((h) => (
-              <Link key={h.id} to={`/homework/${h.id}`} className="list-item clickable" style={{ color: 'inherit', textDecoration: 'none' }}>
-                <div className="list-main">
-                  <div className="list-title truncate">{h.title}</div>
-                  <div className="list-sub">{h.due_on ? `К ${shortDate(h.due_on)}` : 'Без срока'}</div>
-                </div>
-                <Badge tone={HW_STATUS[h.status].tone}>{HW_STATUS[h.status].label}</Badge>
-              </Link>
-            ))}
-          </div>
-        </section>
-
         {/* Прогресс и отчёт */}
         <section className="panel">
           <div className="panel-head">
@@ -172,6 +153,24 @@ export default function ClientHome({ student, isParent }) {
       </div>
 
       {s.last_lesson&&<RecentLesson lesson={s.last_lesson}/>}
+      <section className="client-practice" aria-label="Самостоятельная практика">
+      <MotivationCard studentId={student.id} compact />
+
+      {s.vocab?.due > 0 && (
+        <Link to="/words" className="words-strip">
+          <span>
+            <span className="meta-label">Словарь</span>
+            <span className="serif words-strip-title">{s.vocab.due} {plural(s.vocab.due, 'слово ждёт', 'слова ждут', 'слов ждут')} повторения</span>
+          </span>
+          <span className="btn btn-sm"><Icon name="play" /> Повторить</span>
+        </Link>
+      )}
+
+      <CoachSummary key={student.id} studentId={student.id} subject={student.subject}/>
+      {student.subject==='Английский язык'&&<SelfStudyStrip studentId={student.id}/>}
+      <Recommendations studentId={student.id} compact />
+
+      </section>
       <TelegramCard />
     </>
   );

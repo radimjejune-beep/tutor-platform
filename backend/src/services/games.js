@@ -1,3 +1,4 @@
+const { gradeListening } = require('./listening');
 const { parseInlineChoices, gradeInlineChoices } = require('./inline-choice');
 // services/games.js — упражнения: формат данных и проверка ответов
 // Типы:
@@ -26,6 +27,12 @@ const word = z.string().trim().min(1).max(200);
 const fileId = z.number().int().positive();
 const pct = z.number().min(0).max(100);
 const sheetBlock = z.discriminatedUnion('t', [
+  z.object({
+    t: z.literal('listening'), instruction: z.string().trim().max(2000).default(''), audio: fileId.nullish(),
+    options: z.array(z.object({ text: z.string().trim().min(1, 'Подпишите каждый вариант').max(500), image: fileId.nullish() }).strict()).min(2).max(8),
+    questions: z.array(z.object({ q: z.string().trim().min(1, 'Напишите вопрос к записи').max(1000), correct: z.number().int().min(0).max(7) }).strict()).min(1).max(20),
+  }).strict().superRefine((block,ctx)=>{block.questions.forEach((question,index)=>{if(question.correct>=block.options.length)ctx.addIssue({code:'custom',path:['questions',index,'correct'],message:'Правильный ответ отсутствует среди вариантов'});});}),
+
   z.object({ t: z.literal('text'), text: z.string().max(5000).default(''), image: fileId.nullish(), audio: fileId.nullish(), video: z.string().trim().max(500).regex(/^https?:\/\//, 'Ссылка на видео должна начинаться с https://').nullish().or(z.literal('')) }).strict(),
   z.object({ t: z.literal('inline'), text: z.string().trim().min(1).max(10000).superRefine((text, ctx) => { for (const message of parseInlineChoices(text).errors) ctx.addIssue({ code: 'custom', message }); }), audio: fileId.nullish() }).strict(),
   z.object({ t: z.literal('gaps'), text: z.string().trim().min(1, 'Пустой блок с пропусками').max(5000), audio: fileId.nullish() }).strict(),
@@ -273,6 +280,8 @@ function gradeSheet(game, answers = {}) {
         if (!opts.length) return details.push({ block: i, field: k, k, ok: null, manual: true, prompt: `Поле ${k + 1}`, given: short(g) });
         details.push({ block: i, field: k, k, ok: opts.some((o) => normalize(o) === normalize(g)), given: short(g), expected: opts.join(' / ') });
       });
+    } else if (b.t === 'listening') {
+      gradeListening(b, a).forEach(detail => details.push({ block: i, ...detail }));
     } else if (b.t === 'choice') {
       const j = a === undefined || a === null || a === '' ? null : Number(a);
       details.push({ block: i, ok: j === b.correct, given: j === null ? null : b.options[j] ?? null, expected: b.options[b.correct], prompt: b.q || null });

@@ -6,7 +6,7 @@ import { Badge, Icon } from '../ui';
 import { FileList } from './Files';
 import GamePlayer from '../games/Players';
 import HtmlLesson from './HtmlLesson';
-import { GAME_TYPES, gameSize } from '../games/logic';
+import { GAME_TYPES, gameSize, gameLabel } from '../games/logic';
 import { DeckPlayer, parseDeck } from './Deck';
 import { useAuth } from '../auth';
 import MaterialTopic from './MaterialTopic';
@@ -19,7 +19,7 @@ export function ItemMeta({ item, showTags }) {
   const exam = examLabel(item);
   return (
     <div className="row wrap" style={{ gap: 6 }}>
-      {item.kind === 'game' && item.game && <Badge tone="brass">{GAME_TYPES[item.game.type]?.label}, {gameSize(item.game)}</Badge>}
+      {item.kind === 'game' && item.game && <Badge tone="brass">{gameLabel(item.game)}, {gameSize(item.game)}</Badge>}
       {item.kind === 'html' && <Badge tone="brass">Интерактивный урок</Badge>}
       {item.kind === 'deck' && <Badge tone="brass">Урок из слайдов{deckSize(item)}</Badge>}
       {exam && <Badge tone="green">{exam}</Badge>}
@@ -30,21 +30,21 @@ export function ItemMeta({ item, showTags }) {
 }
 
 // onGameFinish — сохранить результат упражнения; gameExtra — что показать под упражнением (результаты)
-export default function LibraryItem({ item, index, showPrivate, actions, onGameFinish, gameExtra, draftKey, gameNotice }) {
+export default function LibraryItem({ item, index, showPrivate, actions, onGameFinish, gameExtra, draftKey, gameNotice, compactGame=false }) {
   // Фото и аудио, которые уже стоят внутри листа с заданиями, отдельным списком не дублируем
   const user = useAuth()?.user;
   const deck = item.kind === 'deck' ? parseDeck(item.html) : null;
-  const used = new Set([...(item.game?.type === 'sheet' ? item.game.blocks : []).flatMap((b) => [b.image, b.audio]), ...(deck?.slides || []).map((x) => x.image)].filter(Boolean));
+  const used = new Set([...(item.game?.type === 'sheet' ? item.game.blocks : []).flatMap((b) => [b.image, b.audio, ...(b.t === 'listening' ? b.options.map(option => option.image) : [])]), ...(deck?.slides || []).map((x) => x.image)].filter(Boolean));
   const files = (item.files || []).filter((f) => !used.has(f.id));
   return (
-    <StudySubjectContext.Provider value={{subject:item.subject}}><article className="lib-card">
-      <div className="row-between" style={{ alignItems: 'flex-start', gap: 12 }}>
+    <StudySubjectContext.Provider value={{subject:item.subject}}><article className={`lib-card${compactGame ? ' listening-public' : ''}`}>
+      {!compactGame&&<div className="row-between" style={{ alignItems: 'flex-start', gap: 12 }}>
         <div style={{ minWidth: 0 }}>
           <h3 className="lib-title">{index !== undefined ? `${index + 1}. ` : ''}{item.title}</h3>
           <div style={{ marginTop: 6 }}><ItemMeta item={item} showTags={showPrivate} /></div>
         </div>
         {actions}
-      </div>
+      </div>}
       {item.body && <MathText as="div" className="instructions" style={{ marginTop: 14 }}>{item.body}</MathText>}
       {gameNotice && <p className="learning-note">{gameNotice}</p>}
       {item.kind === 'game' && item.game && !gameNotice && (

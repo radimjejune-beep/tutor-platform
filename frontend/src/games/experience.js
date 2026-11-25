@@ -4,6 +4,7 @@ import { inlineMistakeText } from './inline-choice.js';
 import { parseGaps, tokenize } from './logic.js';
 
 export function exerciseInstruction(game) {
+  if(game.type==='sheet'&&game.blocks.some(block=>block.t==='listening'))return 'Прослушайте запись и выберите ответ для каждого вопроса. Затем выполните задания ниже.';
   if (game.type === 'quick') return {
     quiz: 'Выберите ответ. Прочитайте обратную связь и переходите дальше в своём темпе.',
     type: 'Вспомните ответ без подсказок и напишите его. Enter — ответить.',
@@ -60,6 +61,7 @@ export function buildMistakePractice(game, result) {
     const manual = new Set(details.filter(d => d.manual).map(d => d.block));
     const selected = game.blocks.flatMap((b, i) => {
       if (!blocks.has(i) || manual.has(i)) return [];
+      if (b.t === 'listening') { const missed=new Set(details.filter(d=>d.block===i&&d.ok===false).map(d=>d.k));return [{...b,questions:b.questions.filter((_,k)=>missed.has(k))}]; }
       if (b.t !== 'inline') return [b];
       const wrongSlots = new Set(details.filter(d => d.block === i && d.ok === false).map(d => d.k));
       return [{ ...b, text: inlineMistakeText(b.text, wrongSlots) }];

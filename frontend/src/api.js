@@ -166,7 +166,7 @@ export const api = {
   me: () => request('GET', '/auth/me'),
   register: (data) => request('POST', '/auth/register', data),
   forgotPassword: (email) => request('POST', '/auth/forgot', { email }),
-  resetPassword: (token, password) => request('POST', '/auth/reset', { token, password }),
+  completePasswordReset: (token, password) => request('POST', '/auth/reset', { token, password }),
   registrationStatus: () => request('GET', '/auth/registration'),
   shop: () => request('GET', '/shop'),
 

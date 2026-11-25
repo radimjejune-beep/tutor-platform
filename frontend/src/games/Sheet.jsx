@@ -1,10 +1,13 @@
+import {ListeningBlock, ListeningEditor} from './Listening';
+import {emptyListening, listeningChoice} from './listening';
+import {useFileUrl, FileImage, FileAudio, AttachButton, ytId} from './SheetMedia';
+export {useFileUrl, FileImage, FileAudio, ytId} from './SheetMedia';
 // games/Sheet.jsx — лист с заданиями: из фото учебника или тетради делается интерактивное задание
 // Блоки: текст, пропуски, выбор ответа, развёрнутый ответ, ответ голосом, фото страницы с полями поверх.
 // К любому блоку можно прикрепить аудио (аудирование), к тексту ещё и картинку.
 import { MathText } from '../components/MathText';
 import { createContext, useContext, useEffect, useId, useRef, useState } from 'react';
 import { api } from '../api';
-import {useActivityMedia} from '../components/ActivityMedia';
 import { Icon, useToast } from '../ui';
 import { parseGaps, alts, writeChecks, parseFix } from './logic';
 import { say } from '../voice';
@@ -18,40 +21,6 @@ export const SheetContext = createContext({ homeworkId: null });
 /* ============================================================
    Файлы листа: загружаются с токеном, поэтому через blob
    ============================================================ */
-export function useFileUrl(id) {
-  const loadFile=useActivityMedia();
-  const [url, setUrl] = useState(null);
-  useEffect(() => {
-    setUrl(null);
-    if (!id) return;
-    let alive = true;
-    let objectUrl = null;
-    loadFile(id).then((b) => {
-      if (!alive) return;
-      objectUrl = URL.createObjectURL(b);
-      setUrl(objectUrl);
-    }).catch(() => {});
-    return () => { alive = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [id,loadFile]);
-  return url;
-}
-
-// Ссылка YouTube → id ролика (для встроенного плеера)
-export function ytId(url) {
-  const m = String(url || '').match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{11})/);
-  return m ? m[1] : null;
-}
-
-export function FileImage({ id, alt = '', ...rest }) {
-  const url = useFileUrl(id);
-  return url ? <img src={url} alt={alt} {...rest} /> : <div className="sheet-img-wait">Загружаем фото…</div>;
-}
-
-export function FileAudio({ id }) {
-  const url = useFileUrl(id);
-  return url ? <audio className="sheet-audio" controls preload="metadata" src={url} /> : <div className="small muted">Загружаем аудио…</div>;
-}
-
 /* ============================================================
    Прохождение
    ============================================================ */
@@ -79,6 +48,7 @@ export function SheetBoard({ game, answers, setAnswers, result }) {
             </div>
           );
         }
+        if (blk.t === 'listening') { const first=n;n+=blk.questions.length;return <ListeningBlock key={i} block={blk} first={first} value={b[i]} onChange={value=>set(i,value)} result={checked?result.details.filter(d=>d.block===i):null}/>; }
         if (blk.t === 'inline') {
           n++;
           return <InlineChoiceBlock key={i} n={n} block={blk} value={b[i]} onChange={v=>set(i,v)} result={checked ? result.details.filter(d=>d.block===i) : null} audio={audio} />;
@@ -268,7 +238,8 @@ export function sheetProgress(game, answers) {
   let done = 0;
   let total = 0;
   game.blocks.forEach((blk, i) => {
-    if (blk.t === 'inline') {
+    if (blk.t === 'listening') { total += blk.questions.length;done += blk.questions.filter((_, k)=>listeningChoice(Array.isArray(b[i])?b[i][k]:undefined,blk.options.length)!==null).length;
+    } else if (blk.t === 'inline') {
       const count = parseInlineChoices(blk.text).choices.length; total += count;
       done += (Array.isArray(b[i]) ? b[i] : []).slice(0,count).filter(v=>v !== undefined && v !== null && v !== '').length;
     } else if (blk.t === 'gaps' || blk.t === 'page') {
@@ -360,8 +331,9 @@ function VoiceAnswer({ value, disabled, onChange }) {
 /* ============================================================
    Конструктор листа
    ============================================================ */
-export const BLOCK_LABEL = { text: 'Текст или инструкция', inline: 'Выбор в предложении', gaps: 'Пропуски', choice: 'Выбор ответа', write: 'Письмо с чек-листом', fix: 'Исправь ошибки', rewrite: 'Перепиши предложение', dictation: 'Диктант', open: 'Развёрнутый ответ', voice: 'Ответ голосом', page: 'Фото с полями' };
+export const BLOCK_LABEL = { listening: 'Аудирование: запись и варианты', text: 'Текст или инструкция', inline: 'Выбор в предложении', gaps: 'Пропуски', choice: 'Выбор ответа', write: 'Письмо с чек-листом', fix: 'Исправь ошибки', rewrite: 'Перепиши предложение', dictation: 'Диктант', open: 'Развёрнутый ответ', voice: 'Ответ голосом', page: 'Фото с полями' };
 const NEW_BLOCK = {
+  listening: emptyListening,
   text: () => ({ t: 'text', text: '' }),
   inline: () => ({ t: 'inline', text: 'She [work|*works] every day.\nI [*am|is] a teacher.' }),
   gaps: () => ({ t: 'gaps', text: '' }),
@@ -414,6 +386,7 @@ export function SheetEditor({ game, onChange, itemId }) {
 
   return (
     <div className="sheet-editor">
+      {blocks.some(block=>block.t==='listening')?<details className="sheet-photo-extra"><summary>Дополнительно: фото страницы с полями</summary>
       <div className="sheet-start">
         <label className="btn btn-secondary">
           <Icon name="plus" /> Фото страниц
@@ -421,6 +394,13 @@ export function SheetEditor({ game, onChange, itemId }) {
         </label>
         <span className="small muted">{busy || 'Загрузите фото и нажмите на них там, где ученик должен вписать ответ. Или соберите задания блоками ниже.'}</span>
       </div>
+      </details>:<div className="sheet-start">
+        <label className="btn btn-secondary">
+          <Icon name="plus" /> Фото страниц
+          <input type="file" accept="image/*" multiple hidden onChange={(e) => { addPhotos(e.target.files); e.target.value = ''; }} />
+        </label>
+        <span className="small muted">{busy || 'Загрузите фото и нажмите на них там, где ученик должен вписать ответ. Или соберите задания блоками ниже.'}</span>
+      </div>}
 
       {blocks.map((b, i) => (
         <div key={i} className="sheet-edit-block">
@@ -446,23 +426,6 @@ export function SheetEditor({ game, onChange, itemId }) {
   );
 }
 
-function AttachButton({ accept, label, onFile }) {
-  const [busy, setBusy] = useState(false);
-  const toast = useToast();
-  return (
-    <label className={`btn btn-quiet btn-sm ${busy ? 'disabled' : ''}`}>
-      <Icon name="clip" /> {busy ? 'Загружаем…' : label}
-      <input type="file" accept={accept} hidden disabled={busy} onChange={async (e) => {
-        const f = e.target.files[0];
-        e.target.value = '';
-        if (!f) return;
-        setBusy(true);
-        try { await onFile(f); } catch (err) { toast(err.message, 'error'); } finally { setBusy(false); }
-      }} />
-    </label>
-  );
-}
-
 function MediaRow({ b, onChange, upload, image }) {
   return (
     <div className="sheet-media">
@@ -480,6 +443,7 @@ function MediaRow({ b, onChange, upload, image }) {
 }
 
 function BlockEditor({ b, onChange, upload }) {
+  if (b.t === 'listening') return <ListeningEditor block={b} onChange={onChange} upload={upload}/>;
   if (b.t === 'text') {
     return (
       <>

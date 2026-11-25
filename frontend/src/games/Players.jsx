@@ -5,7 +5,7 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 're
 import { buildMistakePractice, exerciseInstruction, exerciseProgress } from './experience';
 import './experience.css';
 import { createPortal } from 'react-dom';
-import { GAME_TYPES, grade, parseGaps, shuffle, shuffleChanged, tokenize } from './logic';
+import { GAME_TYPES, gameLabel, grade, parseGaps, shuffle, shuffleChanged, tokenize } from './logic';
 import { Icon, readDraft, writeDraft, clearDraft } from '../ui';
 import { SheetBoard, sheetProgress } from './Sheet';
 import { BoardBoard, boardProgress } from './Board';
@@ -37,7 +37,7 @@ export default function GamePlayer({ game, title, onFinish, footer, draftKey, in
   const stable = useMemo(() => game, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setTemplate(null); setRound(0); }, [key]);
   const activeGame = useMemo(() => template && stable.type === 'quick' ? { ...stable, template } : stable, [stable, template]);
-  const label = activeGame.type === 'quick' ? QUICK_TEMPLATES[activeGame.template]?.label : GAME_TYPES[activeGame.type]?.label;
+  const label = activeGame.type === 'quick' ? QUICK_TEMPLATES[activeGame.template]?.label : gameLabel(activeGame);
   useEffect(() => {
     if (!focus || !root.current) return undefined;
     const element = root.current, previous = focusButton.current;

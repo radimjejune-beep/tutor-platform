@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { subjectInfo } from '../../subjects';
 import { useAuth } from '../../auth';
 import { api } from '../../api';
-import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Link, navigate, PassMarks, Bar, useToast } from '../../ui';
+import { ScrollTabs, useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Link, navigate, PassMarks, Bar, useToast } from '../../ui';
 import {
   StudentModal, NewLessonModal, LessonModal, SubscriptionModal,
   PaymentModal, AccountModal, ResetPasswordModal, TopicsModal, ReportModal,
@@ -99,14 +99,14 @@ export default function StudentPage({ id, tab }) {
         </div>
       </div>
 
-      <div className="tabs" role="tablist">
+      <ScrollTabs label="Разделы ученика">
         {TABS.map((t) => (
           <button key={t.key} role="tab" aria-selected={tab === t.key} className={tab === t.key ? 'active' : ''}
             onClick={() => navigate(`/students/${id}/${t.key}`)}>
             {t.key === 'words' ? subjectInfo(s.subject || user.subject).vocabTitle : t.label}
           </button>
         ))}
-      </div>
+      </ScrollTabs>
 
       <StudyArea student={s} tutor>{active=><>
       {tab === 'lessons' && <LessonsTab student={active} onChange={student.reload} />}

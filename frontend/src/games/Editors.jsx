@@ -1,3 +1,4 @@
+import { emptyListening } from './listening.js';
 // games/Editors.jsx — конструктор упражнений
 // Поля хранят «сырой» текст, а наверх отдаётся готовое упражнение — так удобно печатать и вставлять списки
 import { useState } from 'react';
@@ -8,6 +9,7 @@ import { BoardEditor, EMPTY_BOARD, cleanBoard } from './Board';
 import { QuickEditor, QUICK_TEMPLATES, emptyQuick, cleanQuick } from './Quick';
 
 export const EMPTY_GAME = {
+  listen: { type: 'sheet', blocks: [emptyListening(), {t:'inline',text:'Mia [*likes|does not like] being outdoors. Leo is meeting [friends|*his family].'}, {t:'open',q:'Write one thing you remember from the recording.'}] },
   match: { type: 'match', pairs: [{ a: '', b: '' }, { a: '', b: '' }, { a: '', b: '' }] },
   order: { type: 'order', sentences: [] },
   gaps: { type: 'gaps', text: '', mode: 'type', distractors: [] },
@@ -64,6 +66,7 @@ export function GameTypePicker({ onPick }) {
 }
 
 const ILLUSTRATION = {
+  listen: (<><b>♪</b><i>A</i><i>B</i></>),
   match: (<><i>cat</i><b>-</b><i>кот</i></>),
   order: (<><i>to</i><i>I</i><i>go</i></>),
   gaps: (<><i>She</i><u /><i>here</i></>),

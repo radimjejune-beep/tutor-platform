@@ -50,7 +50,7 @@ publicRouter.get('/:token/files/:fileId',asyncHandler(async(req,res)=>{
  const {link,item}=await linked(req),fid=Number(req.params.fileId);
  if(link.source_kind!=='library'||!Number.isSafeInteger(fid)||!item.files.some(f=>f.id===fid))fail(404,'Файл не найден');
  const {rows:[file]}=await query('SELECT * FROM files WHERE id=$1 AND library_item_id=$2',[fid,link.source_id]);if(!file)fail(404,'Файл не найден');
- const inline=/^(image\/(png|jpeg|webp|gif)|audio\/(mpeg|mp4|ogg|wav|webm)|video\/(mp4|webm)|application\/pdf)$/.test(file.mime);
+ const inline=/^(image\/(png|jpeg|webp|gif)|audio\/(mpeg|mp4|ogg|wav|webm|x-m4a)|video\/(mp4|webm)|application\/pdf)$/.test(file.mime);
  res.set({'Content-Type':inline?file.mime:'application/octet-stream','Content-Disposition':`${inline?'inline':'attachment'}; filename*=UTF-8''${encodeURIComponent(file.filename)}`});
  res.send(await storage.read(file));
 }));

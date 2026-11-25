@@ -37,7 +37,7 @@ async function copyItem(client, srcId, buyerId) {
   const { rows: g } = await client.query('SELECT game FROM library_items WHERE id = $1', [rows[0].id]);
   if (g[0].game?.type === 'sheet') {
     const remap = (id) => (id ? map[id] || null : id);
-    const blocks = g[0].game.blocks.map((b) => ({ ...b, ...(b.image !== undefined ? { image: remap(b.image) } : {}), ...(b.audio !== undefined ? { audio: remap(b.audio) } : {}) }))
+    const blocks = g[0].game.blocks.map((b) => ({ ...b, ...(b.t === 'listening' ? {options:b.options.map(option=>({...option,image:remap(option.image)}))} : {}), ...(b.image !== undefined ? { image: remap(b.image) } : {}), ...(b.audio !== undefined ? { audio: remap(b.audio) } : {}) }))
       .filter((b) => b.t !== 'page' || b.image);
     await client.query('UPDATE library_items SET game = $1 WHERE id = $2', [JSON.stringify({ ...g[0].game, blocks }), rows[0].id]);
   }

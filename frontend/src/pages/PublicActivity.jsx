@@ -12,7 +12,7 @@ export default function PublicActivity({token,embed=false}) {
  return <div className={`activity-page ${embed?'embedded':''}`}>
   <header className="activity-header"><span className="serif">Lessonfold</span><button type="button" className="btn btn-secondary btn-sm" onClick={toggle}>{full?'Свернуть':'На весь экран'}</button></header>
   <main className="activity-content">{data.loading?<Spinner/>:data.error?<ErrorBox error={data.error} onRetry={data.reload}/>:<ActivityMediaContext.Provider value={media}>
-   <LibraryItem item={data.data}/><p className="small muted activity-footnote">Тренировка по ссылке. Результат показывается здесь и не записывается в историю ученика.</p>
+   <LibraryItem item={data.data} compactGame={data.data.game?.type==='sheet'&&data.data.game.blocks.some(block=>block.t==='listening')}/><p className="small muted activity-footnote">Тренировка по ссылке. Результат показывается здесь и не записывается в историю ученика.</p>
   </ActivityMediaContext.Provider>}</main>
  </div>;
 }

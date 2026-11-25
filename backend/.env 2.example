@@ -1,0 +1,34 @@
+# Шаблон: значения задаются в панели RelaxDev. Реальные секреты не коммитить.
+DATABASE_URL=
+DB_SSL=true
+JWT_SECRET=
+FRONTEND_ORIGINS=https://lessonfold.ru,https://www.lessonfold.ru
+APP_TIMEZONE=Europe/Moscow
+PLATFORM_OWNER_NAME=Кочка Радим Сергеевич
+# ИНН самозанятого — 12 цифр. СНИЛС не подходит.
+PLATFORM_OWNER_INN=
+PLATFORM_EMAIL=support@lessonfold.ru
+PLATFORM_SITE=https://lessonfold.ru
+# LF_DATABASE_URL не задавать при общей базе: используется DATABASE_URL.
+LF_DB_SCHEMA=lessonfold
+LF_PUBLIC_URL=https://api.lessonfold.ru
+LF_PLATFORM_URL=https://lessonfold.ru
+LF_YOOKASSA_SHOP_ID=
+LF_YOOKASSA_SECRET_KEY=
+LF_YOOKASSA_RECEIPT=0
+# Включать после подключения автоплатежей в ЮKassa и проверки полного цикла.
+LF_RECURRING_ENABLED=0
+# Стабильный отдельный ключ от 32 символов. Не менять без отключения автопродлений.
+LF_BILLING_KEY=
+LF_SMTP_HOST=sm42.hosting.reg.ru
+LF_SMTP_PORT=465
+LF_SMTP_SECURE=1
+LF_SMTP_USER=materials@lessonfold.ru
+LF_SMTP_PASS=
+LF_MAIL_FROM=materials@lessonfold.ru
+SMTP_HOST=sm42.hosting.reg.ru
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=noreply@lessonfold.ru
+SMTP_PASS=
+MAIL_FROM=noreply@lessonfold.ru

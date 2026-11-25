@@ -1,3 +1,4 @@
+import { gradeListening } from './listening.js';
 import { gradeInlineChoices, parseInlineChoices } from './inline-choice.js';
 // games/logic.js — общая логика упражнений (зеркало backend/src/services/games.js)
 
@@ -13,6 +14,7 @@ export const GAME_TYPES = {
 
 // Готовые листы для конкретной отработки: в конструкторе это тоже «Лист с заданиями»
 export const SHEET_PRESETS = {
+  listen: { label: 'Аудирование', hint: 'Ваша запись, картинки или текстовые варианты и несколько вопросов с автопроверкой' },
   inline: { label: 'Выбор в предложении', hint: 'Work или works? Несколько мест выбора прямо в тексте, с проверкой и повторением ошибок' },
   write: { label: 'Письмо с чек-листом', hint: 'План, текст и самопроверка: объём и ключевые слова проверяются автоматически, содержание — преподавателем' },
   fix: { label: 'Найди и исправь ошибки', hint: 'Текст с ошибками: ученик нажимает на неверное слово и исправляет' },
@@ -192,6 +194,8 @@ export function gradeSheet(game, answers = {}) {
         if (!opts.length) return details.push({ block: i, k, ok: null, manual: true });
         details.push({ block: i, k, ok: opts.some((o) => normalize(o) === normalize(g)), given: g || null, expected: opts.join(' / ') });
       });
+    } else if (b.t === 'listening') {
+      gradeListening(b, a).forEach(detail => details.push({ block: i, ...detail }));
     } else if (b.t === 'choice') {
       const j = a === undefined || a === null || a === '' ? null : Number(a);
       details.push({ block: i, ok: j === b.correct, given: j === null ? null : b.options[j], expected: b.options[b.correct] });
@@ -284,7 +288,7 @@ export const boardSize = (game) => game.elements.filter((e) => ['input', 'select
 
 // Сколько всего ответов ждёт лист (для прогресса и подписи)
 export function sheetSize(game) {
-  return game.blocks.reduce((n, b) => n + (b.t === 'inline' ? parseInlineChoices(b.text).choices.length : b.t === 'gaps' ? parseGaps(b.text).gaps.length : b.t === 'page' ? b.fields.length : b.t === 'fix' ? parseFix(b.text).filter((x) => x.right).length : ['choice', 'open', 'voice', 'write', 'rewrite', 'dictation'].includes(b.t) ? 1 : 0), 0);
+  return game.blocks.reduce((n, b) => n + (b.t === 'listening' ? b.questions.length : b.t === 'inline' ? parseInlineChoices(b.text).choices.length : b.t === 'gaps' ? parseGaps(b.text).gaps.length : b.t === 'page' ? b.fields.length : b.t === 'fix' ? parseFix(b.text).filter((x) => x.right).length : ['choice', 'open', 'voice', 'write', 'rewrite', 'dictation'].includes(b.t) ? 1 : 0), 0);
 }
 
 // Сколько заданий в упражнении (для подписи в списке)
@@ -299,3 +303,5 @@ export function gameSize(game) {
   if (game.type === 'quick') return game.items.length;
   return 0;
 }
+
+export const gameLabel = game => game?.type === 'sheet' && game.blocks.some(block=>block.t==='listening') ? 'Аудирование' : GAME_TYPES[game?.type]?.label;

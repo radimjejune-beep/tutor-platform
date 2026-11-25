@@ -12,3 +12,6 @@
 .trail-settings{display:grid;gap:14px;max-width:680px;margin-top:18px}.trail-grant{border-top:1px solid var(--line);padding-top:20px;margin-top:8px}.trail-settings .row{align-items:flex-start;gap:10px}.trail-settings .row input{flex-shrink:0;margin-top:4px}.trail-dragon-motion{animation:trail-dragon-bob 4s ease-in-out infinite;transform-box:fill-box;transform-origin:center}.topic-proof{margin-top:8px;font-size:12px;line-height:1.7}.topic-proof a{color:var(--green);text-decoration:underline;text-underline-offset:3px}
 @keyframes trail-dragon-bob{50%{transform:translateY(-3px) rotate(1deg)}}
 @media(prefers-reduced-motion:reduce){.trail-dragon-motion{animation:none}}
+
+.study-direction{align-items:center;padding:12px 16px;gap:12px;margin-bottom:20px}.study-direction-help{flex:1;min-width:180px;font-size:12px;color:var(--muted)}.study-direction-help summary{cursor:pointer;padding:8px 0}.study-direction-help p{margin:8px 0 0;max-width:580px;min-width:0}.study-direction-help[open]{flex-basis:100%}
+@media(max-width:600px){.study-direction{padding:12px;gap:8px}.study-direction-help{min-width:0}.study-direction-help summary{padding:5px 0}.study-direction>.btn{width:auto;margin-left:auto}}

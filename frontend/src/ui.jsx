@@ -1,6 +1,6 @@
 import {prepareWorkspaceScroll,setWorkspaceUser} from './workspace-state';
 // ui.jsx — общие компоненты: роутер, иконки, модальные окна, уведомления, загрузка данных
-import { Children, cloneElement, isValidElement, useId, createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { Children, cloneElement, isValidElement, useId, createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 /* ============================================================
    Простой роутер на #хэше: #/students/5 → ['students', '5']
@@ -45,6 +45,46 @@ export function Link({ to, className, children, ...rest }) {
       {children}
     </a>
   );
+}
+
+// Keep the selected tab visible without moving the page vertically.
+export function ScrollTabs({ children, label }) {
+  const ref = useRef(null);
+  const tabs = Children.toArray(children).filter(isValidElement);
+  const selected = tabs.findIndex(child => child.props['aria-selected'] === true);
+  useLayoutEffect(() => {
+    const rail = ref.current;
+    if (!rail) return;
+    let stopped = false;
+    const reveal = () => {
+      if (stopped) return;
+      const active = rail.querySelector('[aria-selected="true"]');
+      if (!active) return;
+      const box = rail.getBoundingClientRect(), item = active.getBoundingClientRect();
+      if (item.left < box.left + 8) rail.scrollLeft -= box.left + 8 - item.left;
+      else if (item.right > box.right - 8) rail.scrollLeft += item.right - box.right + 8;
+    };
+    reveal();
+    document.fonts?.ready.then(reveal);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(reveal);
+    observer?.observe(rail);
+    if (!observer) window.addEventListener('resize', reveal);
+    return () => { stopped = true; observer?.disconnect(); window.removeEventListener('resize', reveal); };
+  }, [selected, tabs.length]);
+  const keydown = event => {
+    if (event.altKey || event.ctrlKey || event.metaKey || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    const items = [...ref.current.querySelectorAll('[role="tab"]:not(:disabled)')];
+    const index = items.indexOf(document.activeElement);
+    if (index < 0 || !items.length) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + items.length) % items.length;
+    items[next].focus({ preventScroll: true });
+    items[next].click();
+  };
+  return <div ref={ref} className="tabs" role="tablist" aria-label={label} onKeyDown={keydown}>
+    {tabs.map((child, index) => cloneElement(child, { tabIndex: index === (selected < 0 ? 0 : selected) ? 0 : -1 }))}
+  </div>;
 }
 
 /* ============================================================
@@ -170,7 +210,7 @@ export function useSubmit(fn) {
 /* ============================================================
    Мелкие компоненты
    ============================================================ */
-export const Spinner = () => <div className="spinner" aria-label="Загрузка" />;
+export const Spinner = () => <div className="spinner" role="status" aria-label="Загрузка" />;
 
 export function Empty({ title, children, action }) {
   return (
