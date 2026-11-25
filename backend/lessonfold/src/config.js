@@ -43,7 +43,7 @@ const config = {
   botUsername: E('BOT_USERNAME') || '',
   pollTimeout: Number(E('POLL_TIMEOUT') || 50),
 
-  // Оплата на сайте через ЮKassa (API v3). Пусто = кнопка «Купить» на сайте ведёт в бот, если он есть.
+  // Оплата на сайте через ЮKassa (API v3). Без реквизитов оформление покупки недоступно; в бот покупателя не перенаправляем.
   ykShopId: E('YOOKASSA_SHOP_ID') || '',
   ykSecret: E('YOOKASSA_SECRET_KEY') || '',
   ykApi: (E('YOOKASSA_API') || 'https://api.yookassa.ru/v3').replace(/\/$/, ''),

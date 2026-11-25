@@ -120,29 +120,10 @@ async function create({ sku, email, news, ip }) {
   return { order, confirmationUrl: payment.confirmation && payment.confirmation.confirmation_url };
 }
 
-// Заказ из Telegram-бота: без почты, файлы выдаёт бот, после оплаты ЮKassa возвращает в бот
-async function createTg({ sku, from, botUsername }) {
-  if (!config.payEnabled) throw Object.assign(new Error('Оплата пока не подключена'), { status: 503 });
-  if (!(await sellerReady())) throw Object.assign(new Error(SELLER_MISSING), { status: 503 });
-  const p = catalog.product(sku);
-  if (!p || !catalog.purchasable(p)) throw Object.assign(new Error('Этот урок сейчас нельзя купить'), { status: 409 });
-  const recent = await db.q(`SELECT count(*)::int AS n FROM orders WHERE tg_user_id = $1 AND created_at > now() - interval '1 hour'`, [from.id]);
-  if (recent.rows[0].n >= 10) throw Object.assign(new Error('Слишком много попыток оплаты подряд. Попробуйте через час.'), { status: 429 });
-  const order = {
-    id: crypto.randomUUID(), token: crypto.randomBytes(24).toString('base64url'),
-    sku, title: productTitle(p), amount_rub: Number(p.price),
-    tg_user_id: from.id, tg_name: from.username ? '@' + from.username : (from.first_name || '').slice(0, 64) || null
-  };
-  await db.q(`INSERT INTO orders (id, token, email, sku, title, amount_rub, ip, tg_user_id, tg_name) VALUES ($1,$2,'',$3,$4,$5,'telegram',$6,$7)`,
-    [order.id, order.token, order.sku, order.title, order.amount_rub, order.tg_user_id, order.tg_name]);
-  const returnUrl = botUsername ? `https://t.me/${botUsername}?start=paid_${order.token}` : orderUrl(order);
-  const payment = await pay.createPayment({
-    orderId: order.id, amountRub: order.amount_rub, email: null,
-    description: `Лицензия на урок Lessonfold: ${order.title}, заказ ${shortId(order)}`,
-    returnUrl
-  });
-  await db.q('UPDATE orders SET yk_payment_id = $2 WHERE id = $1', [order.id, payment.id]);
-  return { order, confirmationUrl: payment.confirmation && payment.confirmation.confirmation_url };
+// Retain the legacy API name so stale callers fail explicitly before any DB/payment operation.
+// Existing Telegram purchases and their returns/refunds remain readable.
+async function createTg() {
+  throw Object.assign(new Error('Покупка оформляется только на сайте Lessonfold'), {status:410});
 }
 
 // Сверить заказ с ЮKassa. Данным из уведомления не доверяем: статус всегда запрашиваем сами.

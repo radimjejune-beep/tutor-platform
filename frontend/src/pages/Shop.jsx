@@ -1,22 +1,15 @@
 // pages/Shop.jsx — витрина готовых интерактивных уроков (отдельно от платформы).
-// Уроки берутся из магазина (бэкенд /api/shop). Покупка идёт на сайте магазина или в Telegram-боте.
+// Уроки берутся из магазина (бэкенд /api/shop). Покупка оформляется на сайте магазина.
 import { useMemo, useState } from 'react';
 import { api } from '../api';
 import { useLoad, Link, Icon } from '../ui';
 import { BRAND } from '../config';
 import { useAuth } from '../auth';
+import { buyLink } from '../shop-links.js';
 
 const rub = (n) => `${Number(n).toLocaleString('ru-RU')} ₽`;
 const where = (p) => (p.course ? `Курс на учебный год · ${p.gradeLabel}` : [p.gradeLabel, p.unit || p.moduleTitle].filter(Boolean).join(' · '));
 
-function buyLink(p, shop) {
-  if (p.free && p.demo) return { href: p.demo, label: 'Открыть бесплатно' };
-  if (p.status === 'soon') return shop.bot || shop.channel ? { href: shop.channel || `https://t.me/${shop.bot}`, label: 'Узнать о выходе', quiet: true } : null;
-  const label = p.status === 'preorder' ? 'Предзаказ' : 'Купить';
-  if (shop.pay) return { href: `${shop.shop_url}/?buy=${encodeURIComponent(p.sku)}`, label };
-  if (shop.bot) return { href: `https://t.me/${shop.bot}?start=p_${encodeURIComponent(p.sku)}`, label: `${label} в Telegram` };
-  return null;
-}
 
 function Price({ p }) {
   if (p.free) return <span className="lp-price">Бесплатно</span>;
@@ -41,6 +34,7 @@ function Card({ p, shop }) {
         {p.meta?.length > 0 && <div className="lp-facts">{p.meta.slice(0, 4).map((m) => <span key={m}>{m}</span>)}</div>}
         <div className="lp-buy">
           {p.status !== 'soon' ? <Price p={p} /> : <span className="lp-badge">Скоро</span>}
+          {!b && !p.free && p.status !== 'soon' && <span className="help">Оплата временно недоступна</span>}
           {b && <a className={`btn ${b.quiet ? 'btn-secondary' : ''} btn-sm`} href={b.href} target="_blank" rel="noopener noreferrer">{b.label}</a>}
         </div>
       </div>

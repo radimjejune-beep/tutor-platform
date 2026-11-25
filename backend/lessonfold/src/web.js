@@ -256,6 +256,24 @@ async function adminApi(req, res, url, hooks) {
   }
   if (route === '/me') return json(res, 200, { login: who, display_name:profile.display_name,role:profile.role,permissions:adminPermissions.permissions(profile.role), bot: config.botUsername, publicUrl: config.publicUrl, mode: config.catalogMode });
 
+  if (route.startsWith('/workspace/')) {
+    const workspace = require('./workspace');
+    try {
+      if (route === '/workspace/members' && method === 'GET') return json(res,200,{members:await workspace.members()});
+      if (route === '/workspace/tasks' && method === 'GET') return json(res,200,await workspace.list(url.searchParams,profile));
+      if (route === '/workspace/tasks' && method === 'POST') return json(res,201,await workspace.save(null,await readJson(req),profile));
+      const taskRoute=route.match(/^\/workspace\/tasks\/([^/]+)(\/comments)?$/);
+      if(taskRoute && !taskRoute[2] && method==='GET')return json(res,200,await workspace.get(taskRoute[1],profile));
+      if(taskRoute && !taskRoute[2] && method==='PATCH')return json(res,200,await workspace.save(taskRoute[1],await readJson(req),profile));
+      if(taskRoute && taskRoute[2] && method==='POST')return json(res,201,await workspace.comment(taskRoute[1],await readJson(req),profile));
+      return json(res,404,{error:'Нет такого действия'});
+    } catch(e) {
+      if(e.status)return json(res,e.status,{error:e.message});
+      console.error('team workspace:',e.code||e.name);
+      return json(res,500,{error:'Не удалось сохранить или загрузить задачу. Попробуйте ещё раз.'});
+    }
+  }
+
   if (route === '/catalog' && method === 'GET') {
     if(config.catalogMode==='db')await catalog.loadFromDb();
     const raw = catalog.getRaw();

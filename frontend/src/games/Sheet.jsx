@@ -1,5 +1,5 @@
-import {ListeningBlock, ListeningEditor} from './Listening';
-import {emptyListening, listeningChoice} from './listening';
+import {ListeningBlock, ListeningEditor} from './Listening.jsx';
+import {emptyListening, listeningChoice} from './listening.js';
 import {useFileUrl, FileImage, FileAudio, AttachButton, ytId} from './SheetMedia';
 export {useFileUrl, FileImage, FileAudio, ytId} from './SheetMedia';
 // games/Sheet.jsx — лист с заданиями: из фото учебника или тетради делается интерактивное задание
@@ -11,7 +11,7 @@ import { api } from '../api';
 import { Icon, useToast } from '../ui';
 import { parseGaps, alts, writeChecks, parseFix } from './logic';
 import { say } from '../voice';
-import WritingStudio from './Writing';
+import WritingStudio from './Writing.jsx';
 import { InlineChoiceBlock, InlineChoiceEditor } from './InlineChoice';
 import { parseInlineChoices } from './inline-choice';
 

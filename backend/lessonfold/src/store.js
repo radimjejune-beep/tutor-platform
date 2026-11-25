@@ -36,6 +36,7 @@ async function migrate() {
       at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
   `);
+  await require('./workspace').ensure();
 }
 
 // ---------- файлы ----------

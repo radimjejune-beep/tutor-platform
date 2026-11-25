@@ -121,14 +121,14 @@ export default function AdminPage() {
       <section className="panel" style={{ marginBottom: 24 }}>
         <div className="row-between wrap">
           <div style={{ minWidth: 0 }}>
-            <h2 className="section-title">Магазин уроков</h2>
+            <h2 className="section-title">Рабочее пространство Lessonfold</h2>
             <div className="small muted" style={{ marginTop: 6 }}>
-              Уроки, курсы, цены, картинки и тексты на главной странице. Всё, что опубликуете там, сразу появится на витрине. Входят все сисадмины, отдельный пароль не нужен.
+              Задачи команды, материалы, продажи и подписки. Для сисадминистраторов вход без отдельного пароля; сотрудников и их права можно настроить внутри.
             </div>
           </div>
-          <div className="row" style={{ gap: 8 }}>
+          <div className="row" style={{ gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
             <a className="btn btn-secondary" href="#/shop">Посмотреть витрину</a>
-            <button className="btn" onClick={openShopAdmin} disabled={opening}><Icon name="grid" /> Открыть админку магазина</button>
+            <button className="btn" onClick={openShopAdmin} disabled={opening}><Icon name="grid" /> Открыть рабочее пространство</button>
           </div>
         </div>
       </section>

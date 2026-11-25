@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { MathText } from '../components/MathText';
 import { writeChecks } from './logic';
-import { insertWritingStarter, writingMetrics, WRITING_REVIEW } from './writing';
+import { insertWritingStarter, writingMetrics, WRITING_REVIEW } from './writing.js';
 import './writing.css';
 
 export default function WritingStudio({ n, blk, value, onChange, checked, audio, notes = {}, onNotesChange }) {
