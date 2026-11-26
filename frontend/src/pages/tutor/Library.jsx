@@ -511,7 +511,7 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
 export function TaskPicker({ selected, onClose, onPick }) {
   const [f, setF] = useFilters('task,game,html');
   const facets = useLoad(() => api.libraryFacets(), []);
-  const list = useLoad(() => loadList(f), [f.subject, f.exam, f.exam_task, f.tag, query, f.fav, f.folder]);
+  const list = useLoad(() => loadList(f), [f.subject, f.exam, f.exam_task, f.tag, f.q, f.fav, f.folder]);
   const folders = useLoad(() => api.folders().then((r) => (Array.isArray(r?.folders) ? r.folders : [])).catch(() => []), []);
   const [chosen, setChosen] = useState(new Set(selected));
 
@@ -531,8 +531,9 @@ export function TaskPicker({ selected, onClose, onPick }) {
       {facets.data && <Filters f={f} setF={setF} facets={facets.data} />}
       <div style={{ maxHeight: '50vh', overflowY: 'auto', marginTop: 8 }}>
         {list.loading && <Spinner />}
-        {list.data && !list.data.length && <Empty title="Ничего не нашлось" action={<Link to="/library/new?kind=task" className="btn btn-secondary btn-sm">Добавить задачу</Link>} />}
-        {(list.data || []).map((i) => (
+        {list.error && <ErrorBox error={list.error} onRetry={list.reload} />}
+        {!list.loading && list.data && !list.data.length && <Empty title="Ничего не нашлось" action={<Link to="/library/new?kind=task" className="btn btn-secondary btn-sm">Добавить задачу</Link>} />}
+        {(list.loading ? [] : list.data || []).map((i) => (
           <label key={i.id} className={`pick-row ${chosen.has(i.id) ? 'on' : ''}`}>
             <input type="checkbox" checked={chosen.has(i.id)} onChange={() => toggle(i.id)} />
             <span className="list-main">
@@ -557,6 +558,7 @@ export function TaskPicker({ selected, onClose, onPick }) {
 // Список выбранных задач с возможностью убрать и поменять порядок
 export function PickedTasks({ ids, onChange, onAdd, emptyText = 'Задачи не добавлены' }) {
   const items = useLoad(() => api.libraryBatch(ids), [ids.join(',')]);
+  const byId = new Map((items.data || []).map(item => [item.id, item]));
   const move = (i, d) => {
     const n = [...ids];
     const j = i + d;
@@ -567,7 +569,8 @@ export function PickedTasks({ ids, onChange, onAdd, emptyText = 'Задачи н
   return (
     <div>
       {!ids.length && <div className="small muted">{emptyText}</div>}
-      {(items.data || []).map((it, i) => (
+      {items.error && <ErrorBox error={items.error} onRetry={items.reload} />}
+      {ids.map(id => byId.get(id)).filter(Boolean).map((it, i) => (
         <div key={it.id} className="list-item" style={{ padding: '10px 2px' }}>
           <div className="list-main">
             <div className="list-title truncate">{i + 1}. {it.title}</div>

@@ -1111,7 +1111,8 @@ kbd { font-family: var(--sans); font-size: 11px; color: var(--muted); border: 1p
    v9: избранные задачи, быстрые кнопки, итоги родителям
    ============================================================ */
 .fav-filter { background: var(--surface); color: var(--ink-2); border: 1px solid var(--line-strong); }
-.fav-filter.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.fav-filter:hover { background: var(--surface-2); color: var(--ink); }
+.fav-filter.on, .fav-filter.on:hover { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .fav-star { border: 0; background: none; padding: 6px; margin: -6px 0; color: var(--line-strong); cursor: pointer; flex: none; display: inline-flex; border-radius: 50%; }
 .fav-star:hover { color: var(--ink-2); }
 .fav-star.on { color: var(--brass); }

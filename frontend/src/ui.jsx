@@ -246,7 +246,7 @@ export function ErrorBox({ error, onRetry }) {
   if (!error) return null;
   return (
     <div className="panel" role="alert">
-      <Empty title="Не получилось загрузить" action={onRetry && <button className="btn btn-secondary" onClick={onRetry}>Обновить</button>}>
+      <Empty title="Не получилось загрузить" action={onRetry && <button type="button" className="btn btn-secondary" onClick={onRetry}>Обновить</button>}>
         {typeof error === 'string' ? error : error.message || 'Попробуйте ещё раз'}
       </Empty>
     </div>
