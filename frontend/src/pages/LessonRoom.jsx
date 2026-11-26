@@ -12,6 +12,7 @@ import LiveLesson from '../components/LiveLesson';
 import { TaskPicker } from './tutor/Library';
 import { ResultLine, byItem } from '../components/GameResults';
 import { relativeDay, dayMonth, time, givenName } from '../format';
+import LessonNotesModal from '../components/LessonNotes.jsx';
 import FinishLessonModal, { unitLabel } from '../components/FinishLesson';
 import { WarmupBanner } from '../components/Motivation';
 
@@ -39,6 +40,7 @@ export default function LessonRoom({ id }) {
   const [picking, setPicking] = useState(false);
   const [boardOpen, setBoardOpen] = useState(true);
   const [finishing, setFinishing] = useState(false);
+  const [editingNotes,setEditingNotes]=useState(false);
   const [activeItem, setActiveItem] = useState(null);
 
   // Задачи (у ученика) и результаты упражнений (у преподавателя) обновляются каждые 15 секунд
@@ -116,6 +118,7 @@ export default function LessonRoom({ id }) {
               }}><Icon name="layers" /> Материалы юнита</button>
             )}
             {!l.unit && <Link to={`/students/${l.student_id}/course`} className="btn btn-secondary btn-sm">Выбрать курс</Link>}
+            <button type="button" className="btn btn-secondary btn-sm" onClick={()=>setEditingNotes(true)}>{l.status==='scheduled'?'План и заметки':'Редактировать итоги'}</button>
             {l.status === 'scheduled' && <button className="btn btn-sm" onClick={() => setFinishing(true)}><Icon name="check" /> Завершить урок</button>}
           </div>
         </section>
@@ -171,6 +174,7 @@ export default function LessonRoom({ id }) {
         )}
       </section>
 
+      {editingNotes&&<LessonNotesModal lesson={l} onClose={()=>setEditingNotes(false)} onSaved={()=>{setEditingNotes(false);room.reload();}}/>}
       {finishing && (
         <FinishLessonModal lesson={l} unit={l.unit} onClose={() => setFinishing(false)}
           onDone={() => { setFinishing(false); room.reload(); }} />

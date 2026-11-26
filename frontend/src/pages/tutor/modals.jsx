@@ -175,7 +175,7 @@ export function LessonModal({ lesson, onClose, onSaved }) {
   const tgOn = tgStatus.data?.enabled;
 
   const { busy, error, submit } = useSubmit(async () => {
-    const saved = await api.updateLesson(lesson.id, {
+    const payload = {
       subject: f.subject||undefined,
       status: f.status,
       starts_at: fromLocalInput(f.starts_at),
@@ -185,13 +185,17 @@ export function LessonModal({ lesson, onClose, onSaved }) {
       summary: orNull(f.summary),
       private_notes: orNull(f.private_notes),
       call_link: orNull(f.call_link),
-    });
+    };
+    const administrativeChange=f.status!==lesson.status||f.starts_at!==toLocalInput(lesson.starts_at)||Number(f.duration_min)!==Number(lesson.duration_min)||Number(f.price)!==Number(lesson.price)||(f.subject||'')!==(lesson.subject||'')||(orNull(f.call_link)||null)!==(lesson.call_link||null);
+    const saved=await (administrativeChange?api.updateLesson(lesson.id,payload):api.updateLessonNotes(lesson.id,{topic:payload.topic,summary:payload.summary,private_notes:payload.private_notes}));
     let msg = saved.charged && !lesson.charged ? 'Сохранено, занятие списано' : 'Сохранено';
     // Итоги — родителям в Telegram
     if (tgOn && f.notify && (orNull(f.summary) || orNull(f.topic)) && f.status === 'done') {
       try {
         const r = await api.sendLessonSummary(lesson.id);
-        msg += r.sent.length ? `. Итоги отправлены: ${r.sent.join(', ')}` : '. Никто из родителей не подключил Telegram';
+        if(r.sent.length)msg += `. Итоги отправлены: ${r.sent.join(', ')}`;
+        if(r.failed?.length)msg += `. Не доставлено: ${r.failed.join(', ')}. Итоги сохранены на сайте`;
+        if(!r.sent.length&&!r.failed?.length)msg += '. Нет получателей с подключённым Telegram и подтверждённым доступом';
       } catch (err) {
         msg += `. Итоги не отправлены: ${err.message}`;
       }

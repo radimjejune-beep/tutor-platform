@@ -56,13 +56,13 @@ async function educationAllowed(userOrId){
  if(!user)return false;
  return (await require('./guardians').status({...user,tid:user.role==='tutor'?user.id:user.tutor_id})).can_use;
 }
-async function consentWaiting(chatId){await say(chatId,{text:'Для учебных данных необходимо подтверждение документов родителем в отдельном родительском аккаунте. Откройте кабинет; преподаватель поможет с привязкой. До подтверждения учебные данные в боте закрыты.',buttons:rows(btn('Открыть кабинет',cabinetUrl('/')))});}
+async function consentWaiting(chatId){await say(chatId,{text:'Для учебных данных необходимо подтверждение документов родителем в отдельном родительском аккаунте. Откройте кабинет; преподаватель поможет с привязкой. До подтверждения учебные данные в боте закрыты.',buttons:buttonRows(btn('Открыть кабинет',cabinetUrl('/')))});}
 async function showMenu(chatId,user){
  await call('setMyCommands',{commands:roleCommands(user),scope:{type:'chat',chat_id:chatId}}).catch(()=>{});
  await say(chatId,helpText(user),{keyboard:roleKeyboard(user)});
 }
 async function onboarding(chatId){
- await say(chatId,{text:'<b>Lessonfold</b>\nПреподавателю — уроки и проверка, ученику — домашка и слова, родителю — расписание и результаты.\n\nДля учебных данных войдите на сайт и нажмите «Подключить Telegram» в кабинете. Покупать материалы можно без привязки учебного аккаунта.',buttons:rows(btn('Открыть кабинет',cabinetUrl('/login')),SHARED&&{text:'Магазин материалов',callback_data:'cat'})});
+ await say(chatId,{text:'<b>Lessonfold</b>\nПреподавателю — уроки и проверка, ученику — домашка и слова, родителю — расписание и результаты.\n\nДля учебных данных войдите на сайт и нажмите «Подключить Telegram» в кабинете. Покупать материалы можно без привязки учебного аккаунта.',buttons:buttonRows(btn('Открыть кабинет',cabinetUrl('/login')),SHARED&&{text:'Магазин материалов',callback_data:'cat'})});
 }
 
 // ------------------------------------------------------------
@@ -157,7 +157,7 @@ const SHOP_TEXTS = new Set(['Мои покупки','Магазин матери
 const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const btn = (text, url) => (url && /^https:\/\//.test(url) ? { text, url } : null);
 // Ряды кнопок: пустые убираем
-const rows = (...list) => list.map((r) => (Array.isArray(r) ? r : [r]).filter(Boolean)).filter((r) => r.length);
+const buttonRows = (...list) => list.map((r) => (Array.isArray(r) ? r : [r]).filter(Boolean)).filter((r) => r.length);
 
 // Отправить ответ: строка или { text, buttons }. opts.keyboard — кнопки внизу экрана (вместо кнопок под сообщением)
 async function say(chatId, reply, opts = {}) {
@@ -192,7 +192,7 @@ async function linkByCode(chatId, msg, code) {
 }
 
 async function cmdCabinet() {
-  return { text: '<b>Личный кабинет</b>\nРасписание, задания, слова и прогресс.', buttons: rows(btn('Открыть кабинет', cabinetUrl('/'))) };
+  return { text: '<b>Личный кабинет</b>\nРасписание, задания, слова и прогресс.', buttons: buttonRows(btn('Открыть кабинет', cabinetUrl('/'))) };
 }
 
 // ------------------------------------------------------------
@@ -236,7 +236,7 @@ function helpText(user) {
   }
   return {
     text: (user.role==='parent'?'<b>Меню родителя</b>\nКнопка «Мои дети» позволяет открыть данные нужного ребёнка.\n\n':'')+'<b>Что я умею</b>\n· присылаю итоги уроков и новые задания\n· напоминаю об уроке за час и о сроке домашки\n\nКнопки внизу: расписание, домашка, слова.\n/stop отключить уведомления',
-    buttons: rows(btn('Открыть кабинет', cabinetUrl('/'))),
+    buttons: buttonRows(btn('Открыть кабинет', cabinetUrl('/'))),
   };
 }
 
@@ -251,7 +251,7 @@ async function cmdLessons(user) {
       ORDER BY l.starts_at LIMIT 5`,
     [kids.map((k) => k.id)]
   );
-  if (!list.length) return { text: '<b>Ближайших уроков нет</b>\nКак только преподаватель поставит урок, он появится здесь.', buttons: rows(btn('Расписание', cabinetUrl('/schedule'))) };
+  if (!list.length) return { text: '<b>Ближайших уроков нет</b>\nКак только преподаватель поставит урок, он появится здесь.', buttons: buttonRows(btn('Расписание', cabinetUrl('/schedule'))) };
   const many = kids.length > 1;
   const lines = ['<b>Ближайшие уроки</b>', ''];
   for (const l of list) {
@@ -261,7 +261,7 @@ async function cmdLessons(user) {
   const next = list[0];
   // ссылка на звонок, если ближайший урок сегодня
   const soon = new Date(next.starts_at) - Date.now() < 12 * 3600e3;
-  return { text: lines.join('\n'), buttons: rows(soon && btn('Подключиться к звонку', next.call_link), btn('Расписание', cabinetUrl('/schedule'))) };
+  return { text: lines.join('\n'), buttons: buttonRows(soon && btn('Подключиться к звонку', next.call_link), btn('Расписание', cabinetUrl('/schedule'))) };
 }
 
 async function cmdHomework(user) {
@@ -275,11 +275,11 @@ async function cmdHomework(user) {
   );
   const {rows:tests}=await query(`SELECT r.id,t.title,t.due_on,s.full_name FROM diagnostic_runs r JOIN diagnostic_tests t ON t.id=r.test_id
    JOIN students s ON s.id=r.student_id WHERE r.student_id=ANY($1::int[]) AND r.submitted_at IS NULL ORDER BY t.due_on NULLS LAST,r.id LIMIT 5`,[kids.map(k=>k.id)]);
-  if(!list.length&&!tests.length)return {text:'<b>Новых заданий и диагностик нет</b> ✓',buttons:rows(btn('Все работы и история',cabinetUrl('/homework')))};
+  if(!list.length&&!tests.length)return {text:'<b>Новых заданий и диагностик нет</b> ✓',buttons:buttonRows(btn('Все работы и история',cabinetUrl('/homework')))};
   const many=kids.length>1,lines=['<b>Домашние работы и диагностики</b>',''];
   for(const h of list)lines.push(`· ${esc(h.title)}${h.due_on?`, до ${fmtDay(h.due_on)}`:''}${many?` · ${esc(h.full_name)}`:''}`);
   for(const h of tests)lines.push(`· Тест: ${esc(h.title)}${h.due_on?`, до ${fmtDay(h.due_on)}`:''}${many?` · ${esc(h.full_name)}`:''}`);
-  return {text:lines.join('\n'),buttons:rows(...list.slice(0,3).map(h=>btn(h.title.slice(0,35),cabinetUrl(`/homework/${h.id}`))),...tests.slice(0,2).map(h=>btn(`Тест: ${h.title}`.slice(0,35),cabinetUrl(`/diagnostics/runs/${h.id}`))),btn('Все работы и история',cabinetUrl('/homework')))};
+  return {text:lines.join('\n'),buttons:buttonRows(...list.slice(0,3).map(h=>btn(h.title.slice(0,35),cabinetUrl(`/homework/${h.id}`))),...tests.slice(0,2).map(h=>btn(`Тест: ${h.title}`.slice(0,35),cabinetUrl(`/diagnostics/runs/${h.id}`))),btn('Все работы и история',cabinetUrl('/homework')))};
 
 }
 
@@ -293,11 +293,11 @@ async function cmdWords(user) {
     [kids.map((k) => k.id)]
   );
   const total = list.reduce((n, r) => n + r.due, 0);
-  if (!total) return { text: '<b>Сегодня повторять нечего</b> ✓\nОтличная работа!', buttons: rows(btn('Словарь', cabinetUrl('/words'))) };
+  if (!total) return { text: '<b>Сегодня повторять нечего</b> ✓\nОтличная работа!', buttons: buttonRows(btn('Словарь', cabinetUrl('/words'))) };
   const lines = list.length > 1
     ? ['<b>Слова на повторение</b>', '', ...list.filter((r) => r.due).map((r) => `· ${esc(r.full_name)}: ${r.due}`)]
     : [`<b>На повторение ${total} ${plural(total, 'слово', 'слова', 'слов')}</b>`, 'Это минут пять.'];
-  return { text: lines.join('\n'), buttons: rows(btn('Повторить слова', cabinetUrl('/words'))) };
+  return { text: lines.join('\n'), buttons: buttonRows(btn('Повторить слова', cabinetUrl('/words'))) };
 }
 
 async function cmdToday(user) {
@@ -309,10 +309,10 @@ async function cmdToday(user) {
       ORDER BY l.starts_at`,
     [user.id, TZ]
   );
-  if (!list.length) return { text: '<b>Сегодня уроков нет</b>', buttons: rows(btn('Расписание', cabinetUrl('/schedule'))) };
+  if (!list.length) return { text: '<b>Сегодня уроков нет</b>', buttons: buttonRows(btn('Расписание', cabinetUrl('/schedule'))) };
   return {
     text: [`<b>Сегодня ${list.length} ${plural(list.length, 'урок', 'урока', 'уроков')}</b>`, '', ...list.map((r) => `<b>${fmtTime(r.starts_at)}</b>  ${esc(r.full_name)}`)].join('\n'),
-    buttons: rows(btn('Расписание', cabinetUrl('/schedule'))),
+    buttons: buttonRows(btn('Расписание', cabinetUrl('/schedule'))),
   };
 }
 
@@ -326,36 +326,36 @@ async function cmdCheck(user) {
       ORDER BY h.submitted_at NULLS LAST, h.id LIMIT 10`,
     [user.id]
   );
-  if (!list.length) return { text: '<b>Проверять нечего</b> ✓\nВсе сданные задания проверены.', buttons: rows(btn('Задания', cabinetUrl('/homework'))) };
+  if (!list.length) return { text: '<b>Проверять нечего</b> ✓\nВсе сданные задания проверены.', buttons: buttonRows(btn('Задания', cabinetUrl('/homework'))) };
   const lines = [`<b>Ждут проверки: ${list.length}${list.length === 10 ? '+' : ''}</b>`, ''];
   for (const h of list) lines.push(`· ${esc(h.full_name)}: ${esc(h.title)}`);
   const first = list.slice(0, 4).map((h) => [btn(`${h.full_name.split(' ')[0]}: ${h.title}`.slice(0, 40), cabinetUrl(`/homework/${h.assignment_id}/review/${h.id}`))]);
-  return { text: lines.join('\n'), buttons: rows(...first, btn('Все задания', cabinetUrl('/homework'))) };
+  return { text: lines.join('\n'), buttons: buttonRows(...first, btn('Все задания', cabinetUrl('/homework'))) };
 }
 
 function safeText(text){
  let out='';for(const line of String(text).split('\n')){if(out.length+line.length+1>3800){out+='\n… Полный список доступен в кабинете.';break;}out+=(out?'\n':'')+line;}return out||'Откройте данные в кабинете.';
 }
-async function cmdGrammar(){return {text:'<b>Вспомнить грамматику</b>\nНайдите тему, прочитайте объяснение и потренируйтесь.',buttons:rows(btn('Найти тему',cabinetUrl('/grammar')))};}
+async function cmdGrammar(){return {text:'<b>Вспомнить грамматику</b>\nНайдите тему, прочитайте объяснение и потренируйтесь.',buttons:buttonRows(btn('Найти тему',cabinetUrl('/grammar')))};}
 async function cmdProgress(user){
- if(user.role==='tutor')return {text:'<b>Прогресс учеников</b>',buttons:rows(btn('Открыть учеников',cabinetUrl('/students')))};
+ if(user.role==='tutor')return {text:'<b>Прогресс учеников</b>',buttons:buttonRows(btn('Открыть учеников',cabinetUrl('/students')))};
  const kids=await studentsOf(user),ids=kids.map(k=>k.id);
  const {rows:list}=await query(`SELECT r.id,t.title,s.full_name,r.result FROM diagnostic_runs r JOIN diagnostic_tests t ON t.id=r.test_id
   JOIN students s ON s.id=r.student_id WHERE r.student_id=ANY($1::int[]) AND r.submitted_at IS NOT NULL ORDER BY r.submitted_at DESC LIMIT 5`,[ids]);
  const lines=['<b>Последние результаты</b>',''];
  for(const r of list)lines.push(`· ${esc(r.full_name)}: ${esc(r.title)} — ${Number(r.result?.score)||0}%`);
  if(!list.length)lines.push('Сданных диагностик пока нет. Пройденные темы и историю работ можно посмотреть в кабинете.');
- return {text:lines.join('\n'),buttons:rows(...list.slice(0,3).map(r=>btn(`${r.full_name}: ${r.title}`.slice(0,40),cabinetUrl(`/diagnostics/runs/${r.id}`))),btn('Прогресс в кабинете',cabinetUrl('/progress')))};
+ return {text:lines.join('\n'),buttons:buttonRows(...list.slice(0,3).map(r=>btn(`${r.full_name}: ${r.title}`.slice(0,40),cabinetUrl(`/diagnostics/runs/${r.id}`))),btn('Прогресс в кабинете',cabinetUrl('/progress')))};
 }
-async function cmdMaterials(user){if(user.role!=='tutor')return helpText(user);return {text:'<b>Материалы для урока</b>',buttons:rows(btn('Моя библиотека',cabinetUrl('/library')),btn('Банк заданий',cabinetUrl('/bank')))};}
+async function cmdMaterials(user){if(user.role!=='tutor')return helpText(user);return {text:'<b>Материалы для урока</b>',buttons:buttonRows(btn('Моя библиотека',cabinetUrl('/library')),btn('Банк заданий',cabinetUrl('/bank')))};}
 async function cmdStudents(user){
  if(user.role!=='tutor')return helpText(user);
  const {rows:list}=await query('SELECT id,full_name FROM students WHERE tutor_id=$1 ORDER BY full_name LIMIT 10',[user.id]);
- return {text:'<b>Мои ученики</b>\nОткройте карточку ученика для домашних работ и прогресса.',buttons:rows(...list.map(s=>btn(s.full_name.slice(0,40),cabinetUrl(`/students/${s.id}/homework`))),btn('Все ученики',cabinetUrl('/students')))};
+ return {text:'<b>Мои ученики</b>\nОткройте карточку ученика для домашних работ и прогресса.',buttons:buttonRows(...list.map(s=>btn(s.full_name.slice(0,40),cabinetUrl(`/students/${s.id}/homework`))),btn('Все ученики',cabinetUrl('/students')))};
 }
 async function cmdChildren(user){
  if(user.role!=='parent')return helpText(user);const list=await studentsOf(user);
- return {text:'<b>Мои дети</b>\nВыберите, чьи данные показать.',buttons:rows(...list.slice(0,20).map(s=>({text:s.full_name.slice(0,40),callback_data:`lf:child:${s.id}`})),btn('Кабинет',cabinetUrl('/')))};
+ return {text:'<b>Мои дети</b>\nВыберите, чьи данные показать.',buttons:buttonRows(...list.slice(0,20).map(s=>({text:s.full_name.slice(0,40),callback_data:`lf:child:${s.id}`})),btn('Кабинет',cabinetUrl('/')))};
 }
 async function handleStudyCallback(cq){
  if(!String(cq.data||'').startsWith('lf:'))return false;
@@ -366,7 +366,7 @@ async function handleStudyCallback(cq){
  if(!await educationAllowed(user)){await consentWaiting(chatId);return true;}
  const [,action,rawId]=cq.data.split(':'),sid=Number(rawId),kids=await studentsOf(user),child=kids.find(s=>s.id===sid);
  if(user.role!=='parent'||!child){await say(chatId,'Данные этого ученика недоступны. Откройте меню заново.');return true;}
- if(action==='child')await say(chatId,{text:`<b>${esc(child.full_name)}</b>\nЧто открыть?`,buttons:rows([{text:'Ближайшие уроки',callback_data:`lf:ls:${sid}`},{text:'Домашка и тесты',callback_data:`lf:hw:${sid}`}],[{text:'Слова',callback_data:`lf:words:${sid}`},{text:'Результаты',callback_data:`lf:progress:${sid}`}])});
+ if(action==='child')await say(chatId,{text:`<b>${esc(child.full_name)}</b>\nЧто открыть?`,buttons:buttonRows([{text:'Ближайшие уроки',callback_data:`lf:ls:${sid}`},{text:'Домашка и тесты',callback_data:`lf:hw:${sid}`}],[{text:'Слова',callback_data:`lf:words:${sid}`},{text:'Результаты',callback_data:`lf:progress:${sid}`}])});
  else if(['ls','hw','words','progress'].includes(action)){const fn={ls:cmdLessons,hw:cmdHomework,words:cmdWords,progress:cmdProgress}[action];const r=await fn({...user,_studentId:sid});const data=typeof r==='string'?{text:r}:r;await say(chatId,{...data,text:`<b>${esc(child.full_name)}</b>\n\n${data.text}`});}
  else await showMenu(chatId,user);
  return true;
@@ -414,7 +414,7 @@ async function forward(userIds, { title, body = null, link = null }) {
   for (const r of list) {
     const text = [`<b>${esc(title)}</b>`, body ? esc(body) : ''].filter(Boolean).join('\n\n');
     try {
-      await say(r.chat_id, { text, buttons: rows(link && btn(linkLabel(link), cabinetUrl(link))) });
+      await say(r.chat_id, { text, buttons: buttonRows(link && btn(linkLabel(link), cabinetUrl(link))) });
       sent++;
     } catch (err) {
       console.error(`⚠️ Telegram: уведомление пользователю #${r.user_id} не доставлено:`, err.message);
@@ -559,7 +559,7 @@ async function sendLessonSummary(lessonId) {
     for (const h of hw) lines.push(`· ${esc(h.title)}${h.due_on ? `, до ${fmtDay(h.due_on)}` : ''}`);
   }
   const text = lines.join('\n').slice(0, 4000);
-  const buttons = rows(hw.length === 1 && btn('Открыть задание', cabinetUrl(`/homework/${hw[0].id}`)), btn(hw.length > 1 ? 'Все задания' : 'Личный кабинет', cabinetUrl(hw.length > 1 ? '/homework' : '/')));
+  const buttons = buttonRows(hw.length === 1 && btn('Открыть задание', cabinetUrl(`/homework/${hw[0].id}`)), btn(hw.length > 1 ? 'Все задания' : 'Личный кабинет', cabinetUrl(hw.length > 1 ? '/homework' : '/')));
 
   const recipients = await lessonRecipients(l.student_id);
   const sent = [];
@@ -587,4 +587,4 @@ async function sendLessonSummary(lessonId) {
   return { sent, not_connected: notConnected, failed };
 }
 
-module.exports = { byPlan, enabled, username, start, createLinkCode, sendLessonSummary, lessonRecipients, handleUpdate, forward, sendMessage, say, btn, rows, esc, cabinetUrl, studentsOf };
+module.exports = { byPlan, enabled, username, start, createLinkCode, sendLessonSummary, lessonRecipients, handleUpdate, forward, sendMessage, say, btn, rows:buttonRows, esc, cabinetUrl, studentsOf };

@@ -233,6 +233,19 @@ const updateSchema = z
   .partial()
   .strict();
 
+// Правка текста не меняет расписание, статус и финансовые списания.
+router.patch('/:id/notes',tutorOnly,requireOwn('lessons','id','Занятие не найдено'),
+  validateBody(updateSchema.pick({topic:true,summary:true,private_notes:true}).refine(v=>Object.keys(v).length>0,'Укажите тему или заметки')),
+  asyncHandler(async(req,res)=>{
+    const id=Number(req.params.id);
+    const lesson=await transaction(async client=>{
+      const {rows:[current]}=await client.query('SELECT * FROM lessons WHERE id=$1 FOR UPDATE',[id]);
+      if(!current)return null;const update=buildUpdate('lessons',id,req.body);
+      if(!update)return current;return (await client.query(update.text,update.values)).rows[0];
+    });
+    if(!lesson)return res.status(404).json({error:'Занятие не найдено'});res.json(lesson);
+  }));
+
 router.patch(
   '/:id',
   tutorOnly,

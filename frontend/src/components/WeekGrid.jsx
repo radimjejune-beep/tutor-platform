@@ -134,7 +134,7 @@ export default function WeekGrid({ from, lessons, onOpen, onCreate, onMove }) {
                     height: Math.max((l.duration_min / 60) * HOUR - 2, 22),
                   }}
                   onPointerDown={onDown(b)}
-                  onKeyDown={(e) => e.key === 'Enter' && onOpen(b)}
+                  onClick={e=>{if(e.detail===0||b.members.every(m=>m.status!=='scheduled'))onOpen(b);}}
                   title={`${b.group ? l.group_name : l.student_name}, ${time(start)}, ${l.subject||''}`}>
                   <span className="wl-time">{time(start)}</span>
                   {l.subject&&<span className="wl-subject" title={l.subject}>{l.subject==='Английский язык'?'EN':l.subject==='Французский язык'?'FR':l.subject.slice(0,2).toUpperCase()}</span>}

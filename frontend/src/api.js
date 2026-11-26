@@ -324,6 +324,7 @@ export const api = {
   // Комната урока
   lessonRoom: (id) => request('GET', `/lessons/${id}/room`),
   setLessonItems: (id, item_ids) => request('PUT', `/lessons/${id}/items`, { item_ids }),
+  updateLessonNotes: (id,data) => request('PATCH', `/lessons/${id}/notes`, data),
   sendLessonSummary: (id) => request('POST', `/lessons/${id}/send-summary`),
   finishLesson: (id, data) => request('POST', `/lessons/${id}/finish`, data),
   extendSchedule: (data) => request('POST', '/lessons/extend', data),

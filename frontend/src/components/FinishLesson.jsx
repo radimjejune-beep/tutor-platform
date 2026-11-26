@@ -54,7 +54,9 @@ export default function FinishLessonModal({ lesson, unit, onClose, onDone }) {
     if (done && tgOn && sendTg && (summary.trim() || topic.trim())) {
       try {
         const t = await api.sendLessonSummary(lesson.id);
-        parts.push(t.sent.length ? `итоги в Telegram: ${t.sent.join(', ')}` : 'родители ещё не подключили Telegram');
+        if(t.sent.length)parts.push(`итоги в Telegram: ${t.sent.join(', ')}`);
+        if(t.failed?.length)parts.push(`не доставлено: ${t.failed.join(', ')}; итоги сохранены на сайте`);
+        if(!t.sent.length&&!t.failed?.length)parts.push('нет получателей с подключённым Telegram и подтверждённым доступом');
       } catch (err) {
         parts.push(`итоги не отправлены: ${err.message}`);
       }
