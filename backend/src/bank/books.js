@@ -3,6 +3,8 @@
 // Тексты и упражнения учебников в банк не копируются: все задания авторские.
 const { MURPHY_BOOKS } = require('./murphy-books');
 const BOOKS = [
+  ...require('./lessonfold-grammar').books,
+  require('./family-practice').book,
   require('./elementary-vocabulary').book,
   ...MURPHY_BOOKS,
   {
@@ -145,6 +147,7 @@ const unitOf = (bookId, code) => bookById(bookId)?.units.find((u) => u.code === 
 function bankSubject(subject) {
   const s = String(subject || 'Английский язык');
   if (/англ/i.test(s)) return 'Английский язык';
+  if (/франц/i.test(s)) return 'Французский язык';
   if (/матем|геометр|алгебр/i.test(s)) return 'Математика';
   return null;
 }

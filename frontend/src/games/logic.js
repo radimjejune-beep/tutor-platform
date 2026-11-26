@@ -232,6 +232,10 @@ function gradeQuick(game, answers = {}) {
   const items = game.items || [];
   if (game.template === 'match') return grade({ type: 'match', pairs: items.map((x) => ({ a: x.q, b: x.a })) }, answers);
   const r = answers.r || {};
+  if(game.template==='wheel'){
+    const details=items.flatMap((x,i)=>{const a=r[i];return a&&typeof a==='object'&&a.done===true?[{ok:null,manual:true,prompt:x.q,given:typeof a.text==='string'?a.text.slice(0,4000):'',expected:null}]:[];});
+    return {correct:0,total:0,score:0,manual:details.length,details};
+  }
   const details = [];
   if (game.template === 'memory') {
     const found = new Set((answers.found || []).map(Number));
@@ -244,12 +248,14 @@ function gradeQuick(game, answers = {}) {
       if (game.template === 'tf') {
         ok = Boolean(g) && typeof g.v === 'boolean' && (Number(g.j) === i) === g.v;
         given = g && typeof g.v === 'boolean' ? (g.v ? 'верно' : 'неверно') : null;
+      } else if(game.template==='truefalse'){
+        ok=typeof g==='boolean'&&g===(x.a==='true');given=typeof g==='boolean'?(g?'верно':'неверно'):null;
       } else if (game.template === 'flip') {
         ok = g === true; given = g === true ? 'знаю' : g === false ? 'не знаю' : null;
       } else {
         ok = given !== null && variants.some((v) => normalize(v) === normalize(String(g)));
       }
-      details.push({ ok, given: given === null ? null : String(given).slice(0, 300), expected: variants.join(' / ') || x.a, prompt: x.q });
+      details.push({ ok, given: given === null ? null : String(given).slice(0, 300), expected: game.template==='truefalse'?(x.a==='true'?'верно':'неверно'):variants.join(' / ') || x.a, prompt: x.q });
     });
   }
   const correct = details.filter((d) => d.ok).length;
@@ -304,4 +310,4 @@ export function gameSize(game) {
   return 0;
 }
 
-export const gameLabel = game => game?.type === 'sheet' && game.blocks.some(block=>block.t==='listening') ? 'Аудирование' : GAME_TYPES[game?.type]?.label;
+export const gameLabel = game => game?.type==='quick'?({quiz:'Викторина',truefalse:'Верно / неверно',wheel:'Колесо вопросов',type:'Введи ответ',tf:'Проверь пару',flip:'Карточки',match:'Соедини пары',memory:'Мемори',anagram:'Анаграмма'}[game.template]||'Быстрые игры'):game?.type === 'sheet' && game.blocks.some(block=>block.t==='listening') ? 'Аудирование' : GAME_TYPES[game?.type]?.label;

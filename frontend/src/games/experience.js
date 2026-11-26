@@ -11,6 +11,8 @@ export function exerciseInstruction(game) {
     match: 'Выберите карточку слева, затем её пару справа. Пару можно изменить до проверки.',
     memory: 'Открывайте по две карточки и находите пары. Запоминайте слова вместе с переводом.',
     anagram: 'Нажимайте буквы по порядку. Последнюю букву можно убрать до ответа.',
+    truefalse: 'Прочитайте утверждение и выберите «Верно» или «Неверно». Затем переходите к следующему.',
+    wheel: 'Крутите колесо, отвечайте вслух и отмечайте обсуждённые вопросы. Можно добавить ответ текстом. Автоматической оценки речи нет.',
     tf: 'Решите, верно ли показана пара. Затем прочитайте ответ и продолжайте.',
     flip: 'Вспомните ответ, откройте карточку и честно оцените, знаете ли его.',
   }[game.template] || 'Выполните упражнение и проверьте себя.';
@@ -28,7 +30,7 @@ export function exerciseProgress(game, answers = {}) {
   let total = 0, done = 0;
   if (game.type === 'quick') {
     total = game.items.length;
-    done = game.template === 'memory' ? new Set(answers.found || []).size : game.template === 'match' ? Object.keys(answers.pairs || {}).length : Object.values(answers.r || {}).filter(v => v !== undefined && v !== null).length;
+    done = game.template === 'wheel'?game.items.filter((_,i)=>answers.r?.[i]?.done===true).length:game.template === 'memory' ? new Set(answers.found || []).size : game.template === 'match' ? Object.keys(answers.pairs || {}).length : Object.values(answers.r || {}).filter(v => v !== undefined && v !== null).length;
   } else if (game.type === 'match') { total = game.pairs.length; done = Object.keys(answers.pairs || {}).length; }
   else if (game.type === 'gaps') { total = parseGaps(game.text).gaps.length; done = (answers.gaps || []).filter(v => String(v || '').trim()).length; }
   else if (game.type === 'order') { total = game.sentences.length; done = game.sentences.filter((s, i) => answers.sentences?.[i]?.length === tokenize(s).length).length; }
@@ -41,6 +43,7 @@ export function buildMistakePractice(game, result) {
   const details = result?.details || [];
   const wrong = new Set(details.flatMap((d, i) => d.ok === false && !d.manual ? [i] : []));
   if (!wrong.size) return null;
+  if(game.type==='quick'&&game.template==='truefalse')return {...game,timer:0,items:game.items.filter((_,i)=>wrong.has(i))};
   if (game.type === 'quick' || game.type === 'match') {
     const items = game.type === 'quick' ? game.items : game.pairs.map(p => ({ q: p.a, a: p.b }));
     // Retrieval without answer choices, including a single missed word. Keep

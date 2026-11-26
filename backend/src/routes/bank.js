@@ -16,6 +16,7 @@ const { vocabOf } = require('../bank/vocab');
 const { folderForUnit } = require('../services/folders');
 
 const router = express.Router();
+const availableSubjects=subject=>{const s=bankSubject(subject);return ['Английский язык','Французский язык'].includes(s)?['Английский язык','Французский язык']:[s];};
 router.use(requireRole('tutor'));
 
 const ITEM_FIELDS = `b.id, b.book, b.unit, b.kind, b.title, b.body, b.game, b.tags, b.uses, b.created_at, b.author_id,
@@ -29,7 +30,7 @@ router.get(
     const count = new Map(rows.map((r) => [`${r.book}/${r.unit}`, r.n]));
     // учебники предмета репетитора; сисадмин может посмотреть все (?all=1)
     const subj = bankSubject(req.user.subject);
-    const list = req.query.all === '1' && req.user.is_admin ? BOOKS : BOOKS.filter((b) => b.subject === subj);
+    const list = req.query.all === '1' && req.user.is_admin ? BOOKS : BOOKS.filter((b) => availableSubjects(req.user.subject).includes(b.subject));
     res.json(list.map((b) => ({ ...b, units: b.units.map((u) => ({ ...u, count: count.get(`${b.id}/${u.code}`) || 0, words: vocabOf(b.id, u.code).length })), total: b.units.reduce((n, u) => n + (count.get(`${b.id}/${u.code}`) || 0), 0) })));
   })
 );
@@ -38,7 +39,7 @@ router.get(
 router.get('/search', asyncHandler(async (req, res) => {
   const parsed = z.object({q:z.string().trim().max(200).default(''),book:z.string().max(40).default(''),kind:z.enum(['','task','theory','game']).default(''),type:z.enum(['','match','order','gaps','groups','quick','sheet','board']).default(''),level:z.enum(['','A1','A2','B1','B2']).default(''),page:z.coerce.number().int().min(1).max(1000).default(1)}).strict().safeParse(req.query);
   if (!parsed.success) return res.status(400).json({error:'Проверьте параметры поиска'});
-  const f=parsed.data,normal=v=>String(v||'').toLowerCase().replace(/ё/g,'е'),books=BOOKS.filter(b=>b.subject===bankSubject(req.user.subject));
+  const f=parsed.data,normal=v=>String(v||'').toLowerCase().replace(/ё/g,'е'),books=BOOKS.filter(b=>availableSubjects(req.user.subject).includes(b.subject));
   const hasLevel=b=>{const order=['A1','A2','B1','B2','C1','C2'],parts=String(b.level||'').match(/[ABC][12]/g)||[],index=order.indexOf(f.level);return parts.length&&index>=order.indexOf(parts[0])&&index<=order.indexOf(parts.at(-1));};
   const allowed=books.filter(b=>(!f.book||b.id===f.book)&&(!f.level||hasLevel(b))).map(b=>b.id);
   if(f.book&&!books.some(b=>b.id===f.book))return res.status(404).json({error:'Сборник не найден'});

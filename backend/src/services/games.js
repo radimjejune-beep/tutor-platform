@@ -117,13 +117,14 @@ const gameUnion = z.discriminatedUnion('type', [
   }).strict(),
   z.object({
     type: z.literal('quick'),
-    template: z.enum(['quiz', 'match', 'memory', 'anagram', 'tf', 'type', 'flip']),
+    template: z.enum(['quiz', 'match', 'memory', 'anagram', 'tf', 'type', 'flip', 'truefalse', 'wheel']),
     items: z.array(z.object({
       q: z.string().trim().min(1, 'В каждой строке нужен вопрос или слово').max(500),
-      a: z.string().trim().min(1, 'В каждой строке нужен ответ').max(300),
+      a: z.string().trim().max(300).default(''),
       wrong: z.array(z.string().trim().min(1).max(300)).max(5).optional(),
     }).strict()).min(1, 'Добавьте хотя бы одну строку').max(60, 'Не больше 60 строк'),
     timer: z.number().int().min(0).max(1800).default(0),
+    context: z.string().trim().max(4000).optional(),
   }).strict(),
   z.object({
     type: z.literal('board'),
@@ -132,7 +133,8 @@ const gameUnion = z.discriminatedUnion('type', [
     elements: z.array(boardEl).max(150, 'Не больше 150 деталей на холсте').refine((els) => new Set(els.map((e) => e.id)).size === els.length, 'Повторяются детали'),
   }).strict(),
 ]);
-const gameSchema = gameUnion.refine((g) => g.type !== 'quick' || !['match', 'memory', 'tf'].includes(g.template) || g.items.length >= 2, { message: 'Для этой игры нужно минимум 2 строки', path: ['items'] });
+const gameSchema = gameUnion.refine((g) => g.type !== 'quick' || !['match', 'memory', 'tf'].includes(g.template) || g.items.length >= 2, { message: 'Для этой игры нужно минимум 2 строки', path: ['items'] })
+ .superRefine((g,ctx)=>{if(g.type!=='quick')return;g.items.forEach((x,i)=>{if(g.template!=='wheel'&&!x.a.trim())ctx.addIssue({code:'custom',path:['items',i,'a'],message:'Укажите ответ'});if(g.template==='truefalse'&&!['true','false'].includes(x.a))ctx.addIssue({code:'custom',path:['items',i,'a'],message:'Выберите «верно» или «неверно»'});});if(g.template==='wheel'&&g.items.length>24)ctx.addIssue({code:'custom',path:['items'],message:'В колесе не больше 24 вопросов'});});
 
 
 /* ---------- письмо, исправление ошибок, диктант (зеркало frontend/src/games/logic.js) ---------- */
@@ -320,6 +322,10 @@ function gradeQuick(game, answers = {}) {
   const items = game.items || [];
   if (game.template === 'match') return grade({ type: 'match', pairs: items.map((x) => ({ a: x.q, b: x.a })) }, answers);
   const r = answers.r || {};
+  if(game.template==='wheel'){
+    const details=items.flatMap((x,i)=>{const a=r[i];return a&&typeof a==='object'&&a.done===true?[{ok:null,manual:true,prompt:x.q,given:typeof a.text==='string'?a.text.slice(0,4000):'',expected:null}]:[];});
+    return {correct:0,total:0,score:0,manual:details.length,details};
+  }
   const details = [];
   if (game.template === 'memory') {
     const found = new Set((answers.found || []).map(Number));
@@ -332,12 +338,14 @@ function gradeQuick(game, answers = {}) {
       if (game.template === 'tf') {
         ok = Boolean(g) && typeof g.v === 'boolean' && (Number(g.j) === i) === g.v;
         given = g && typeof g.v === 'boolean' ? (g.v ? 'верно' : 'неверно') : null;
+      } else if(game.template==='truefalse'){
+        ok=typeof g==='boolean'&&g===(x.a==='true');given=typeof g==='boolean'?(g?'верно':'неверно'):null;
       } else if (game.template === 'flip') {
         ok = g === true; given = g === true ? 'знаю' : g === false ? 'не знаю' : null;
       } else {
         ok = given !== null && variants.some((v) => normalize(v) === normalize(String(g)));
       }
-      details.push({ ok, given: given === null ? null : String(given).slice(0, 300), expected: variants.join(' / ') || x.a, prompt: x.q });
+      details.push({ ok, given: given === null ? null : String(given).slice(0, 300), expected: game.template==='truefalse'?(x.a==='true'?'верно':'неверно'):variants.join(' / ') || x.a, prompt: x.q });
     });
   }
   const correct = details.filter((d) => d.ok).length;

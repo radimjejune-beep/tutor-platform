@@ -377,7 +377,7 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
 
   const pickFormat=async type=>{
     let game=structuredClone(EMPTY_GAME[type]);
-    if(f.game?.type==='quick'&&game?.type==='quick')game={...game,items:structuredClone(f.game.items),timer:f.game.timer};
+    if(f.game?.type==='quick'&&game?.type==='quick')game={...game,items:structuredClone(f.game.items),timer:f.game.timer,...(f.game.context?{context:f.game.context}:{})};
     else if(isNew&&f.game?.type==='quick'&&f.game.items.some(x=>x.q.trim()||x.a.trim())&&!window.confirm('Этот формат использует другое содержимое. Заменить текущие вопросы новым шаблоном?'))return;
     if(!game)return;
     if(!isNew){if(f.game&&!window.confirm('Заменить содержимое упражнения новым форматом? Сначала сохраните текущий вариант, если он нужен.'))return;setF({...f,game});setChoosing(false);return;}

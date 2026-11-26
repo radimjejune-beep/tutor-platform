@@ -22,18 +22,20 @@ const uploadSchema = z
     assignment_id: z.number().int().positive().optional(),
     homework_id: z.number().int().positive().optional(),
     library_item_id: z.number().int().positive().optional(),
+    grammar_page_id: z.number().int().positive().optional(),
     filename: z.string().trim().min(1).max(255),
     mime: z.string().trim().max(100).default('application/octet-stream'),
     data: z.string().min(1), // base64
   })
   .strict()
   .refine(
-    (b) => [b.assignment_id, b.homework_id, b.library_item_id].filter(Boolean).length === 1,
+    (b) => [b.assignment_id, b.homework_id, b.library_item_id, b.grammar_page_id].filter(Boolean).length === 1,
     'Укажите, к чему прикрепить файл'
   );
 
 // Кто может прикрепить файл
 async function tutorOwnsTarget(user, f) {
+  if(f.grammar_page_id)return Boolean((await query('SELECT id FROM grammar_notebook_pages WHERE id=$1 AND tutor_id=$2',[f.grammar_page_id,user.id])).rows[0]);
   if (f.assignment_id) return owns(user, 'assignments', f.assignment_id);
   if (f.homework_id) return owns(user, 'homework', f.homework_id);
   if (f.library_item_id) return owns(user, 'library_items', f.library_item_id);
@@ -51,6 +53,10 @@ async function canUpload(user, b) {
 // Кто может открыть файл
 async function canRead(user, file) {
   if (user.role === 'tutor') return tutorOwnsTarget(user, file);
+  if(file.grammar_page_id){
+    const {rows:[page]}=await query('SELECT student_id,published FROM grammar_notebook_pages WHERE id=$1',[file.grammar_page_id]);
+    return Boolean(page?.published&&page.student_id&&['student','parent'].includes(user.role)&&await canAccessStudent(user,page.student_id));
+  }
   if (file.library_item_id) {
     const { rows } = await query('SELECT id, kind FROM library_items WHERE id = $1', [file.library_item_id]);
     if (!rows[0]) return false;
@@ -89,10 +95,10 @@ router.post(
 
     const stored = await storage.put('files', buf, b.mime);
     const { rows } = await query(
-      `INSERT INTO files (assignment_id, homework_id, library_item_id, filename, mime, size_bytes, data, s3_key, uploaded_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO files (assignment_id, homework_id, library_item_id, filename, mime, size_bytes, data, s3_key, uploaded_by, grammar_page_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING id, filename, mime, size_bytes, uploaded_by, created_at`,
-      [b.assignment_id || null, b.homework_id || null, b.library_item_id || null, safeName(b.filename), b.mime, buf.length, stored.data, stored.s3_key, req.user.id]
+      [b.assignment_id || null, b.homework_id || null, b.library_item_id || null, safeName(b.filename), b.mime, buf.length, stored.data, stored.s3_key, req.user.id, b.grammar_page_id || null]
     ).catch(async (err) => { if (stored.s3_key) await storage.release([stored.s3_key]); throw err; });
     console.log(`✅ Файл «${rows[0].filename}» (${Math.round(buf.length / 1024)} КБ)`);
     res.status(201).json(rows[0]);
@@ -122,13 +128,13 @@ router.delete(
   '/:id',
   asyncHandler(async (req, res) => {
     const { rows } = await query(
-      `SELECT f.id, f.uploaded_by, f.assignment_id, f.homework_id, f.library_item_id, f.s3_key, h.status
+      `SELECT f.id, f.uploaded_by, f.assignment_id, f.homework_id, f.library_item_id, f.grammar_page_id, f.s3_key, h.status
          FROM files f LEFT JOIN homework h ON h.id = f.homework_id
         WHERE f.id = $1`,
       [Number(req.params.id)]
     );
     const f = rows[0];
-    const allowed = f && (req.user.role === 'tutor' ? await tutorOwnsTarget(req.user, f) : f.uploaded_by === req.user.id && f.status !== 'checked');
+    const allowed = f && (req.user.role === 'tutor' ? await tutorOwnsTarget(req.user, f) : !f.grammar_page_id && f.uploaded_by === req.user.id && f.status !== 'checked');
     if (!allowed) return res.status(404).json({ error: 'Файл не найден' });
     await query('DELETE FROM files WHERE id = $1', [f.id]);
     await storage.release([f.s3_key]);

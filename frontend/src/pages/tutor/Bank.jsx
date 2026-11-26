@@ -17,7 +17,7 @@ const KIND = { game: 'Упражнение', task: 'Задача', theory: 'Те
 
 // Подписи зависят от учебника: у языковых юниты и слова с переводом, у остальных главы и термины
 function labels(book) {
-  const lang = !book?.subject || book.subject === 'Английский язык';
+  const lang = !book?.subject || ['Английский язык','Французский язык'].includes(book.subject);
   return lang
     ? { Unit: 'Юнит', unitPrep: 'юните', unitGen: 'юнита', unitsDat: 'юнитам', w: ['слово', 'слова', 'слов'], Words: 'Слова', words: 'слова', meaning: 'с переводом', vocab: 'Словарь учебника', vocabSub: 'все слова по юнитам и поиск', vocabShort: 'Словарь', search: 'Найти слово или перевод', main: 'Грамматика и речь', show: 'Показать слова' }
     : { Unit: 'Глава', unitPrep: 'главе', unitGen: 'главы', unitsDat: 'главам', w: ['термин', 'термина', 'терминов'], Words: 'Термины', words: 'термины', meaning: 'с определениями', vocab: 'Термины учебника', vocabSub: 'все термины по главам и поиск', vocabShort: 'Термины', search: 'Найти термин или определение', main: 'Задачи', show: 'Показать термины' };
@@ -26,6 +26,7 @@ const kindLabel = (it) => (it.kind === 'game' && it.game ? GAME_TYPES[it.game.ty
 
 export default function BankPage({ book, unit, params = new URLSearchParams() }) {
   const wide=useDesktopBank();
+  const {user}=useAuth();
   const wordsView = unit === 'words';
   const filters={q:params.get('q')||'',book:params.get('collection')||'',kind:params.get('kind')||'',type:params.get('type')||'',level:params.get('level')||'',page:Number(params.get('page'))||1,search:params.get('search')||''};
   const search=next=>{const q=new URLSearchParams();if(next)for(const [k,v]of Object.entries(next)){if(v&&k!=='book')q.set(k,v);if(k==='book'&&v)q.set('collection',v);}navigate(`/bank${book?'/'+book:''}${unit?'/'+encodeURIComponent(unit):''}${q.size?'?'+q:''}`);};
@@ -33,7 +34,7 @@ export default function BankPage({ book, unit, params = new URLSearchParams() })
   const [sharing, setSharing] = useState(false);
   const [unitQuery,setUnitQuery]=useState('');
   const memory=useRef(readWorkspace('bank',{book:'',units:{}}));
-  const b=books.data?.find(x=>x.id===(book||memory.current.book))||books.data?.[0];
+  const b=books.data?.find(x=>x.id===(book||memory.current.book))||books.data?.find(x=>x.subject===(/франц/i.test(user.subject||'')?'Французский язык':/англ/i.test(user.subject||'')?'Английский язык':user.subject))||books.data?.[0];
   const u=b?.units.find(x=>x.code===(unit||memory.current.units[b.id]))||b?.units.find(x=>x.count)||b?.units[0];
   useEffect(()=>{if(!b||!u)return;memory.current={book:b.id,units:{...memory.current.units,...(!wordsView?{[b.id]:u.code}:{})}};saveWorkspace('bank',memory.current);},[b?.id,u?.code,wordsView]);
   if (books.loading) return <Spinner />;
@@ -64,7 +65,7 @@ export default function BankPage({ book, unit, params = new URLSearchParams() })
 
       <section className="bank-collection" aria-label="Выбор сборника">
         <Field label="Сборник заданий"><select className="select" aria-label="Сборник заданий" value={b.id} onChange={e=>{setUnitQuery('');navigate(`/bank/${e.target.value}`);}}>
-          {[['Учебники',books.data.filter(x=>!x.grammar)],['Грамматика по темам',books.data.filter(x=>x.grammar)]].filter(([,list])=>list.length).map(([title,list])=><optgroup label={title} key={title}>{list.map(x=><option key={x.id} value={x.id}>{x.short} · {x.total} заданий</option>)}</optgroup>)}
+          {[['Учебники и тематические наборы',books.data.filter(x=>!x.grammar)],['Грамматика по темам',books.data.filter(x=>x.grammar)]].filter(([,list])=>list.length).map(([title,list])=><optgroup label={title} key={title}>{list.map(x=><option key={x.id} value={x.id}>{x.short} · {x.total} заданий</option>)}</optgroup>)}
         </select></Field>
         <div className="bank-collection-total"><b>{b.total}</b> заданий в сборнике</div>
         {totalWords>0&&<Link className="btn btn-secondary btn-sm" to={`/bank/${b.id}/words`}><Icon name="cards" size={16}/>{L.vocabShort} · {totalWords}</Link>}
@@ -92,7 +93,7 @@ export default function BankPage({ book, unit, params = new URLSearchParams() })
         </nav></details>
         {wordsView ? <BookWords key={b.id} book={b} /> : (
           <div className="stack">
-            {u.grammar_key&&<div className="panel"><p className="small muted">{b.notice}</p><Link className="btn btn-secondary" to={`/grammar/${u.grammar_key}`}>Объяснение и короткая практика</Link></div>}
+            {u.grammar_key&&<div className="panel"><p className="small muted">{b.notice}</p><Link className="btn btn-secondary" to={`/grammar/${u.grammar_key}`}>Подробный разбор и практика</Link></div>}
             {u.words > 0 && <UnitWords key={`w-${b.id}/${u.code}`} book={b} unit={u} />}
             <UnitItems book={b} unit={u} onShare={() => setSharing(true)} />
           </div>

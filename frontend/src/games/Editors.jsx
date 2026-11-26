@@ -40,10 +40,10 @@ export const EMPTY_GAME = {
 export function GameTypePicker({ onPick }) {
   const [category,setCategory]=useState('popular'),[query,setQuery]=useState('');
   const formats={...Object.fromEntries(Object.entries(QUICK_TEMPLATES).map(([k,v])=>['q_'+k,v])),...Object.fromEntries(Object.entries({...GAME_TYPES,...SHEET_PRESETS}).filter(([k])=>k!=='quick'))};
-  const popular=['q_quiz','q_match','inline','gaps','listen','write'];
+  const popular=['q_quiz','q_truefalse','q_type','q_wheel','q_match','inline','gaps','listen','write'];
   const categories={popular:'С чего начать',all:'Все форматы',words:'Слова',grammar:'Грамматика',audio:'Аудио',writing:'Письмо',custom:'Свой макет'};
-  const groups={words:['q_quiz','q_match','q_memory','q_anagram','q_tf','q_type','q_flip','match','groups'],grammar:['inline','gaps','order','fix','rewrite'],audio:['listen','dictation'],writing:['write'],custom:['sheet','board']};
-  const examples={q_quiz:'Столица Франции → Париж',q_match:'bonjour ↔ здравствуйте',inline:'She [work / works] here.',gaps:'Вода кипит при ___ °C.',listen:'Запись → картинка или ответ',write:'Текст → план и комментарии',order:'I · like · reading',fix:'He go → He goes',rewrite:'She works. → Does she work?',dictation:'Слушаю → записываю',groups:'Глаголы / существительные',sheet:'Фото + поля для ответа',board:'Текст и карточки на холсте'};
+  const groups={words:['q_quiz','q_match','q_memory','q_anagram','q_tf','q_truefalse','q_wheel','q_type','q_flip','match','groups'],grammar:['inline','gaps','order','fix','rewrite'],audio:['listen','dictation'],writing:['write'],custom:['sheet','board']};
+  const examples={q_quiz:'Andy and Sara are husband and … → wife',q_truefalse:'Your aunt is your mum’s sister. → Верно',q_type:'I am your mum’s mum. → grandma',q_wheel:'Spin → Have you got a big family?',q_match:'bonjour ↔ здравствуйте',inline:'She [work / works] here.',gaps:'Вода кипит при ___ °C.',listen:'Запись → картинка или ответ',write:'Текст → план и комментарии',order:'I · like · reading',fix:'He go → He goes',rewrite:'She works. → Does she work?',dictation:'Слушаю → записываю',groups:'Глаголы / существительные',sheet:'Фото + поля для ответа',board:'Текст и карточки на холсте'};
   const term=query.trim().toLocaleLowerCase('ru');
   const rows=Object.entries(formats).filter(([k,t])=>term?`${t.label} ${t.hint} ${examples[k]||''}`.toLocaleLowerCase('ru').includes(term):category==='all'||(category==='popular'?popular:groups[category]).includes(k));
   return <div className="exercise-gallery">

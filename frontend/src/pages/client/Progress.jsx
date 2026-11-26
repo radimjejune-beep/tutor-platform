@@ -191,7 +191,7 @@ function Achievements({ d }) {
 
       <div className="achv-tile">
         <span className="meta-label">Упражнения, 3 месяца</span>
-        <div className="achv-num"><b className="serif">{g.attempts ? `${g.avg_score}%` : 'нет'}</b><span>средний результат</span></div>
+        <div className="achv-num"><b className="serif">{g.attempts&&g.avg_score!==null ? `${g.avg_score}%` : 'нет оценки'}</b><span>средний результат</span></div>
         {g.attempts > 0 && <div className="small muted">Пройдено: {g.attempts}. Без ошибок: {g.perfect}</div>}
       </div>
 

@@ -75,8 +75,8 @@ export default function GamePlayer({ game, title, onFinish, footer, draftKey, in
       <div className="experience-modes" role="group" aria-label="Режим упражнения"><button type="button" aria-pressed={mode === 'self'} onClick={() => setMode('self')}>Самостоятельно</button><button type="button" aria-pressed={mode === 'lesson'} onClick={() => setMode('lesson')}>На уроке</button></div>
     </div>
     <p className="experience-instruction">{exerciseInstruction(activeGame)}</p>
-    <p className="experience-mode-note">{mode === 'lesson' ? 'Обсуждайте ответы вслух и переключайте вопросы вместе.' : (allowRetry ? 'Отвечайте в своём темпе. После проверки можно вернуться к ошибкам.' : 'Отвечайте в своём темпе. Повторная попытка в этом задании недоступна.')}</p>
-    {!onFinish && !initialResult && game.type === 'quick' && <details className="experience-formats"><summary>Другой формат тренировки</summary><label>Тот же набор слов<select className="input" value={activeGame.template} onChange={e => { setTemplate(e.target.value); setRound(r => r + 1); }}>{Object.entries(QUICK_TEMPLATES).map(([k, t]) => <option key={k} value={k}>{t.label}</option>)}</select></label><span className="small muted">Смена формата начинает новую тренировку. Исходный материал не изменяется.</span></details>}
+    <p className="experience-mode-note">{mode === 'lesson' ? 'Обсуждайте ответы вслух и переключайте вопросы вместе.' : activeGame.template==='wheel'?'Отвечайте вслух или записывайте мысли. Правильность устного ответа оценивает преподаватель.': (allowRetry ? 'Отвечайте в своём темпе. После проверки можно вернуться к ошибкам.' : 'Отвечайте в своём темпе. Повторная попытка в этом задании недоступна.')}</p>
+    {!onFinish && !initialResult && game.type === 'quick' && !['truefalse','wheel'].includes(game.template) && <details className="experience-formats"><summary>Другой формат тренировки</summary><label>Тот же набор слов<select className="input" value={activeGame.template} onChange={e => { setTemplate(e.target.value); setRound(r => r + 1); }}>{Object.entries(QUICK_TEMPLATES).filter(([k])=>!['truefalse','wheel'].includes(k)).map(([k, t]) => <option key={k} value={k}>{t.label}</option>)}</select></label><span className="small muted">Смена формата начинает новую тренировку. Исходный материал не изменяется.</span></details>}
     <Round key={`${round}-${key}-${template}`} game={activeGame} onFinish={onFinish} footer={footer} draftKey={draftKey} initialAnswers={round === 0 ? initialAnswers : undefined} initialResult={round === 0 ? initialResult : undefined} onDraft={onDraft} allowRetry={allowRetry} onRetry={() => { if (draftKey) clearDraft(draftKey); setRound(r => r + 1); }} />
   </section>, host)}</>;
 }
@@ -113,7 +113,7 @@ function Round({ game, onFinish, footer, onRetry, draftKey, initialAnswers, init
 
   const check = async (confirmed = false) => {
     if (saving) return;
-    if (!result && progress && progress.done < progress.total && !confirmed) { setConfirmIncomplete(true); return; }
+    if (!result && progress && progress.done < progress.total && game.template!=='wheel' && !confirmed) { setConfirmIncomplete(true); return; }
     setConfirmIncomplete(false);
     setSaveError('');
     const r = grade(game, answers);
@@ -154,7 +154,7 @@ function Round({ game, onFinish, footer, onRetry, draftKey, initialAnswers, init
         <div ref={resultPanel} tabIndex={-1} className={`game-result ${result.score === 100 ? 'perfect' : ''}`}>
           <div role="status">
             <div className="experience-step">{isPractice ? 'Результат тренировки' : game.type === 'sheet' && game.blocks.some(b => b.t === 'write') ? 'Автопроверка требований · не оценка текста' : 'Результат попытки'}</div>
-            <div className="game-score num">{result.total ? `${result.correct} из ${result.total}` : 'Отправлено'}</div>
+            <div className="game-score num">{result.total ? `${result.correct} из ${result.total}` : game.template==='wheel'?'Устная практика завершена':'Отправлено'}</div>
             <div className="small">
               {!result.total ? '' : result.score === 100 ? (game.type === 'quick' && game.template === 'flip' ? 'Вы отметили все карточки как знакомые.' : 'Всё верно!') : result.score >= 70 ? 'Хорошо, ошибки отмечены.' : 'Посмотрите ошибки и попробуйте ещё раз.'}
               {result.manual ? (onFinish ? ' Развёрнутые и устные ответы проверит преподаватель.' : ' Текст и устные ответы требуют проверки преподавателя. В этой тренировке они не отправляются.') : ''}
@@ -170,7 +170,7 @@ function Round({ game, onFinish, footer, onRetry, draftKey, initialAnswers, init
         </div>
       ) : (
         <div className="game-foot">
-          <button type="button" className="btn" disabled={saving} onClick={() => check()}>{game.type === 'sheet' || game.type === 'board' ? 'Сдать и проверить' : 'Проверить'}</button>
+          <button type="button" className="btn" disabled={saving||(game.template==='wheel'&&!progress?.done)} onClick={() => check()}>{game.template==='wheel'?'Завершить практику':game.type === 'sheet' || game.type === 'board' ? 'Сдать и проверить' : 'Проверить'}</button>
           {!onFinish && <span className="small muted">Тренировка · без сохранения оценки</span>}
         </div>
       )}

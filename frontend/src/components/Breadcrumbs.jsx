@@ -10,6 +10,7 @@ const ROUTE_LABELS = {
   '/homework': 'Задания',
   '/diagnostics': 'Диагностика',
   '/grammar': 'Грамматика',
+  '/notebook': 'Грамматическая тетрадь',
   '/library': 'Библиотека',
   '/wordsets': 'Карточки',
   '/courses': 'Курсы',

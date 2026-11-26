@@ -46,7 +46,7 @@ export const CLIENT_NAV = [
 
 // Активный пункт: точное совпадение для главной, по началу пути для остальных
 const isActive = (path, to) =>
-  to === '/' ? path === '/' : path === to || path.startsWith(`${to}/`) || (to === '/students' && path.startsWith('/groups')) || (to==='/market' && (path.startsWith('/marketplace')||path.startsWith('/learn-course')));
+  to === '/' ? path === '/' : path === to || path.startsWith(`${to}/`) || (to==='/grammar'&&path.startsWith('/notebook')) || (to === '/students' && path.startsWith('/groups')) || (to==='/market' && (path.startsWith('/marketplace')||path.startsWith('/learn-course')));
 
 // Куда ведёт «Назад» со страницы, если в кабинете ещё не было переходов. null: кнопка не нужна (раздел верхнего уровня или вкладка)
 const TABS = { library: ['theory', 'games', 'lessons', 'books', 'tasks'], market: ['mine'], finance: ['pricing'] };

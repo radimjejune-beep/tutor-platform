@@ -8,13 +8,14 @@ const catalog=require('../learning/grammar');
 const {HOMEWORK_SECTION}=require('../learning/homework-sections');
 const d=require('../learning/diagnostics');
 const subjects=require('../learning/study-subjects');
+const {contentOf}=require('../learning/grammar-content');
 const router=express.Router();
 router.use(express.json({limit:'2mb'}));
 const tutor=requireRole('tutor'),student=requireRole('student');
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 const id=n=>{n=Number(n);if(!Number.isSafeInteger(n)||n<=0)fail(400,'Некорректный номер');return n;};
 const findTopic=n=>{const t=catalog.byId.get(n);if(!t)fail(404,'Тема не найдена');return t;};
-const article=({questions,...t})=>t;
+const article=({questions,practice_questions,...t})=>({...t,content:contentOf(t),practice_count:(practice_questions||questions).length});
 const validateAnswers=validateBody(z.object({answers:d.answers}).strict());
 
 router.get('/grammar',asyncHandler(async(req,res)=>res.json(catalog.search(String(req.query.q||'').slice(0,200)).filter(t=>!req.query.subject||t.subject===req.query.subject))));
@@ -22,12 +23,15 @@ router.get('/grammar/:topic',asyncHandler(async(req,res)=>res.json(article(findT
 router.get('/grammar/:topic/bank',tutor,asyncHandler(async(req,res)=>res.json(findTopic(req.params.topic).questions)));
 router.get('/grammar/:topic/practice',asyncHandler(async(req,res)=>{
   const t=findTopic(req.params.topic);
-  res.json(d.publicQuestions(d.shuffle(t.questions).slice(0,3).map(q=>d.shuffledQuestion(q))));
+  const parsed=z.object({size:z.enum(['3','6','12']).optional()}).strict().safeParse(req.query||{});
+  if(!parsed.success)return res.status(422).json({error:'Выберите практику на 3, 6 или 12 вопросов'});
+  const size=Number(parsed.data.size||3),pool=parsed.data.size?(t.practice_questions||t.questions):t.questions;
+  res.json(d.publicQuestions(d.shuffle(pool).slice(0,size).map(q=>d.shuffledQuestion(q))));
 }));
 router.post('/grammar/:topic/practice',validateBody(z.object({
-  question_ids:z.array(z.string().max(20)).min(1).max(6).refine(a=>new Set(a).size===a.length),answers:d.answers,
+  question_ids:z.array(z.string().max(20)).min(1).max(12).refine(a=>new Set(a).size===a.length),answers:d.answers,
 }).strict()),asyncHandler(async(req,res)=>{
-  const t=findTopic(req.params.topic),qs=req.body.question_ids.map(id=>t.questions.find(q=>q.id===id));
+  const t=findTopic(req.params.topic),qs=req.body.question_ids.map(id=>(t.practice_questions||t.questions).find(q=>q.id===id));
   if(qs.some(q=>!q))return res.status(400).json({error:'Вопрос не найден'});
   // Практика возвращает вопросы в исходном порядке вариантов. Клиент практики использует текст ответа
   // для выбора; диагностические снимки проверяются отдельно и никогда этим маршрутом не изменяются.

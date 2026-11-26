@@ -67,6 +67,7 @@ export default function StudentPage({ id, tab }) {
           {s.board_link && (
             <a className="btn btn-secondary" href={s.board_link} target="_blank" rel="noreferrer"><Icon name="board" /> Доска</a>
           )}
+          <Link className="btn btn-secondary" to={`/notebook?student_id=${s.id}&subject=${encodeURIComponent(s.subject||user.subject||'Английский язык')}`}>Грамматическая тетрадь</Link>
           <button className="btn btn-secondary" onClick={() => setEditing(true)}><Icon name="edit" /> Карточка</button>
         </div>
       </div>

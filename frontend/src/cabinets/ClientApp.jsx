@@ -21,6 +21,7 @@ import { NotFound } from './NotFound';
 import { AcceptDocuments } from '../pages/Legal';
 import LessonRoom from '../pages/LessonRoom';
 import Grammar from '../pages/learning/Grammar';
+import GrammarNotebook from '../pages/learning/GrammarNotebook.jsx';
 import {FamilyConsents,GuardianWaiting,FamilyPage} from '../components/FamilyConsent';
 import Coach, {CoachReview} from '../pages/learning/Coach';
 import { DiagnosticsList, DiagnosticRun } from '../pages/learning/Diagnostics';
@@ -100,7 +101,8 @@ function ClientCabinet({ path }) {
   else if (parts[0] === 'coach' && parts[1]==='reviews' && parts[2]) page=<CoachReview id={Number(parts[2])}/>;
   else if (parts[0] === 'coach') page=<Coach key={child.id} {...props}/>;
   else if (parts[0] === 'family') page=<FamilyPage/>;
-  else if (parts[0] === 'grammar') page = <Grammar topic={parts[1]} />;
+  else if (parts[0] === 'notebook') page = <GrammarNotebook key={path+child.id} id={parts[1]} {...props}/>;
+  else if (parts[0] === 'grammar') page = <Grammar key={child.id} topic={parts[1]} {...props}/>;
   else if (parts[0] === 'diagnostics' && parts[1] === 'runs' && parts[2]) page = <DiagnosticRun id={Number(parts[2])} />;
   else if (parts[0] === 'diagnostics') page = <DiagnosticsList key={child.id} {...props} />;
   else if (parts[0] === 'schedule') page = <ClientSchedule {...props} />;

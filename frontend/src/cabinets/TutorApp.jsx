@@ -33,6 +33,7 @@ import {CoachReview} from '../pages/learning/Coach';
 import { AssignmentsList, AssignmentEditor, AssignmentPage, ReviewPage } from '../pages/tutor/Assignments';
 import Finance from '../pages/tutor/Finance';
 import Grammar from '../pages/learning/Grammar';
+import GrammarNotebook from '../pages/learning/GrammarNotebook.jsx';
 import { DiagnosticsList, DiagnosticBuilder, DiagnosticTest, DiagnosticRun } from '../pages/learning/Diagnostics';
 import CoursesMarketplace from '../pages/CoursesMarketplace';
 import CoursePage from '../pages/CoursePage';
@@ -70,6 +71,7 @@ export default function TutorApp({ path, params }) {
   else if(parts[0]==='writing'&&parts[1])page=<WritingReview id={Number(parts[1])}/>;
   else if(parts[0]==='workouts'&&parts[1])page=<Workout id={Number(parts[1])}/>;
   else if (parts[0] === 'coach' && parts[1]==='reviews' && parts[2]) page=<CoachReview id={Number(parts[2])}/>;
+  else if (parts[0] === 'notebook') page = <GrammarNotebook key={path} id={parts[1]}/>;
   else if (parts[0] === 'grammar') page = <Grammar topic={parts[1]} />;
   else if (parts[0] === 'diagnostics' && parts[1] === 'new') page = <DiagnosticBuilder />;
   else if (parts[0] === 'diagnostics' && parts[1] === 'tests' && parts[2]) page = <DiagnosticTest id={Number(parts[2])} />;

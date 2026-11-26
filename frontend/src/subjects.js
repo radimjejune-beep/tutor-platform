@@ -26,7 +26,7 @@ export const SUBJECTS = [
 // Есть ли для предмета банк заданий (учебники с готовыми заданиями)
 export function hasBank(subject) {
   const s = String(subject || 'Английский язык');
-  return /англ|матем|геометр|алгебр/i.test(s);
+  return /англ|франц|матем|геометр|алгебр/i.test(s);
 }
 
 // Всё, что зависит от предмета, в одном месте

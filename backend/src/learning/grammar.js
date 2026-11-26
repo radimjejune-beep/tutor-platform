@@ -467,6 +467,8 @@ I missed the bus, ___ I walked. (поэтому) :: so`);
 // Общие грамматические навыки повторно используются в двух учебных маршрутах.
 const { MURPHY_BOOKS } = require('../bank/murphy-books');
 const { skills } = require('./murphy-skills');
+const {lessons}=require('./grammar-lessons');
+for(const t of topics)if(lessons[t.id])t.lesson=lessons[t.id];
 const profiles = new Map([...topics,...skills].map(t=>[t.id,t]));
 for (const book of MURPHY_BOOKS) for (const unit of book.units) {
   const parts=unit.skill_ids.map(id=>{const t=profiles.get(id);if(!t)throw new Error(`Unknown grammar skill: ${id}`);return t;});
@@ -475,13 +477,20 @@ for (const book of MURPHY_BOOKS) for (const unit of book.units) {
   topics.push({id:unit.grammar_key,title:unit.title,label:`${book.short} · Unit ${unit.code}: ${unit.title}`,level:book.level,book_id:book.id,book_title:book.title,book_short:book.short,unit:unit.code,
     notice:book.notice,aliases:[`${book.title} unit ${unit.code}`,`${book.short} юнит ${unit.code}`,`Murphy ${book.id.includes('essential')?'Essential':'English'} ${unit.code}`,`Мёрфи ${book.id.includes('essential')?'Essential':'English'} юнит ${unit.code}`,...parts.flatMap(t=>[t.title,t.id,...t.aliases])],
     when:parts.map(t=>t.when).join(' '),form:parts.map(t=>t.form).join('\n'),examples:parts.flatMap(t=>t.examples),mistake:parts.map(t=>t.mistake).join(' '),
-    sections:parts.map(({title,when,form,examples,mistake})=>({title,when,form,examples,mistake})),
+    sections:parts.map(({title,when,form,examples,mistake,lesson})=>({title,when,form,examples,mistake,lesson})),
     questions:selected.map((q,i)=>({...q,id:`q${i+1}`,topic_id:unit.grammar_key}))});
 }
 
 for(const t of topics)t.subject='Английский язык';
 const frenchStart=topics.length;require('./french-grammar')(topic);for(const t of topics.slice(frenchStart))t.subject='Французский язык';
 
+const {practice}=require('./grammar-practice');
+for(const t of topics){
+ if(lessons[t.id])t.lesson=lessons[t.id];
+ const extra=practice[t.id]||(t.book_id?MURPHY_BOOKS.find(b=>b.id===t.book_id)?.units.find(u=>u.code===t.unit)?.skill_ids.flatMap(id=>practice[id]||[]):[])||[];
+ const seen=new Set(t.questions.map(q=>q.prompt));
+ t.practice_questions=[...t.questions,...extra.filter(q=>{if(seen.has(q.prompt))return false;seen.add(q.prompt);return true;}).map((q,i)=>({...q,id:`p${i+1}`,topic_id:t.id}))];
+}
 const byId = new Map(topics.map(t=>[t.id,t]));
 const norm = s => String(s||'').normalize('NFD').replace(/\p{M}/gu,'').toLowerCase().replace(/ё/g,'е').replace(/[^a-zа-я0-9]+/g,' ').trim();
 function matchTopic(title,subject) {
@@ -495,6 +504,6 @@ function matchTopic(title,subject) {
 function search(q='') {
   const words=norm(q).split(' ').filter(w=>w&&!['объясни','объясните','объяснение','правило','правила','грамматика','тема','по','мне','как','использовать','что','такое','я','забыл','забыла','напомни','пожалуйста','расскажи','о','про','нужно','нужен','разобраться','в','с','и','не','понимаю'].includes(w));
   return topics.filter(t=>words.every(w=>/^\d+$/.test(w)&&t.unit?t.unit===w:norm([t.title,...t.aliases,t.when].join(' ')).includes(w)))
-    .map(({questions,...t})=>({...t,question_count:questions.length}));
+    .map(({questions,practice_questions,lesson,sections,...t})=>({...t,question_count:questions.length,practice_count:practice_questions.length,extended:Boolean(lesson||sections?.some(s=>s.lesson))}));
 }
 module.exports={topics,byId,matchTopic,search};

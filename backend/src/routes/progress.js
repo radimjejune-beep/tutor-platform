@@ -92,7 +92,7 @@ router.get(
       [req.studentId,subject]
     );
     const { rows: gameAvg } = await query(
-      `SELECT COUNT(*)::int AS attempts, COALESCE(ROUND(AVG(score)), 0)::int AS avg_score,
+      `SELECT COUNT(*)::int AS attempts, ROUND(AVG(score) FILTER (WHERE total>0))::int AS avg_score,
               COUNT(*) FILTER (WHERE score = 100)::int AS perfect
          FROM game_results WHERE student_id = $1 AND subject=$2 AND created_at > NOW() - INTERVAL '90 days'`,
       [req.studentId,subject]

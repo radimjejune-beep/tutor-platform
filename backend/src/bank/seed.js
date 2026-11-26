@@ -452,5 +452,7 @@ SEED.push(...require('./math-geometry'));
 SEED.push(...require('./spotlight-6'));
 
 SEED.push(...require('./murphy'));
+SEED.push(...require('./lessonfold-grammar').items);
+SEED.push(...require('./family-practice').items);
 
 module.exports = { SEED };
