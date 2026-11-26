@@ -83,6 +83,7 @@ function HomeworkView({ h, isParent, reload }) {
           </div>
 
           {h.subject&&<span className="badge badge-green">{h.subject}</span>}
+          <div className={`homework-state-ribbon state-${h.status}`} role="status">{h.status==='submitted'?'Работа отправлена. Преподаватель проверит её и оставит обратную связь.':h.status==='checked'?'Работа проверена. Посмотрите результат и комментарии преподавателя.':'Сначала вспомните урок, затем выполните задания и отправьте работу на проверку.'}</div>
           <HomeworkRecap homework={h}/>
           <WritingInbox studentId={h.student_id} subject={h.subject} homeworkId={h.id}/>
           {h.description && <MathText as="p" className="instructions" style={{ marginTop: 0 }}>{h.description}</MathText>}

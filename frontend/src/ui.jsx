@@ -147,7 +147,7 @@ export function ToastProvider({ children }) {
    ============================================================ */
 const modalStack = [];
 let originalBodyOverflow = '';
-export function Modal({ title, onClose, children, wide }) {
+export function Modal({ title, onClose, children, wide, drawer=false }) {
   const dialog = useRef(null), close = useRef(onClose), opener = useRef(document.activeElement);
   close.current = onClose;
   useEffect(() => {
@@ -175,8 +175,8 @@ export function Modal({ title, onClose, children, wide }) {
     };
   }, []);
   return (
-    <div className="overlay" onMouseDown={e => e.target === e.currentTarget && close.current()}>
-      <div ref={dialog} tabIndex={-1} className={`modal ${wide ? 'modal-wide' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
+    <div className={`overlay ${drawer ? 'overlay-drawer' : ''}`} onMouseDown={e => e.target === e.currentTarget && close.current()}>
+      <div ref={dialog} tabIndex={-1} className={`modal ${wide ? 'modal-wide' : ''} ${drawer ? 'modal-drawer' : ''}`} role="dialog" aria-modal="true" aria-label={title}>
         <div className="modal-head"><h2>{title}</h2><button type="button" className="icon-btn" onClick={onClose} aria-label="Закрыть"><Icon name="close" /></button></div>
         {children}
       </div>
@@ -367,12 +367,13 @@ export function clearDraft(key) {
 }
 // Сохраняет value через паузу после последнего изменения. enabled=false — не сохранять (например, пока форма не тронута)
 export function useDraftSave(key, value, enabled = true, delay = 500) {
+  const owner=draftUser;
   const json = JSON.stringify(value);
   useEffect(() => {
     if (!key || !enabled) return undefined;
-    const t = setTimeout(() => writeDraft(key, value), delay);
+    const t=setTimeout(()=>{if(draftUser===owner)writeDraft(key,value);},delay);
     return () => clearTimeout(t);
-  }, [key, json, enabled]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [key, json, enabled,owner]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 // Плашка «Черновик восстановлен»
 export function DraftNotice({ at, onReset, text = 'Восстановлен несохранённый черновик' }) {

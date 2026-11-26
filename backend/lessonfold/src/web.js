@@ -502,7 +502,7 @@ async function publicApi(req, res, p) {
     const b = await readJson(req);
     if (b.offer !== true) return json(res, 422, { error: 'Нужно принять условия оферты' });
     try {
-      const r = await orders.create({ sku: String(b.sku || ''), email: b.email, news: b.news === true, ip });
+      const r = await orders.create({ sku: String(b.sku || ''), email: b.email, news: b.news === true, ip, requestKey:b.request_key });
       if (!r.confirmationUrl) return json(res, 502, { error: 'ЮKassa не вернула страницу оплаты. Попробуйте ещё раз.' });
       return json(res, 200, { url: r.confirmationUrl });
     } catch (e) {

@@ -36,8 +36,9 @@ export function AuthProvider({ children }) {
     });
     if (getToken()) refresh().catch(() => {});
     const changed=e=>{if(e.key!=='tp_token')return;if(getToken())refresh().catch(()=>{});else setSession(null);};
-    window.addEventListener('storage',changed);
-    return () => {window.removeEventListener('storage',changed);setUnauthorizedHandler(() => {});};
+    const billing=()=>{if(getToken())refresh().catch(()=>{});};
+    window.addEventListener('storage',changed);window.addEventListener('lf-billing-updated',billing);
+    return () => {window.removeEventListener('storage',changed);window.removeEventListener('lf-billing-updated',billing);setUnauthorizedHandler(() => {});};
   }, []);
 
   const login = async (loginName, password) => {
@@ -68,7 +69,7 @@ export function AuthProvider({ children }) {
   setDraftUser(session?.user?.id); // черновики форм хранятся отдельно для каждого пользователя
   if (session === undefined && error) return <main className="page"><ErrorBox error={error} onRetry={() => refresh().catch(() => {})} /><button type="button" className="btn btn-secondary" onClick={logout}>На страницу входа</button></main>;
   return (
-    <AuthContext.Provider value={{ session, user: session?.user, students: session?.students || [], login, register, logout, refresh, switchProfile }}>
+    <AuthContext.Provider key={String(session?.user?.id||'anonymous')+':'+(session?.user?.role||'guest')} value={{ session, user: session?.user, students: session?.students || [], login, register, logout, refresh, switchProfile }}>
       {children}
     </AuthContext.Provider>
   );

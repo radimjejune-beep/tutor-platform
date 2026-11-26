@@ -113,6 +113,7 @@ protectedApi.use('/files', limiter(10, 120, 'Слишком много загр�
 protectedApi.use('/library-books', limiter(10, 400, 'Слишком много загрузок, подождите 10 минут'));
 protectedApi.use('/plan/request', limiter(60, 10, 'Слишком много заявок, попробуйте через час'));
 protectedApi.use('/dashboard', require('./routes/dashboard'));
+protectedApi.use('/journal',require('./routes/journal'));
 protectedApi.use('/students', require('./routes/students'));
 protectedApi.use('/accounts', require('./routes/accounts'));
 protectedApi.use('/lessons', require('./routes/lessons'));

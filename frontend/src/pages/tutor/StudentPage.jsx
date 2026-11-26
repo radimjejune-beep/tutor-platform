@@ -1,6 +1,8 @@
+import LessonTimeline from '../../components/LessonTimeline';
+import {splitLessons} from '../../learning-flow.js';
 import TopicEvidence from '../../components/TopicEvidence';
 import StudyArea from '../../components/StudyArea';
-import TrailCard from '../../components/TrailCard';
+import OptionalJourney from '../../components/OptionalJourney';
 import {WorkoutCard} from '../learning/Workout';
 import { BackLink, BreadcrumbEntity } from '../../Shell';
 // pages/tutor/StudentPage.jsx — карточка ученика с вкладками
@@ -69,7 +71,7 @@ export default function StudentPage({ id, tab }) {
         </div>
       </div>
 
-      {/* Сводка */}
+      <details className="student-account-summary"><summary>Расчёты и абонемент · {f.balance<0?`к оплате ${rub(-f.balance)}`:f.balance>0?`баланс ${rub(f.balance)}`:'расчёты закрыты'}</summary>
       <div className="grid grid-3 student-summary" style={{ marginBottom: 24 }}>
         <div className="panel">
           <div className="stat-label">Баланс</div>
@@ -99,6 +101,7 @@ export default function StudentPage({ id, tab }) {
         </div>
       </div>
 
+      </details>
       <ScrollTabs label="Разделы ученика">
         {TABS.map((t) => (
           <button key={t.key} role="tab" aria-selected={tab === t.key} className={tab === t.key ? 'active' : ''}
@@ -115,7 +118,7 @@ export default function StudentPage({ id, tab }) {
       {tab === 'homework' && <HomeworkTab student={active} />}
       {(tab === 'progress' || tab === 'lessons') && <Recommendations studentId={active.id} tutor compact={tab === 'lessons'} />}
       {tab === 'coach' && <Coach key={active.id} student={active} tutor/>}
-      {tab === 'progress' && <><TrailCard student={active} tutor/><WorkoutCard student={active} tutor/><LanguageProgress key={active.id} student={active} tutor/><ProgressTab student={active} /></>}
+      {tab === 'progress' && <><OptionalJourney student={active} tutor/><WorkoutCard student={active} tutor/><LanguageProgress key={active.id} student={active} tutor/><ProgressTab student={active} /></>}
       {tab === 'reports' && <ReportsTab student={active} />}
       {tab === 'finance' && <FinanceTab student={active} onChange={student.reload} />}
       {tab === 'access' && <AccessTab student={active} onChange={student.reload} />}
@@ -134,17 +137,16 @@ function LessonsTab({ student, onChange }) {
   const [modal, setModal] = useState(null);
   const from = new Date(Date.now() - 60 * 864e5).toISOString();
   const to = new Date(Date.now() + 90 * 864e5).toISOString();
-  const lessons = useLoad(() => api.lessons({ student_id: student.id, subject: student.subject, from, to }), [student.id]);
+  const lessons = useLoad(() => api.lessons({ student_id: student.id, subject: student.subject, from, to }), [student.id,student.subject]);
   const saved = () => { setModal(null); lessons.reload(); onChange(); };
 
   const now = Date.now();
-  const upcoming = (lessons.data || []).filter((l) => new Date(l.starts_at) >= now || l.status === 'scheduled');
-  const past = (lessons.data || []).filter((l) => !upcoming.includes(l)).reverse();
+  const {upcoming,history:past}=splitLessons(lessons.data||[],now);
 
   return (
     <>
-      <div className="grid grid-2">
-        <section className="panel">
+      <div className="student-lessons-layout">
+        <section className="panel upcoming-lessons">
           <div className="panel-head">
             <h2 className="section-title">Впереди</h2>
             <button className="btn btn-sm" onClick={() => setModal({ type: 'new' })}><Icon name="plus" /> Занятие</button>
@@ -153,11 +155,8 @@ function LessonsTab({ student, onChange }) {
           {lessons.data && !upcoming.length && <Empty title="Занятий не запланировано">Добавьте серию, чтобы расписание было на месяц вперёд.</Empty>}
           <LessonsByDay lessons={upcoming} showStudent={false} onOpen={(l) => setModal({ type: 'lesson', lesson: { ...l, student_name: student.full_name } })} />
         </section>
-        <section className="panel">
-          <div className="panel-head"><h2 className="section-title">Прошедшие</h2></div>
-          {lessons.data && !past.length && <Empty title="Пока ничего" />}
-          <LessonsByDay lessons={past} showStudent={false} onOpen={(l) => setModal({ type: 'lesson', lesson: { ...l, student_name: student.full_name } })} />
-        </section>
+        <LessonTimeline lessons={past} tutor/>
+
       </div>
       {modal?.type === 'new' && <NewLessonModal studentId={student.id} onClose={() => setModal(null)} onSaved={saved} />}
       {modal?.type === 'lesson' && <LessonModal lesson={modal.lesson} onClose={() => setModal(null)} onSaved={saved} />}

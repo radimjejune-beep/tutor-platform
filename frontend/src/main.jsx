@@ -5,6 +5,7 @@ import './styles.css';
 import './premium.css';
 import './self-study.css';
 import './navigation-workspace.css';
+import './learning-workspace.css';
 import { isAssetLoadError, reloadForNewVersion } from './version-recovery';
 
 // После обновления сайта открытая вкладка может просить старые файлы, которых уже нет, и показывать белый экран.

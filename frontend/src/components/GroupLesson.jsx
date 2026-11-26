@@ -15,8 +15,8 @@ export function GroupFinishModal({ groupId, session, onClose, onDone }) {
   const toast = useToast();
   const [att, setAtt] = useState(Object.fromEntries(session.students.map((s) => [s.student_id, 'done'])));
   const [topic, setTopic] = useState(session.topic || '');
-  const [summary, setSummary] = useState('');
-  const [notes, setNotes] = useState('');
+  const [summary, setSummary] = useState(session.summary||'');
+  const [notes, setNotes] = useState(session.private_notes||'');
   const [homework, setHomework] = useState(true);
   const [nextUnit, setNextUnit] = useState(false);
   const [due, setDue] = useState(dayKey(new Date(new Date(session.starts_at).getTime() + 7 * 864e5)));

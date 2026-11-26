@@ -652,6 +652,13 @@ document.addEventListener("click", e => { if (e.target.closest("[data-miss]")) {
 
 /* ---------- покупка ---------- */
 let buyP = null;
+const purchaseKeys=new Map();
+function purchaseKey(product,email,news){
+  const slot='lf-order:'+product.sku,signature=JSON.stringify([email,news,product.price]);
+  let state=purchaseKeys.get(slot);try{state=JSON.parse(sessionStorage.getItem(slot)||'null')||state;}catch{}
+  if(!state||state.signature!==signature||Date.now()-state.at>23*3600000){state={key:crypto.randomUUID(),signature,at:Date.now()};try{sessionStorage.setItem(slot,JSON.stringify(state));}catch{}}
+  purchaseKeys.set(slot,state);return state.key;
+}
 document.addEventListener("click", e => {
   const b = e.target.closest("[data-buy]"); if (!b) return;
   buyP = PRODUCTS.find(p => p.sku === b.dataset.buy); if (!buyP) return;
@@ -672,7 +679,7 @@ $("#buyF").addEventListener("submit", async e => {
   if (!$("#buyOffer").checked) { err.textContent = "Отметьте согласие с офертой, без него оплату не принять."; return }
   err.textContent = ""; go.disabled = true; const t = go.textContent; go.textContent = "Готовим оплату…";
   try {
-    const r = await fetch("/api/order", { method: "POST", headers: { "content-type": "application/json", "x-lf": "1" }, body: JSON.stringify({ sku: buyP.sku, email, offer: true, news: $("#buyNews").checked }) });
+    const r = await fetch("/api/order", { method: "POST", headers: { "content-type": "application/json", "x-lf": "1" }, body: JSON.stringify({ sku: buyP.sku, email, offer: true, news: $("#buyNews").checked, request_key:purchaseKey(buyP,email,$("#buyNews").checked) }) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok || !d.url) throw new Error(d.error || "Не получилось создать оплату. Попробуйте ещё раз.");
     try { localStorage.setItem("lf-email", email) } catch (x) {}

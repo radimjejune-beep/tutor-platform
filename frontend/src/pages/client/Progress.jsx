@@ -1,5 +1,5 @@
 import {TopicProof} from '../../components/TopicEvidence';
-import TrailCard from '../../components/TrailCard';
+import OptionalJourney from '../../components/OptionalJourney';
 import {WorkoutCard} from '../learning/Workout';
 // pages/client/Progress.jsx — программа, навыки, отчёты
 import { api } from '../../api';
@@ -34,7 +34,7 @@ export default function ClientProgress({ student }) {
           <div className="lead">Всё, что уже получилось: слова, упражнения, задания и курс. Обновляется само после каждого урока и задания.</div>
         </div>
       </div>
-      <TrailCard student={student}/><WorkoutCard student={student}/>
+      <OptionalJourney student={student}/><WorkoutCard student={student}/>
       <LanguageProgress key={student.id} student={student}/>
       <SupplementaryCourses key={`courses:${student.id}`} student={student}/>
       <MotivationCard studentId={student.id} />

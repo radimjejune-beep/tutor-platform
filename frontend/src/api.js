@@ -186,6 +186,11 @@ export const api = {
     request('POST', '/auth/change-password', { current_password, new_password }),
 
   dashboard: params => request('GET', `/dashboard${qs(params||{})}`),
+  journal:params=>request('GET',`/journal${qs(params||{})}`),
+  createJournalEntry:body=>request('POST','/journal',body),
+  updateJournalEntry:(id,body)=>request('PATCH',`/journal/${id}`,body),
+  deleteJournalEntry:(id,version)=>request('DELETE',`/journal/${id}${qs({version})}`),
+  updateGroupPlan:(id,body)=>request('PATCH',`/groups/${id}/lessons/plan`,body),
 
   // Ученики
   students: (status = 'active') => request('GET', `/students${qs({ status })}`),

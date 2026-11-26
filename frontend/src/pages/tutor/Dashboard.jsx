@@ -1,3 +1,5 @@
+import DailyFocus from '../../components/DailyFocus';
+import TeacherJournal from '../../components/TeacherJournal';
 // pages/tutor/Dashboard.jsx — главная преподавателя: сегодня и «требует внимания»
 import { DailyMethodTip } from '../Method';
 import { useState } from 'react';
@@ -5,11 +7,10 @@ import { api } from '../../api';
 import { useLoad, Spinner, ErrorBox, Empty, Badge, Icon, Link, navigate } from '../../ui';
 import { LessonModal, NewLessonModal } from './modals';
 import BookingRequests from '../../components/BookingRequests';
-import TodayLessons from '../../components/TodayLessons';
 import { TutorAnnouncements } from '../../components/Announcements';
 import { LeagueBoard } from '../../components/Motivation';
 import { useAuth } from '../../auth';
-import { time, dayMonth, weekday, cap, rub, relativeDay, LESSON_STATUS, monthName, prevMonth, plural } from '../../format';
+import { time, dayMonth, weekday, cap, rub, relativeDay, LESSON_STATUS, monthName, prevMonth, plural,todayISO } from '../../format';
 
 
 // Первые шаги: показывается новому преподавателю, пока не пройдены все шаги (можно скрыть)
@@ -73,10 +74,16 @@ function Onboarding({ demo, onDemo }) {
   );
 }
 
+async function dashboardMonth(){
+ try{const plan=await api.myPlan();if(!plan.current?.features?.finance)return {locked:true};return await api.summary();}
+ catch(error){if(error.status===401)throw error;return error.status===402?{locked:true}:{error:error.message};}
+}
+
 export default function TutorDashboard() {
-  const dash = useLoad(() => Promise.all([api.dashboard(), api.summary()]), []);
+  const dash = useLoad(() => Promise.all([api.dashboard({date:todayISO(),timezone:Intl.DateTimeFormat().resolvedOptions().timeZone}), dashboardMonth()]), []);
   const demo = useLoad(() => api.demoStatus().catch(() => null), []);
   const [modal, setModal] = useState(null);
+  const [allAttention,setAllAttention]=useState(false);
   const { user } = useAuth();
   // Приветствие по имени из учётки (у «Преподаватель» — без имени)
   const firstName = user.full_name && user.full_name !== 'Преподаватель' ? user.full_name.split(/\s+/)[0] : '';
@@ -94,7 +101,7 @@ export default function TutorDashboard() {
   const attentionCount =
     a.unmarked_lessons.length + a.homework_to_check.length + a.payments.length;
   const now = new Date();
-  const hours = Math.round((month.minutes_taught / 60) * 10) / 10;
+  const hours=month.locked||month.error?null:Math.round((month.minutes_taught/60)*10)/10;
 
   return (
     <>
@@ -110,24 +117,16 @@ export default function TutorDashboard() {
         </div>
       </div>
 
+      <DailyFocus dashboard={d}/>
+      <TeacherJournal dashboard={d} onChanged={dash.reload} onOpenLesson={l=>setModal({type:'lesson',lesson:l})}/>
       <section className="workspace-overview" aria-label="Сегодня в кабинете">
         <Link className="overview-card" to="/schedule"><div><span>Занятий сегодня</span><strong>{d.today.length}</strong></div><Icon name="calendar"/></Link>
         <Link className="overview-card" to="/homework?status=submitted"><div><span>Работ на проверке</span><strong>{a.homework_to_check.length}</strong></div><Icon name="check"/></Link>
-        <Link className="overview-card" to="/finance"><div><span>Доход за месяц</span><strong style={{fontSize:month.income>=100000?24:undefined}}>{rub(month.income)}</strong></div><Icon name="wallet"/></Link>
+        <Link className="overview-card" to={month.locked?'/settings/plan':'/finance'}><div><span>{month.locked?'Сводка дохода':'Доход за месяц'}</span><strong style={{fontSize:month.locked||month.error?18:month.income>=100000?24:undefined}}>{month.locked?'В тарифе «Репетитор»':month.error?'Временно недоступно':rub(month.income)}</strong></div><Icon name="wallet"/></Link>
       </section>
       <div className="dashboard-actions" aria-label="Быстрые действия"><Link className="btn btn-secondary" to="/homework/new"><Icon name="plus" size={16}/>Выдать задание</Link><Link className="btn btn-secondary" to="/bank"><Icon name="search" size={16}/>Найти упражнение</Link><Link className="btn btn-secondary" to="/students"><Icon name="users" size={16}/>Открыть учеников</Link><Link className="btn btn-secondary" to="/grammar"><Icon name="book" size={16}/>Объяснить тему</Link></div>
       <DemoBanner demo={demo} onChange={() => window.location.reload()} />
       <Onboarding demo={demo} onDemo={() => window.location.reload()} />
-
-      <section className="today-section">
-        <div className="row-between" style={{ marginBottom: 16 }}>
-          <h2 className="section-title">
-            Сегодня{d.today.length ? ` · ${d.today.length} ${plural(d.today.length, 'занятие', 'занятия', 'занятий')}` : ''}
-          </h2>
-          <Link to="/schedule" className="small muted">Вся неделя</Link>
-        </div>
-        <TodayLessons lessons={d.today} onChanged={dash.reload} onOpenLesson={(l) => setModal({ type: 'lesson', lesson: l })} />
-      </section>
 
       <BookingRequests requests={d.booking_requests || []} cancellations={d.client_cancellations || []} onChanged={dash.reload} />
 
@@ -153,7 +152,7 @@ export default function TutorDashboard() {
                 <button className="btn btn-secondary btn-sm">Отметить</button>
               </div>
             ))}
-            {a.homework_to_check.map((h) => (
+            {(allAttention?a.homework_to_check:a.homework_to_check.slice(0,4)).map((h) => (
               <div key={`h${h.id}`} className="list-item clickable" data-row-native role="group" aria-label={`Проверить работу: ${h.student_name}`} onClick={() => navigate(`/homework/${h.assignment_id}/review/${h.id}`)}>
                 <div className="avatar"><Icon name="book" size={20} /></div>
                 <div className="list-main">
@@ -178,9 +177,11 @@ export default function TutorDashboard() {
             ))}
           </div>
         )}
+        {a.homework_to_check.length>4&&<div className="row-between wrap" style={{marginTop:16}}><button className="btn btn-quiet btn-sm" onClick={()=>setAllAttention(!allAttention)}>{allAttention?'Свернуть список':`Показать остальные · ${a.homework_to_check.length-4}`}</button><Link className="btn btn-secondary btn-sm" to="/homework?status=submitted">Вся очередь проверки</Link></div>}
       </section>
 
         {/* Месяц */}
+        {month.locked?<section className="panel"><h2 className="section-title">Сводка дохода</h2><p className="muted">Месячный отчёт и доход за час доступны в тарифе «Репетитор».</p><Link className="btn btn-secondary" to="/settings/plan">Посмотреть тариф</Link></section>:month.error?<section className="panel"><h2 className="section-title">Сводка дохода</h2><ErrorBox error={month.error} onRetry={dash.reload}/></section>:
         <section className="panel">
           <div className="panel-head">
             <h2 className="section-title">{monthName(month.month)}</h2>
@@ -203,7 +204,7 @@ export default function TutorDashboard() {
               Без чека: {month.payments_without_receipt} {plural(month.payments_without_receipt, 'оплата', 'оплаты', 'оплат')}. Не забудьте пробить в «Мой налог».
             </div>
           )}
-        </section>
+        </section>}
       </div>
 
       <TutorAnnouncements />

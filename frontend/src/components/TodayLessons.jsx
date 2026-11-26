@@ -6,7 +6,7 @@ import { GroupFinishModal } from './GroupLesson';
 import { callService } from '../pages/LessonRoom';
 import { time, shortDate, rub, LESSON_STATUS, HW_STATUS, plural } from '../format';
 
-export default function TodayLessons({ lessons, onChanged, onOpenLesson }) {
+export default function TodayLessons({ lessons, onChanged, onOpenLesson,journal=false,onPlan }) {
   const [finishing, setFinishing] = useState(null);
   const now = Date.now();
   // Ближайший незавершённый урок подсвечивается
@@ -15,7 +15,7 @@ export default function TodayLessons({ lessons, onChanged, onOpenLesson }) {
   if (!lessons.length) {
     return (
       <div className="today-empty">
-        <Empty title="Сегодня уроков нет">Можно спланировать неделю или подготовить материалы.</Empty>
+        <Empty title={journal?'В этот день занятий нет':'Сегодня уроков нет'}>Можно спланировать неделю или подготовить материалы.</Empty>
       </div>
     );
   }
@@ -34,9 +34,9 @@ export default function TodayLessons({ lessons, onChanged, onOpenLesson }) {
     <div className="today">
       {rows.map((r) =>
         r.type === 'one' ? (
-          <TodayCard key={r.l.id} l={r.l} current={current?.id === r.l.id} onFinish={() => setFinishing({ one: r.l })} onOpen={() => onOpenLesson(r.l)} />
+          <TodayCard key={r.l.id} l={r.l} current={current?.id === r.l.id} onFinish={() => setFinishing({ one: r.l })} onOpen={() => onOpenLesson(r.l)} journal={journal} onPlan={()=>onPlan?.(r.l)} />
         ) : (
-          <GroupCard key={r.key} s={r} current={r.members.some((m) => m.id === current?.id)} onFinish={() => setFinishing({ group: r })} />
+          <GroupCard key={r.key} s={r} current={r.members.some((m) => m.id === current?.id)} onFinish={() => setFinishing({ group: r })} journal={journal} onPlan={()=>onPlan?.(r.l)} />
         )
       )}
       {finishing?.one && (
@@ -45,7 +45,7 @@ export default function TodayLessons({ lessons, onChanged, onOpenLesson }) {
       )}
       {finishing?.group && (
         <GroupFinishModal groupId={finishing.group.l.group_id}
-          session={{ starts_at: finishing.group.l.starts_at, topic: finishing.group.l.topic,
+          session={{ starts_at: finishing.group.l.starts_at, topic: finishing.group.l.topic,summary:finishing.group.l.summary,private_notes:finishing.group.l.private_notes,
             students: finishing.group.members.map((m) => ({ lesson_id: m.id, student_id: m.student_id, student_name: m.student_name, status: m.status })) }}
           onClose={() => setFinishing(null)} onDone={() => { setFinishing(null); onChanged(); }} />
       )}
@@ -53,7 +53,8 @@ export default function TodayLessons({ lessons, onChanged, onOpenLesson }) {
   );
 }
 
-function TodayCard({ l, current, onFinish, onOpen }) {
+function TodayCard({ l, current, onFinish, onOpen,journal,onPlan }) {
+  const Brief=journal?'details':'div';
   const end = new Date(new Date(l.starts_at).getTime() + l.duration_min * 60000);
   const scheduled = l.status === 'scheduled';
   const f = l.finance || {};
@@ -75,13 +76,14 @@ function TodayCard({ l, current, onFinish, onOpen }) {
           <div style={{ minWidth: 0 }}>
             <Link to={`/students/${l.student_id}`} className="today-name serif">{l.student_name}</Link>
             <div className="small muted">
-              {l.unit ? `${l.unit.course_title} · ${unitLabel(l.unit)}` : l.topic || 'Курс не выбран'}
+              {[l.subject,l.topic||(l.unit?unitLabel(l.unit):'Тема пока не указана')].filter(Boolean).join(' · ')}
             </div>
           </div>
           {!scheduled && <Badge tone={LESSON_STATUS[l.status]?.tone}>{LESSON_STATUS[l.status]?.label}</Badge>}
         </div>
 
-        <dl className="brief">
+        {journal&&<JournalLessonNotes lesson={l} onPlan={onPlan}/>}
+        <Brief className={journal?'journal-context':undefined}>{journal&&<summary>Подготовка: прошлый урок, задания и словарь</summary>}<dl className="brief">
           {prev && (
             <div>
               <dt>В прошлый раз, {shortDate(prev.starts_at)}</dt>
@@ -135,7 +137,7 @@ function TodayCard({ l, current, onFinish, onOpen }) {
               <dd><Link to={`/students/${l.student_id}/finance`} className="brief-warn">{money}</Link></dd>
             </div>
           )}
-        </dl>
+        </dl></Brief>
 
         <div className="today-actions">
           {l.join_link && scheduled && (
@@ -155,7 +157,8 @@ function TodayCard({ l, current, onFinish, onOpen }) {
   );
 }
 
-function GroupCard({ s, current, onFinish }) {
+function GroupCard({ s, current, onFinish,journal,onPlan }) {
+  const Brief=journal?'details':'div';
   const l = s.l;
   const end = new Date(new Date(l.starts_at).getTime() + l.duration_min * 60000);
   const scheduled = s.members.some((m) => m.status === 'scheduled');
@@ -172,7 +175,8 @@ function GroupCard({ s, current, onFinish }) {
             <div className="small muted">Группа · {s.members.length} {plural(s.members.length, 'ученик', 'ученика', 'учеников')}{l.topic ? ` · ${l.topic}` : ''}</div>
           </div>
         </div>
-        <dl className="brief">
+        {journal&&<JournalLessonNotes lesson={l} onPlan={onPlan}/>}
+        <Brief className={journal?'journal-context':undefined}>{journal&&<summary>Участники и подготовка</summary>}<dl className="brief">
           {s.members.map((m) => {
             const notes = [];
             if (m.status !== 'scheduled') notes.push(LESSON_STATUS[m.status]?.label);
@@ -189,7 +193,7 @@ function GroupCard({ s, current, onFinish }) {
               </div>
             );
           })}
-        </dl>
+        </dl></Brief>
         <div className="today-actions">
           {l.join_link && scheduled && (
             <a className="btn btn-sm" href={l.join_link} target="_blank" rel="noreferrer"><Icon name="video" /> {callService(l.join_link)}</a>
@@ -200,4 +204,9 @@ function GroupCard({ s, current, onFinish }) {
       </div>
     </article>
   );
+}
+
+function JournalLessonNotes({lesson,onPlan}){
+ const text=lesson.private_notes||'';
+ return <div className="journal-lesson-notes"><div className="row-between wrap"><span className="journal-caption">План · только вам</span><button className="btn btn-quiet btn-sm" type="button" onClick={onPlan}>{text?'Править план':'Добавить план'}</button></div>{text&&<p className={`journal-hand ${text.length>180?'long':''}`}>{text.length>280?text.slice(0,280)+'…':text}</p>}{lesson.summary&&<div className="journal-lesson-result"><span className="journal-caption">На уроке · итог для ученика</span><p>{lesson.summary}</p></div>}</div>;
 }

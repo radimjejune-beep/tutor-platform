@@ -50,6 +50,45 @@ test('commerce: оплата, очередь писем и PDF-вложения'
   assert.equal((await orders.refund(o.id)).status,'paid');assert.equal((await orders.refund(o.id)).refund_state,'pending');assert.equal(created,1);
   state={...state,status:'succeeded'};await orders.webhook({event:'refund.succeeded',object:{id:state.id,payment_id:o.yk_payment_id}});assert.equal((await orders.byId(o.id)).status,'refunded');
  });
+ await t.test('lesson checkout: timeout, concurrent retries and webhook recover one order/payment/delivery',async()=>{
+  const original=pay.createPayment,byOrder=new Map();let timeout=true,created=0;
+  pay.createPayment=async x=>{let p=byOrder.get(x.orderId);if(!p){p=await original(x);byOrder.set(x.orderId,p);created++;}if(timeout){timeout=false;throw Error('fixture response lost after provider creation');}return p;};
+  try{
+   const key=require('crypto').randomUUID(),input={sku:'demo-first',email:'recover@example.test',ip:'recover',news:false,requestKey:key};
+   await assert.rejects(orders.create(input),/response lost/);
+   const pending=(await db.q('SELECT * FROM orders WHERE request_key=$1',[key])).rows[0];assert.equal(pending.yk_payment_id,null);
+   await assert.rejects(orders.create({...input,email:'someone-else@example.test'}),/изменились/);
+   const retries=await Promise.all([orders.create(input),orders.create(input)]);assert.equal(retries[0].order.id,pending.id);assert.equal(retries[1].order.id,pending.id);assert.equal(created,1);
+   await db.q('UPDATE orders SET yk_payment_id=NULL,confirmation_url=NULL WHERE id=$1',[pending.id]);
+   const provider=payments.get(byOrder.get(pending.id).id);Object.assign(provider,{status:'succeeded',paid:true});
+   await Promise.all([orders.webhook({event:'payment.succeeded',object:provider}),orders.webhook({event:'payment.succeeded',object:provider})]);
+   assert.equal((await orders.byId(pending.id)).status,'paid');assert.equal((await db.q('SELECT * FROM order_mail_jobs WHERE order_id=$1',[pending.id])).rowCount,1);
+   const again=await orders.create(input);assert.equal(again.order.status,'paid');assert.equal(created,1);assert.match(again.confirmationUrl,/\/o\//);
+  }finally{pay.createPayment=original;}
+ });
+ await t.test('lesson recovery rejects spoofed metadata and background sync repairs a lost creation response',async()=>{
+  const original=pay.createPayment;let lost;
+  pay.createPayment=async x=>{lost=await original(x);throw Error('fixture lost');};
+  try{
+   const key=require('crypto').randomUUID();await assert.rejects(orders.create({sku:'demo-first',email:'background@example.test',ip:'background',requestKey:key}),/lost/);
+   const order=(await db.q('SELECT * FROM orders WHERE request_key=$1',[key])).rows[0],provider=payments.get(lost.id);
+   provider.amount.value='1.00';await assert.rejects(orders.webhook({event:'payment.succeeded',object:provider}),/заказу/);assert.equal((await orders.byId(order.id)).yk_payment_id,null);
+   provider.amount.value='249.00';provider.status='succeeded';provider.paid=true;
+   pay.createPayment=async x=>x.orderId===order.id?lost:original(x);
+   await orders.syncStale();assert.equal((await orders.byId(order.id)).status,'paid');assert.equal((await db.q('SELECT * FROM order_mail_jobs WHERE order_id=$1',[order.id])).rowCount,1);
+  }finally{pay.createPayment=original;}
+ });
+ await t.test('background recovery cannot recreate a payment after provider idempotence expires while waiting',async()=>{
+  const original=pay.createPayment,realNow=Date.now;let calls=0;
+  pay.createPayment=async x=>{calls++;await original(x);throw Error('fixture reply lost');};
+  try{
+   const key=require('crypto').randomUUID();await assert.rejects(orders.create({sku:'demo-first',email:'expired@example.test',ip:'expired',requestKey:key}),/reply lost/);
+   await db.q("UPDATE orders SET created_at=NOW()-INTERVAL '22 hours 30 minutes' WHERE request_key=$1",[key]);
+   const order=(await db.q('SELECT * FROM orders WHERE request_key=$1',[key])).rows[0];
+   Date.now=()=>realNow()+2*3600000;
+   await orders.syncStale();assert.equal(calls,1);assert.equal((await orders.byId(order.id)).yk_payment_id,null);assert.equal((await orders.byId(order.id)).status,'pending');
+  }finally{Date.now=realNow;pay.createPayment=original;}
+ });
  await t.test('MIME содержит PDF-вложение и UTF-8; заголовки защищены от переносов строк',()=>{
   const m=require('../lessonfold/src/mail').buildMessage({from:'materials@lessonfold.ru',fromName:'Lessonfold',to:'buyer@example.test',subject:'Ваш урок',text:'Урок готов',html:'<p>Урок готов</p>',attachments:[{filename:'Teacher.pdf',data:pdf}]});assert.match(m,/multipart\/mixed/);assert.match(m,/multipart\/alternative/);assert.match(m,/Content-Disposition: attachment/);assert.ok(m.includes(pdf.toString('base64').slice(0,50)));assert.match(m,/Subject: =\?UTF-8\?B\?/);
   assert.throws(()=>require('../lessonfold/src/mail').buildMessage({from:'materials@lessonfold.ru',to:'x@example.test\r\nBcc: bad@example.test',subject:'Test'}),/Недопустимые/);

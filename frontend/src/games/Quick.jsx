@@ -332,7 +332,7 @@ export function QuickEditor({ game, onChange }) {
   return (
     <div className="qk-editor">
       <Field label="Игра" hint="Можно сменить в любой момент: слова останутся, поменяется только игра">
-        <TemplateGallery value={game.template} onPick={(template) => onChange({ ...game, template })} compact />
+        <select className="select" aria-label="Формат игры" value={game.template} onChange={e=>onChange({...game,template:e.target.value})}>{Object.entries(QUICK_TEMPLATES).map(([k,t])=><option key={k} value={k}>{t.label}</option>)}</select>
       </Field>
       <div className="row-between wrap" style={{ gap: 8, margin: '6px 0 8px' }}>
         <span className="section-title">Слова и вопросы · {filled}</span>

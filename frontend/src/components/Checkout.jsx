@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useEffect,useState} from 'react';
 import {api} from '../api';
 import {useAuth} from '../auth';
 import {useLoad,Spinner,ErrorBox} from '../ui';
@@ -30,6 +30,17 @@ export default function Checkout({kind='course',course,period='month',onClose}){
 }
 export function BillingHistory(){
  const {user}=useAuth(),d=useLoad(()=>api.billing(),[]),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ const pendingKey=(d.data?.orders||[]).filter(o=>o.status==='pending').slice(0,5).map(o=>o.id).join(',');
+ useEffect(()=>{
+  if(!pendingKey)return;
+  let stopped=false,running=false;const deadline=Date.now()+5*60*1000;
+  const check=async()=>{if(stopped||running||document.hidden||Date.now()>deadline)return;running=true;try{
+   const results=await Promise.all(pendingKey.split(',').map(id=>api.syncOrder(id)));
+   if(!stopped&&results.some(o=>o.status!=='pending')){d.reload();window.dispatchEvent(new Event('lf-billing-updated'));}
+  }catch{/* Manual retry still displays API errors; a transient poll never hides the existing history. */}finally{running=false;}};
+  check();const timer=setInterval(check,15000);window.addEventListener('focus',check);
+  return()=>{stopped=true;clearInterval(timer);window.removeEventListener('focus',check);};
+ },[pendingKey]);
  if(d.loading)return <Spinner/>;if(d.error)return <ErrorBox error={d.error} onRetry={d.reload}/>;
  const cancel=async()=>{setBusy(true);setError('');try{await api.cancelRenewal();d.reload();}catch(e){setError(e.message);}finally{setBusy(false);}};
  const sync=async id=>{setBusy(true);setError('');try{await api.syncOrder(id);d.reload();window.dispatchEvent(new Event('lf-billing-updated'));}catch(e){setError(e.message);}finally{setBusy(false);}};
@@ -37,6 +48,7 @@ export function BillingHistory(){
  return <section className="panel"><h2 className="section-title">{user.role==='tutor'?'Оплата и продление':'История покупок'}</h2>{user.role==='tutor'&&<p>{p.auto_renew?`Автопродление включено. Следующая оплата: ${new Date(p.next_charge_at).toLocaleDateString('ru-RU')}.`:'Автопродление выключено.'}</p>}
  {p.auto_renew&&<><button className="btn btn-secondary" disabled={busy} onClick={cancel}>Отключить автопродление</button><p className="small muted">Оплаченный срок сохраняется. Платёж, созданный до отключения, ещё может завершиться; по нему можно обратиться за возвратом.</p></>}
  {error&&<ErrorBox error={error}/>}
+ {pendingKey&&<p className="small muted" role="status">Ожидающие заказы проверяются автоматически. Доступ открывается после подтверждения платёжного сервиса.</p>}
  {d.data.orders.length?<div className="commerce-orders">{d.data.orders.map(o=><article key={o.id}><div><b>{o.title}</b><p className="small muted">{new Date(o.created_at).toLocaleDateString('ru-RU')} · {o.amount_rub} ₽ · {labels[o.status]||o.status}{o.refund_state==='pending'?' · Возврат обрабатывается':''}</p></div><div className="row"><a className="btn btn-secondary" href={o.url} target="_blank" rel="noopener noreferrer">Заказ</a>{o.status==='pending'&&<button className="btn btn-secondary" disabled={busy} onClick={()=>sync(o.id)}>Проверить оплату</button>}{o.status==='pending'&&o.confirmation_url&&<a className="btn" href={o.confirmation_url}>Оплатить</a>}</div></article>)}</div>:<p className="muted">Покупок пока нет.</p>}
  </section>;
 }

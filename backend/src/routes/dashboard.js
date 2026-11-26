@@ -11,7 +11,7 @@ const router = express.Router();
 router.get(
   '/',
   asyncHandler(async (req, res) => {
-    if (req.user.role === 'tutor') return res.json(await tutorDashboard(req.user.id));
+    if (req.user.role === 'tutor') return res.json(await tutorDashboard(req.user.id,require('../services/journal').dayQuery(req.query)));
     const ids = await accessibleStudentIds(req.user);
     const students = [];
     for (const id of ids){const subject=Number(req.query.student_id)===id&&req.query.subject?await require('../learning/study-subjects').resolve(id,req.user.tid,req.query.subject):null;students.push(await studentDashboard(id,subject));}
@@ -52,15 +52,15 @@ router.get(
 );
 
 // Репетитор: сегодня + «требует внимания»
-async function tutorDashboard(tid) {
+async function tutorDashboard(tid,day) {
   const { rows: today } = await query(
     `SELECT l.*, s.full_name AS student_name, COALESCE(gr.board_link, s.board_link) AS board_link,
             COALESCE(l.call_link, gr.call_link, s.call_link) AS join_link, gr.name AS group_name
        FROM lessons l JOIN students s ON s.id = l.student_id LEFT JOIN groups gr ON gr.id = l.group_id
-      WHERE l.starts_at >= CURRENT_DATE AND l.starts_at < CURRENT_DATE + INTERVAL '1 day'
+      WHERE l.starts_at >= ($2::date::timestamp AT TIME ZONE $3) AND l.starts_at < (($2::date+1)::timestamp AT TIME ZONE $3)
         AND l.status <> 'cancelled' AND s.tutor_id = $1
       ORDER BY l.starts_at`,
-    [tid]
+    [tid,day.date,day.timezone]
   );
   for (const l of today) Object.assign(l, await lessonBrief(l));
 
@@ -133,7 +133,7 @@ async function tutorDashboard(tid) {
   );
 
   return {
-    today,
+    today,date:day.date,timezone:day.timezone,
     booking_requests: bookingRequests,
     client_cancellations: clientCancellations,
     attention: {
@@ -150,27 +150,27 @@ async function lessonBrief(l) {
   const { rows: unit } = await query(
     `SELECT u.id, u.code, u.title, c.title AS course_title,
             cardinality(u.item_ids) AS item_count, cardinality(u.homework_item_ids) AS homework_count
-       FROM students s JOIN course_units u ON u.id = COALESCE($2::int, s.course_unit_id) JOIN courses c ON c.id = u.course_id
+       FROM students s LEFT JOIN student_subjects ss ON ss.student_id=s.id AND ss.subject=$3 JOIN course_units u ON u.id=COALESCE($2::int,ss.course_unit_id,CASE WHEN s.subject=$3 OR $3 IS NULL THEN s.course_unit_id ELSE NULL END) JOIN courses c ON c.id=u.course_id
       WHERE s.id = $1`,
-    [l.student_id, l.unit_id ?? null]
+    [l.student_id, l.unit_id ?? null,l.subject||null]
   );
   const { rows: prev } = await query(
     `SELECT id, starts_at, topic, summary, private_notes FROM lessons
-      WHERE student_id = $1 AND status = 'done' AND starts_at < $2 ORDER BY starts_at DESC LIMIT 1`,
-    [l.student_id, l.starts_at]
+      WHERE student_id=$1 AND status='done' AND starts_at<$2 AND ($3::text IS NULL OR subject=$3) ORDER BY starts_at DESC LIMIT 1`,
+    [l.student_id,l.starts_at,l.subject||null]
   );
   const { rows: homework } = await query(
     `SELECT h.id, h.status, h.score, h.quiz_score, a.id AS assignment_id, a.title, a.due_on
        FROM homework h JOIN assignments a ON a.id = h.assignment_id
-      WHERE h.student_id = $1 AND (h.status <> 'checked' OR h.created_at > NOW() - INTERVAL '10 days')
+      WHERE h.student_id=$1 AND ($2::text IS NULL OR a.subject=$2 OR (a.subject IS NULL AND $2=(SELECT subject FROM students WHERE id=$1))) AND (h.status <> 'checked' OR h.created_at > NOW() - INTERVAL '10 days')
       ORDER BY h.created_at DESC LIMIT 4`,
-    [l.student_id]
+    [l.student_id,l.subject||null]
   );
   const { rows: vocab } = await query(
     `SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE due_on <= CURRENT_DATE)::int AS due,
             COUNT(*) FILTER (WHERE source = 'mistake' AND box = 0)::int AS weak
-       FROM vocab_items WHERE student_id = $1`,
-    [l.student_id]
+       FROM vocab_items WHERE student_id=$1 AND ($2::text IS NULL OR subject=$2)`,
+    [l.student_id,l.subject||null]
   );
   const { rows: items } = await query('SELECT COUNT(*)::int AS n FROM lesson_items WHERE lesson_id = $1', [l.id]);
   const f = await studentFinance({ query }, l.student_id);

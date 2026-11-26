@@ -1,5 +1,5 @@
 import { Fragment, useId } from 'react';
-import { parseInlineChoices, markInlineCorrect } from './inline-choice';
+import { parseInlineChoices } from './inline-choice';
 import './inline-choice.css';
 
 export function InlineChoiceBlock({ n, block, value, onChange, result, audio }) {
@@ -21,11 +21,25 @@ export function InlineChoiceBlock({ n, block, value, onChange, result, audio }) 
 }
 
 export function InlineChoiceEditor({ block, onChange }) {
-  const parsed = parseInlineChoices(block.text);
-  const id = useId();
-  return <div className="inline-editor"><label>Предложения с вариантами<textarea className="textarea" rows={4} value={block.text} aria-label="Предложения с вариантами" placeholder={'She [work|*works] every day.\nI [*am|is] a teacher.'} onChange={e=>onChange({text:e.target.value})} /></label>
-    <p className="small muted">Поместите варианты в скобки и разделите |. Правильный ответ выберите ниже или отметьте * перед ним. В одном тексте можно сделать несколько мест выбора.</p>
-    {parsed.choices.map((c,i)=><fieldset key={i} className="inline-key"><legend>Правильный ответ · выбор {i+1}</legend><div className="row wrap">{c.options.map((option,k)=><label key={k}><input type="radio" name={`${id}-inline-answer-${i}`} checked={c.correct===k} onChange={()=>onChange({text:markInlineCorrect(block.text,i,k)})}/><span>{option || 'Пустой вариант'}</span></label>)}</div></fieldset>)}
-    {parsed.errors.length > 0 && <div className="inline-validation" role="status">{parsed.errors.slice(0,4).map((error,i)=><p key={i}>{error}</p>)}</div>}
+  const parsed=parseInlineChoices(block.text),id=useId();
+  // Keep spaces while typing multiword alternatives; grading still trims the canonical values.
+  const choices=parsed.choices.map(c=>({...c,options:c.raw.slice(1,-1).split('|').map(value=>value.replace(/^(\s*)\*/,'$1'))}));
+  const write=(parts,choices)=>onChange({text:parts.map((part,i)=>part+(choices[i]?'['+choices[i].options.map((value,j)=>(j===choices[i].correct?'*':'')+value).join('|')+']':'')).join('')});
+  const part=(index,value)=>write(parsed.parts.map((p,i)=>i===index?value:p),choices);
+  const choice=(index,patch)=>write(parsed.parts,choices.map((c,i)=>i===index?{...c,...patch}:c));
+  const remove=index=>{const parts=[...parsed.parts];parts[index]+=parts[index+1];parts.splice(index+1,1);write(parts,choices.filter((_,i)=>i!==index));};
+  const add=()=>write([...parsed.parts,''],[...choices,{options:['вариант 1','вариант 2'],correct:0}]);
+  return <div className="inline-editor inline-visual-editor">
+    <p className="small muted">Напишите текст, добавьте варианты и отметьте правильный ответ. В одном предложении можно сделать несколько мест выбора.</p>
+    {choices.map((c,i)=><div className="inline-author-slot" key={i}>
+      <label className="field">Текст перед выбором {i+1}<textarea className="textarea" rows={2} aria-label={`Текст перед выбором ${i+1}`} value={parsed.parts[i]} onChange={e=>part(i,e.target.value)}/></label>
+      <fieldset className="inline-author-options"><legend>Выбор {i+1} · отметьте правильный вариант</legend>
+      {c.options.map((option,k)=><div className="inline-author-option" key={k}><label className="inline-author-correct"><input type="radio" name={`${id}-inline-answer-${i}`} aria-label={`Выбор ${i+1}: вариант ${k+1} правильный`} checked={c.correct===k} onChange={()=>choice(i,{correct:k})}/><span className="small">Верный</span></label><input className="input" maxLength={300} aria-label={`Выбор ${i+1}: вариант ${k+1}`} value={option} onChange={e=>choice(i,{options:c.options.map((o,j)=>j===k?e.target.value:o)})}/><button className="btn btn-quiet btn-sm" type="button" aria-label={`Убрать вариант ${k+1} выбора ${i+1}`} disabled={c.options.length<=2} onClick={()=>choice(i,{options:c.options.filter((_,j)=>j!==k),correct:c.correct===k?-1:c.correct>k?c.correct-1:c.correct})}>Убрать</button></div>)}
+      <div className="row wrap"><button className="btn btn-secondary btn-sm" type="button" disabled={c.options.length>=6} onClick={()=>choice(i,{options:[...c.options,'новый вариант']})}>Добавить вариант</button><button className="btn btn-quiet btn-sm" type="button" onClick={()=>remove(i)}>Удалить выбор {i+1}</button></div></fieldset>
+    </div>)}
+    <label className="field">{parsed.choices.length?'Текст после последнего выбора':'Текст задания'}<textarea className="textarea" rows={2} aria-label="Текст после последнего выбора" value={parsed.parts.at(-1)} onChange={e=>part(parsed.parts.length-1,e.target.value)}/></label>
+    <button className="btn btn-secondary btn-sm" type="button" disabled={parsed.choices.length>=80} onClick={add}>Ещё одно место выбора</button>
+    {parsed.errors.length>0&&<p className="small" role="status">Проверьте варианты: нужны от 2 до 6 разных непустых ответов и один отмеченный правильный ответ в каждом выборе.</p>}
+    <details className="editor-extra"><summary>Редактировать текст целиком</summary><label className="field">Предложения с вариантами<textarea className="textarea" rows={4} aria-label="Предложения с вариантами" value={block.text} onChange={e=>onChange({text:e.target.value})}/></label><p className="small muted">Для вставки готового текста: She [work|*works] here. Звёздочкой отмечен правильный вариант.</p>{parsed.errors.length>0&&<div className="inline-validation" role="status">{parsed.errors.slice(0,4).map((error,i)=><p key={i}>{error}</p>)}</div>}</details>
   </div>;
 }

@@ -65,7 +65,7 @@ router.get(
   '/',
   asyncHandler(async (req, res) => {
     const { rows } = await query(
-      `SELECT a.id, a.title, a.due_on, a.created_at, a.section_id,a.archived_at,
+      `SELECT a.id, a.title, a.due_on, a.created_at, a.section_id,a.archived_at,a.subject,
               (SELECT title FROM study_sections ss WHERE ss.id=a.section_id) AS section_title,
               COALESCE(jsonb_agg(DISTINCT jsonb_build_object('id',(${HOMEWORK_SECTION}),'title',(SELECT title FROM study_sections ss WHERE ss.id=(${HOMEWORK_SECTION})))) FILTER (WHERE h.id IS NOT NULL),'[]'::jsonb) AS homework_sections,
               jsonb_array_length(a.questions) AS question_count,

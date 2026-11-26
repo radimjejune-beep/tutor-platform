@@ -1,0 +1,8 @@
+import {Link,Icon} from '../ui';
+import {time} from '../format';
+export default function DailyFocus({dashboard:d}) {
+  const now=Date.now(),lesson=[...d.today].filter(l=>l.status==='scheduled'&&Date.parse(l.starts_at)+l.duration_min*60000>now).sort((a,b)=>Date.parse(a.starts_at)-Date.parse(b.starts_at))[0];
+  const reviews=d.attention.homework_to_check,unmarked=d.attention.unmarked_lessons;
+  const action=lesson?{label:'Ближайший урок',title:lesson.student_name,text:`${time(lesson.starts_at)} · ${lesson.subject||lesson.topic||'Занятие'}`,href:`/lesson/${lesson.id}`,cta:'Начать урок',icon:'video'}:reviews.length?{label:'Следующий шаг',title:'Проверить работы учеников',text:`Ждут обратной связи: ${reviews.length}. Откройте очередь и начните с первой работы.`,href:'/homework?status=submitted',cta:'К проверке',icon:'check'}:unmarked.length?{label:'Следующий шаг',title:'Подвести итоги занятия',text:'Сохраните, что прошли, и выдайте связанную домашнюю работу.',href:`/lesson/${unmarked[0].id}`,cta:'Открыть занятие',icon:'book'}:{label:'Ваш рабочий день',title:'Можно подготовиться к следующему уроку',text:'Соберите материалы из библиотеки и банка в одну подборку.',href:'/library',cta:'Подобрать материалы',icon:'library'};
+  return <section className="daily-focus" aria-label="Следующее действие преподавателя"><div className="daily-focus-copy"><span className="focus-kicker">{action.label}</span><h2>{action.title}</h2><p>{action.text}</p><Link className="btn btn-light" to={action.href}><Icon name={action.icon}/>{action.cta}</Link></div><ol className="daily-focus-path" aria-label="Путь занятия"><li><span>01</span>Подготовить материалы</li><li><span>02</span>Провести занятие</li><li><span>03</span>Итог и домашняя работа</li></ol></section>;
+}

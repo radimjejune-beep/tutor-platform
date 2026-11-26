@@ -348,7 +348,7 @@ const NEW_BLOCK = {
 export { NEW_BLOCK };
 
 export function SheetEditor({ game, onChange, itemId }) {
-  const toast = useToast();
+  const toast = useToast(),editorRef=useRef(null);
   const blocks = game.blocks;
   const [busy, setBusy] = useState('');
 
@@ -385,7 +385,7 @@ export function SheetEditor({ game, onChange, itemId }) {
   };
 
   return (
-    <div className="sheet-editor">
+    <div className="sheet-editor" ref={editorRef}>
       {blocks.some(block=>block.t==='listening')?<details className="sheet-photo-extra"><summary>Дополнительно: фото страницы с полями</summary>
       <div className="sheet-start">
         <label className="btn btn-secondary">
@@ -416,12 +416,7 @@ export function SheetEditor({ game, onChange, itemId }) {
         </div>
       ))}
 
-      <div className="sheet-add">
-        <span className="small muted">Добавить:</span>
-        {Object.keys(NEW_BLOCK).map((t) => (
-          <button type="button" key={t} className="btn btn-secondary btn-sm" onClick={() => setBlocks([...blocks, NEW_BLOCK[t]()])}>{BLOCK_LABEL[t]}</button>
-        ))}
-      </div>
+      <div className="sheet-add"><label className="field">Добавить следующий этап<select className="select" aria-label="Добавить блок задания" value="" onChange={e=>{if(!e.target.value)return;setBlocks([...blocks,NEW_BLOCK[e.target.value]()]);requestAnimationFrame(()=>{const node=editorRef.current?.querySelectorAll('.sheet-edit-block');const last=node?.[node.length-1];last?.scrollIntoView({block:'center',behavior:'instant'});last?.querySelector('textarea,input,select')?.focus({preventScroll:true});});}}><option value="">Что будет делать ученик?</option>{Object.keys(NEW_BLOCK).map(t=><option key={t} value={t}>{BLOCK_LABEL[t]}</option>)}</select></label></div>
     </div>
   );
 }

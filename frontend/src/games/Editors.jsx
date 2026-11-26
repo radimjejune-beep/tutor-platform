@@ -1,7 +1,7 @@
 import { emptyListening } from './listening.js';
 // games/Editors.jsx — конструктор упражнений
 // Поля хранят «сырой» текст, а наверх отдаётся готовое упражнение — так удобно печатать и вставлять списки
-import { useState } from 'react';
+import { useRef,useState } from 'react';
 import { Field, Icon } from '../ui';
 import { GAME_TYPES, SHEET_PRESETS, parseGaps } from './logic';
 import { SheetEditor } from './Sheet';
@@ -38,31 +38,22 @@ export const EMPTY_GAME = {
 
 // Выбор типа для нового упражнения
 export function GameTypePicker({ onPick }) {
-  return (
-    <>
-    <div className="section-title" style={{ marginBottom: 4 }}>Быстрые игры</div>
-    <div className="small muted" style={{ marginBottom: 10 }}>Введите список слов или вопросов один раз, игру можно сменить потом</div>
-    <div className="type-grid type-grid-quick" style={{ marginBottom: 18 }}>
-      {Object.entries(QUICK_TEMPLATES).map(([k, t]) => (
-        <button type="button" key={k} className="type-card" onClick={() => onPick(`q_${k}`)}>
-          <span className="type-ill" aria-hidden="true">{t.ill}</span>
-          <span className="list-title">{t.label}</span>
-          <span className="list-sub">{t.hint}</span>
-        </button>
-      ))}
-    </div>
-    <div className="section-title" style={{ marginBottom: 10 }}>Другие задания</div>
-    <div className="type-grid">
-      {Object.entries({ ...GAME_TYPES, ...SHEET_PRESETS }).filter(([type]) => type !== 'quick').map(([type, t]) => (
-        <button type="button" key={type} className="type-card" onClick={() => onPick(type)}>
-          <span className="type-ill" aria-hidden="true">{ILLUSTRATION[type]}</span>
-          <span className="list-title">{t.label}</span>
-          <span className="list-sub">{t.hint}</span>
-        </button>
-      ))}
-    </div>
-    </>
-  );
+  const [category,setCategory]=useState('popular'),[query,setQuery]=useState('');
+  const formats={...Object.fromEntries(Object.entries(QUICK_TEMPLATES).map(([k,v])=>['q_'+k,v])),...Object.fromEntries(Object.entries({...GAME_TYPES,...SHEET_PRESETS}).filter(([k])=>k!=='quick'))};
+  const popular=['q_quiz','q_match','inline','gaps','listen','write'];
+  const categories={popular:'С чего начать',all:'Все форматы',words:'Слова',grammar:'Грамматика',audio:'Аудио',writing:'Письмо',custom:'Свой макет'};
+  const groups={words:['q_quiz','q_match','q_memory','q_anagram','q_tf','q_type','q_flip','match','groups'],grammar:['inline','gaps','order','fix','rewrite'],audio:['listen','dictation'],writing:['write'],custom:['sheet','board']};
+  const examples={q_quiz:'Столица Франции → Париж',q_match:'bonjour ↔ здравствуйте',inline:'She [work / works] here.',gaps:'Вода кипит при ___ °C.',listen:'Запись → картинка или ответ',write:'Текст → план и комментарии',order:'I · like · reading',fix:'He go → He goes',rewrite:'She works. → Does she work?',dictation:'Слушаю → записываю',groups:'Глаголы / существительные',sheet:'Фото + поля для ответа',board:'Текст и карточки на холсте'};
+  const term=query.trim().toLocaleLowerCase('ru');
+  const rows=Object.entries(formats).filter(([k,t])=>term?`${t.label} ${t.hint} ${examples[k]||''}`.toLocaleLowerCase('ru').includes(term):category==='all'||(category==='popular'?popular:groups[category]).includes(k));
+  return <div className="exercise-gallery">
+    <div className="editor-section-heading"><div><h2>Что будет делать ученик?</h2><p className="small muted">Выберите формат по примеру. Свой текст добавите на следующем экране.</p></div></div>
+    <input type="search" className="input" aria-label="Найти формат упражнения" placeholder="Например: аудио, письмо, пары…" value={query} onChange={e=>setQuery(e.target.value)}/>
+    <div className="exercise-categories" aria-label="Категории упражнений">{Object.entries(categories).map(([k,label])=><button key={k} type="button" className={`btn btn-sm ${category===k&&!term?'':'btn-secondary'}`} aria-pressed={category===k&&!term} onClick={()=>{setQuery('');setCategory(k);}}>{label}{k==='all'?` · ${Object.keys(formats).length}`:''}</button>)}</div>
+    <div className="exercise-format-grid">{rows.map(([k,t])=><button type="button" key={k} className="exercise-format" onClick={()=>onPick(k)}><span className="type-ill" aria-hidden="true">{t.ill||ILLUSTRATION[k]}</span><strong>{t.label}</strong><span className="exercise-example">{examples[k]||t.hint}</span><span className="exercise-format-action">Выбрать <span aria-hidden="true">→</span></span></button>)}</div>
+    {!rows.length&&<p role="status">Такого формата не нашли. Попробуйте «аудио», «письмо» или откройте все форматы.</p>}
+    {category==='popular'&&!term&&<p className="small muted">Нужен другой вариант? Откройте «Все форматы» или выберите категорию выше.</p>}
+  </div>;
 }
 
 const ILLUSTRATION = {
@@ -156,15 +147,17 @@ function OrderEditor({ game, onChange }) {
 
 /* ---------- Пропуски ---------- */
 function GapsEditor({ game, onChange }) {
+  const textRef=useRef(null),[selectionHint,setSelectionHint]=useState('');
+  const makeGap=()=>{const node=textRef.current,a=node.selectionStart,b=node.selectionEnd,selected=game.text.slice(a,b);if(!selected.trim()||/[\[\]\n]/.test(selected)||[...game.text.matchAll(/\[[^\]]*\]/g)].some(m=>a<m.index+m[0].length&&b>m.index)){setSelectionHint('Выделите слово или фразу в тексте, вне уже созданного пропуска.');node.focus();return;}onChange({...game,text:game.text.slice(0,a)+'['+selected+']'+game.text.slice(b)});setSelectionHint('Пропуск добавлен. Выделенное слово станет правильным ответом.');requestAnimationFrame(()=>{node.focus();node.setSelectionRange(a+1,b+1);});};
   const [distractors, setDistractors] = useState((game.distractors || []).join(', '));
   const n = parseGaps(game.text).gaps.length;
   return (
     <div className="form">
-      <Field label="Текст" hint="Пропуск обозначается словом в квадратных скобках: [since]. Несколько верных вариантов пишутся через черту: [has|'s]">
-        <textarea className="textarea" style={{ minHeight: 160 }} value={game.text} onChange={(e) => onChange({ ...game, text: e.target.value })}
+      <Field label="Текст" hint="Введите текст, выделите нужное слово и нажмите «Сделать пропуск».">
+        <textarea ref={textRef} className="textarea" style={{ minHeight: 160 }} value={game.text} onChange={(e) => onChange({ ...game, text: e.target.value })}
           placeholder={"She [has|'s] lived here [since] 2010. We [went] to the cinema yesterday."} />
       </Field>
-      <div className="small" style={{ marginTop: -8, color: n ? 'var(--green-ink)' : 'var(--muted)' }}>Пропусков: {n}</div>
+      <div className="row wrap"><button type="button" className="btn btn-secondary btn-sm" onClick={makeGap}>Сделать пропуск из выделенного</button><span className="small muted">Пропусков: {n}</span></div>{selectionHint&&<p className="small muted" role="status">{selectionHint}</p>}
       <Field label="Как отвечать">
         <div className="row wrap" style={{ gap: 6 }}>
           <button type="button" className={`btn btn-sm ${game.mode === 'type' ? '' : 'btn-secondary'}`} onClick={() => onChange({ ...game, mode: 'type' })}>Вписать слово</button>

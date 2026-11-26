@@ -1,3 +1,4 @@
+import {prioritizeHomework} from '../../learning-flow.js';
 import {LessonRecap} from '../../components/LessonRecap';
 // pages/client/Home.jsx — главная ученика / родителя
 import { api } from '../../api';
@@ -15,7 +16,7 @@ import { time, dayMonth, relativeDay, rub, shortDate, monthName, lessonsWord, HW
 
 export default function ClientHome({ student, isParent }) {
   const subj = useSubject(student.subject);
-  const dash = useLoad(() => Promise.all([api.dashboard({student_id:student.id,subject:student.subject}), api.finance(student.id)]), [student.id]);
+  const dash = useLoad(() => Promise.all([api.dashboard({student_id:student.id,subject:student.subject}), api.finance(student.id)]), [student.id,student.subject]);
 
   if (dash.loading) return <Spinner />;
   if (dash.error) return <ErrorBox error={dash.error} onRetry={dash.reload} />;
@@ -25,7 +26,8 @@ export default function ClientHome({ student, isParent }) {
   const next = s.upcoming[0];
   const activeSub = fin.subscriptions.find((x) => x.status === 'active');
   const firstName = givenName(s.student.full_name);
-  const openHw = s.homework.filter((h) => h.status === 'assigned');
+  const openHw = prioritizeHomework(s.homework).filter(h=>h.status==='assigned');
+  const submittedCount=s.homework.filter(h=>h.status==='submitted').length;
 
   return (
     <>
@@ -82,19 +84,23 @@ export default function ClientHome({ student, isParent }) {
           </div>
           {!s.homework.length && <Empty title="Заданий нет">Новое появится здесь после занятия.</Empty>}
           <div className="list">
-            {s.homework.slice(0, 4).map((h) => (
-              <Link key={h.id} to={`/homework/${h.id}`} className="list-item clickable" style={{ color: 'inherit', textDecoration: 'none' }}>
+            {openHw.slice(0,3).map((h,i) => (
+              <Link key={h.id} to={`/homework/${h.id}`} className={`list-item clickable ${i===0?'next-homework':''}`} style={{ color: 'inherit', textDecoration: 'none' }}>
                 <div className="list-main">
                   <div className="list-title truncate">{h.title}</div>
                   <div className="list-sub">{h.due_on ? `К ${shortDate(h.due_on)}` : 'Без срока'}</div>
                 </div>
-                <Badge tone={HW_STATUS[h.status].tone}>{HW_STATUS[h.status].label}</Badge>
+                <span className={i===0?"btn btn-sm":"small muted"}>{i===0?(isParent?"Посмотреть":"Продолжить"):"Открыть"}</span>
               </Link>
             ))}
           </div>
+          {!openHw.length&&s.homework.length>0&&<p className="learning-done-note">Все текущие работы отправлены. Можно повторить тему или посмотреть комментарии преподавателя.</p>}
+          {submittedCount>0&&<p className="small muted">На проверке: {submittedCount}. Эти работы уже отправлены.</p>}
+          <Link className="btn btn-secondary btn-sm" to="/homework">Все задания и темы</Link>
         </section>
 
         {/* Абонемент */}
+        <details className="client-finance-disclosure" open={isParent}><summary>Оплаты и абонемент</summary>
         <section className="panel">
           <h2 className="section-title">{activeSub ? 'Абонемент' : 'Оплата'}</h2>
           {activeSub ? (
@@ -122,6 +128,7 @@ export default function ClientHome({ student, isParent }) {
           )}
           <Link to="/payments" className="small" style={{ display: 'inline-block', marginTop: 14 }}>История оплат</Link>
         </section>
+        </details>
         {/* Прогресс и отчёт */}
         <section className="panel">
           <div className="panel-head">

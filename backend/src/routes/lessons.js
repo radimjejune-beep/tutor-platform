@@ -85,6 +85,7 @@ const createSchema = z
     duration_min: z.number().int().min(15).max(240).optional(),
     price: z.number().int().min(0).max(100000).optional(),
     topic: z.string().trim().max(255).optional(),
+    private_notes:z.string().trim().max(5000).optional(),
     repeat_weeks: z.number().int().min(1).max(26).default(1),
     force: z.boolean().default(false),
   })
@@ -130,9 +131,9 @@ router.post(
       const out = [];
       for (const slot of slots) {
         const { rows } = await client.query(
-          `INSERT INTO lessons (student_id, starts_at, duration_min, price, topic, subject)
-           VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-          [b.student_id, slot.toISOString(), duration, price, b.topic || null, subject]
+          `INSERT INTO lessons (student_id, starts_at, duration_min, price, topic, subject,private_notes)
+           VALUES ($1, $2, $3, $4, $5, $6,$7) RETURNING *`,
+          [b.student_id, slot.toISOString(), duration, price, b.topic || null, subject,b.private_notes||null]
         );
         out.push(rows[0]);
       }

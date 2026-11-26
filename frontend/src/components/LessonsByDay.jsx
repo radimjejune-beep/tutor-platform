@@ -27,13 +27,14 @@ export default function LessonsByDay({ lessons, onOpen, showStudent = true }) {
           return (
             <div
               key={l.id}
+              data-row-native role="group" aria-label={`Занятие: ${showStudent?l.student_name:l.topic||'Занятие'}`}
               className={`list-item ${onOpen ? 'clickable' : ''}`}
               onClick={onOpen ? () => onOpen(l) : undefined}
               style={faded ? { opacity: 0.55 } : undefined}
             >
               <div className="time-chip">{time(l.starts_at)}</div>
               <div className="list-main">
-                <div className="list-title truncate">{showStudent ? l.student_name : l.topic || 'Занятие'}</div>
+                <div className="list-title truncate">{onOpen?<button className="lesson-row-title" onClick={e=>{e.stopPropagation();onOpen(l);}}>{showStudent?l.student_name:l.topic||'Занятие'}</button>:showStudent?l.student_name:l.topic||'Занятие'}</div>
                 <div className="list-sub truncate">
                   {showStudent ? l.topic || `${l.duration_min} минут` : `${l.duration_min} минут`}
                   {!showStudent && l.summary ? `. ${l.summary}` : ''}

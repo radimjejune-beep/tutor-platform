@@ -14,7 +14,7 @@ test('v2.2 upgrade preserves accounts, parent links, lesson summaries, answers, 
  const homework=(await query("INSERT INTO homework(assignment_id,student_id,lesson_id,status,student_answer,score) VALUES($1,$2,$3,'checked','Je parle français.',86) RETURNING id",[assignment,sid,lesson])).rows[0].id;
  const word=(await query("INSERT INTO vocab_items(student_id,term,translation,box) VALUES($1,'chat','кот',3) RETURNING id",[sid])).rows[0].id;
  const section=(await query("INSERT INTO study_sections(tutor_id,title,grammar_key) VALUES($1,'Présent','fr-etre') RETURNING id",[teacher])).rows[0].id;
- const applied=await migrate({log:()=>{}});assert.ok(applied[0].startsWith('031_'));assert.ok(applied.at(-1).startsWith('038_'));await require('../src/services/schema').ensureAll();assert.deepEqual(await migrate({log:()=>{}}),[]);
+ const applied=await migrate({log:()=>{}});assert.ok(applied[0].startsWith('031_'));assert.ok(applied.at(-1).startsWith('039_'));await require('../src/services/schema').ensureAll();assert.deepEqual(await migrate({log:()=>{}}),[]);
  const h=(await query('SELECT * FROM homework WHERE id=$1',[homework])).rows[0];assert.equal(h.student_answer,'Je parle français.');assert.equal(h.score,86);assert.equal(h.lesson_id,lesson);assert.equal(h.subject,subject);assert.equal(h.reviewed_at,null,'historic work is not newly rewarded');
  const l=(await query('SELECT * FROM lessons WHERE id=$1',[lesson])).rows[0];assert.equal(l.summary,'Nous avons étudié le présent.');assert.equal(l.private_notes,'Teacher-only note');assert.equal(l.subject,subject);
  assert.equal((await query('SELECT subject FROM assignments WHERE id=$1',[assignment])).rows[0].subject,subject);

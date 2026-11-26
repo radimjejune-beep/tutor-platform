@@ -34,19 +34,16 @@ async function poll() {
   }
 }
 
-async function periodic() {
-  const run = async () => {
-    try {
-      const r = config.botEnabled ? await bot.syncReleases() : 0;
-      const f = config.botEnabled ? await bot.runFollowups() : 0;
-      const s = config.payEnabled ? await orders.syncStale() : 0;
-      if(config.payEnabled)await require('./commerce').renewDue();
-      const w = await orders.releases();
-      if (r || f || s || w) console.log(`periodic: бот выдал уроков ${r}, напоминаний ${f}; сайт: подтверждено оплат ${s}, писем о выходе ${w}`);
-    } catch (e) { console.error('periodic failed', e.message); }
-  };
-  await run();
-  setInterval(run, 15 * 60 * 1000).unref();
+let workers=[];
+function periodic(){
+  workers.push(require('./worker').startWorker({name:'payments',interval:60*1000,tasks:[
+    ()=>config.payEnabled?orders.syncStale():0,
+    ()=>config.payEnabled?require('./commerce').renewDue():0
+  ]}));
+  workers.push(require('./worker').startWorker({name:'releases',interval:15*60*1000,tasks:[()=>orders.releases()]}));
+  workers.push(require('./worker').startWorker({name:'telegram',interval:15*60*1000,tasks:[
+    ()=>config.botEnabled?bot.syncReleases():0,()=>config.botEnabled?bot.runFollowups():0
+  ]}));
 }
 
 // Подготовка: миграции, каталог, бот, выдача после оплаты. Общая для отдельного запуска и встраивания.
@@ -82,7 +79,7 @@ async function init() {
     orders.onTgPaid(bot.onOrderPaid);
   }
   const afterPublish = async () => {
-    try { if (config.botEnabled) await bot.syncReleases(); await orders.releases(); } catch (e) { console.error('release after publish', e.message); }
+    const results=await Promise.allSettled([orders.releases(),config.botEnabled?bot.syncReleases():Promise.resolve()]);for(const result of results)if(result.status==='rejected')console.error('release after publish',result.reason.message);
   };
   return { hooks: { onCatalogChange: afterPublish } };
 }
@@ -91,13 +88,13 @@ const startedLine = () => `${config.botEnabled ? '@' + config.botUsername : 'С�
 
 // Фоновые задачи: периодические проверки и чтение сообщений бота
 function background() {
-  periodic();
-  const flushMail=()=>require('./mail-queue').flush().catch(e=>console.error('mail queue',e.message));
-  flushMail();setInterval(flushMail,60*1000).unref();
+  if(workers.length)return;
+  stopping=false;periodic();
+  workers.push(require('./worker').startWorker({name:'mail queue',interval:60*1000,tasks:[()=>require('./mail-queue').flush()]}));
   if (config.botEnabled) poll().catch(e => console.error('poll stopped', e.message));
 }
 
-function stop() { stopping = true; }
+function stop(){stopping=true;for(const worker of workers)worker.stop();workers=[];}
 
 async function main() {
   const { hooks } = await init();
@@ -105,7 +102,7 @@ async function main() {
   server.listen(config.port, config.host, () => console.log(`${startedLine()}; веб на порту ${config.port}`));
   background();
   const shutdown = async () => {
-    stopping = true;
+    stop();
     server.close();
     await db.close().catch(() => {});
     process.exit(0);

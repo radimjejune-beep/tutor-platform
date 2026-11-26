@@ -1,3 +1,4 @@
+import MaterialTray,{TrayButton} from '../../components/MaterialTray';
 import {finishWorkspaceScroll,readWorkspace,saveWorkspace} from '../../workspace-state';
 import {BankSearch,BankSearchResults,BankUseActions,useDesktopBank,BankPreview as Preview} from '../../components/BankTools';
 import ActivityActions from '../../components/ActivityActions';
@@ -101,6 +102,7 @@ export default function BankPage({ book, unit, params = new URLSearchParams() })
         Названия учебников указаны только для удобства поиска. Банк не связан с издательствами: все задания авторские,
         тексты и упражнения из учебников сюда не загружаются.
       </p>
+      <MaterialTray/>
       {sharing && <ShareModal books={books.data} book={b.id} unit={u.code} onClose={() => setSharing(false)} onDone={() => { setSharing(false); books.reload(); navigate(`/bank/${b.id}/${encodeURIComponent(u.code)}?r=${Date.now()}`); }} />}
     </>
   );
@@ -168,7 +170,7 @@ function UnitItems({ book, unit, onShare }) {
               {it.taken_id ? <Link to={`/library/${it.taken_id}`} className="btn btn-quiet btn-sm">В библиотеке</Link>
                 : <button className="btn btn-sm" disabled={busy === it.id} onClick={() => take(it)}>Взять себе</button>}
             </div>
-            <BankUseActions item={it} onTaken={list.reload} includeTake={false}/><ActivityActions source="bank" id={it.id} compact/>
+            <TrayButton item={it}/><details className="bank-card-actions"><summary>Ещё действия</summary><BankUseActions item={it} onTaken={list.reload} includeTake={false}/><ActivityActions source="bank" id={it.id} compact/></details>
             {(it.mine || user.is_admin) && <details className="bank-card-more"><summary>Управление материалом</summary><button type="button" className="btn btn-quiet btn-sm" onClick={() => hide(it)}>Убрать из банка</button></details>}
           </article>
         ))}

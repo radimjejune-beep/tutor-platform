@@ -47,7 +47,7 @@ const config = {
   ykShopId: E('YOOKASSA_SHOP_ID') || '',
   ykSecret: E('YOOKASSA_SECRET_KEY') || '',
   ykApi: (E('YOOKASSA_API') || 'https://api.yookassa.ru/v3').replace(/\/$/, ''),
-  // 1 = передавать в ЮKassa данные чека по 54-ФЗ. Самозанятому обычно не нужно: чек идёт в «Мой налог».
+  // 1 = передавать в ЮKassa данные чека по 54-ФЗ. Для НПД не подходит: отдельная интеграция с партнёром «Моего налога». ЮKassa прекратила НПД-чеки 29.12.2025.
   ykReceipt: E('YOOKASSA_RECEIPT') === '1',
 
   // Почта для писем покупателям (SMTP). Например Яндекс 360: smtp.yandex.ru, 465, SMTP_SECURE=1

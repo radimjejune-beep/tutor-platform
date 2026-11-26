@@ -1,3 +1,5 @@
+import MaterialTray,{useMaterialTray} from '../../components/MaterialTray';
+import MaterialPreview from '../../components/MaterialPreview';
 import {readWorkspace,saveWorkspace,finishWorkspaceScroll} from '../../workspace-state';
 import ActivityActions from '../../components/ActivityActions';
 import { BackLink } from '../../Shell';
@@ -126,27 +128,25 @@ export function LibraryPage({ kind = 'all' }) {
   const [uploading, setUploading] = useState(false);
   const list = useLoad(() => (isBooks ? Promise.resolve([]) : loadList({ ...f,kind,q:query })), [kind, f.subject, f.exam, f.exam_task, f.tag, query, f.fav, f.folder]);
   const folders = useLoad(() => api.folders().then((r) => ({ folders: Array.isArray(r?.folders) ? r.folders : [], unfiled: r?.unfiled || 0 })).catch(() => ({ folders: [], unfiled: 0 })), []);
-  const [selected, setSelected] = useState(new Set());
+  const tray=useMaterialTray(),[preview,setPreview]=useState(null);
+  const selected=new Set(tray.items.filter(i=>i.source==='library').map(i=>i.id));
+  const setSelected=()=>tray.clearSource('library');
   const [toLesson, setToLesson] = useState(false);
   const [moving, setMoving] = useState(false);
-  const pickFolder = (v) => { saveFolder(v); setSelected(new Set()); setF({ ...f, folder: v }); };
+  const pickFolder = (v) => { saveFolder(v); setF({ ...f, folder: v }); };
   const folderList = folders.data?.folders || [];
   // если папку удалили, а она была выбрана
   const folderNow = f.folder && f.folder !== 'none' && folders.data && !folderList.some((x) => x.id === f.folder) ? '' : f.folder;
   const curFolder = folderList.find((x) => x.id === folderNow);
   const rows=[...(list.data||[])].sort((a,b)=>sort==='title'?a.title.localeCompare(b.title,'ru'):sort==='favorite'?Number(b.favorite)-Number(a.favorite)||a.title.localeCompare(b.title,'ru'):String(b.updated_at||b.created_at).localeCompare(String(a.updated_at||a.created_at)));
-  const pages=Math.max(1,Math.ceil(rows.length/25)),currentPage=Math.min(page,pages),visible=rows.slice((currentPage-1)*25,currentPage*25);
-  const canAssign=[...selected].every(id=>list.data?.find(i=>i.id===id)?.kind!=='theory');
-  useEffect(()=>{const signature=JSON.stringify([kind,f.subject,f.exam,f.exam_task,f.tag,f.q,f.fav,f.folder]);if(previousFilter.current&&previousFilter.current!==signature){setSelected(new Set());setPage(1);}previousFilter.current=signature;},[kind,f]);
+  const pages=Math.max(1,Math.ceil(rows.length/12)),currentPage=Math.min(page,pages),visible=rows.slice((currentPage-1)*12,currentPage*12);
+  const canAssign=tray.items.filter(i=>i.source==='library').every(i=>i.kind!=='theory');
+  useEffect(()=>{const signature=JSON.stringify([kind,f.subject,f.exam,f.exam_task,f.tag,f.q,f.fav,f.folder]);if(previousFilter.current&&previousFilter.current!==signature){setPage(1);}previousFilter.current=signature;},[kind,f]);
   useEffect(()=>{if(folders.data&&f.folder&&f.folder!=='none'&&!folderList.some(x=>x.id===f.folder)){setF(p=>({...p,folder:''}));saveFolder('');}},[folders.data,f.folder]);
   useEffect(()=>{if(!list.loading&&list.data)finishWorkspaceScroll();},[list.loading,list.data]);
   const newHref = `/library/new?kind=${kind}${typeof folderNow === 'number' ? `&folder=${folderNow}` : ''}`;
 
-  const toggle = (id) => {
-    const n = new Set(selected);
-    n.has(id) ? n.delete(id) : n.add(id);
-    setSelected(n);
-  };
+  const toggle = id => {const item=list.data?.find(i=>i.id===id);if(item)tray.toggle('library',item);};
 
   return (
     <>
@@ -169,7 +169,7 @@ export function LibraryPage({ kind = 'all' }) {
       <ScrollTabs label="Виды материалов">
         {Object.entries(KINDS).map(([k, label]) => (
           <button key={k} role="tab" aria-selected={kind === k} className={kind === k ? 'active' : ''}
-            onClick={() => { setSelected(new Set()); navigate(`/library/${KIND_PATH[k]}`); }}>{label}</button>
+            onClick={() => { navigate(`/library/${KIND_PATH[k]}`); }}>{label}</button>
         ))}
         {hasBank(subj.subject) && <button role="tab" aria-selected={false} onClick={() => navigate('/bank')}><Icon name="library" size={16} /> Банк заданий</button>}
       </ScrollTabs>
@@ -187,8 +187,6 @@ export function LibraryPage({ kind = 'all' }) {
           <div className="row wrap" style={{ gap: 6 }}>
             <button className="btn btn-secondary btn-sm" onClick={() => setSelected(new Set())}>Сбросить</button>
             <button className="btn btn-secondary btn-sm" onClick={() => setMoving(true)}><Icon name="folder" size={14} /> В папку</button>
-            {kind !== 'theory'&&canAssign && <button className="btn btn-secondary btn-sm" onClick={() => setToLesson(true)}>На урок</button>}
-            {kind !== 'theory'&&canAssign && <button className="btn btn-sm" onClick={() => navigate(`/homework/new?items=${[...selected].join(',')}`)}>Выдать как ДЗ</button>}
           </div>
         </div>
       )}
@@ -211,7 +209,7 @@ export function LibraryPage({ kind = 'all' }) {
           <div key={i.id} className="assign-row" inert={list.loading?'':undefined} data-row-native role="group" aria-label={`Материал: ${i.title}`} onClick={()=>{rememberList();navigate(`/library/${i.id}`);}} draggable
             onDragStart={(e) => dragItems(e, selected.has(i.id) ? [...selected] : [i.id])} title="Можно перетащить в папку">
             {(
-              <input type="checkbox" className="row-check" checked={selected.has(i.id)} aria-label={`Выбрать материал: ${i.title}`}
+              <input type="checkbox" className="row-check" disabled={!selected.has(i.id)&&tray.items.length>=40} checked={selected.has(i.id)} aria-label={`Выбрать материал: ${i.title}`}
                 onClick={(e) => e.stopPropagation()} onChange={() => toggle(i.id)} />
             )}
             <div className="list-main">
@@ -221,6 +219,7 @@ export function LibraryPage({ kind = 'all' }) {
               </div>
               {i.tutor_note && <div className="list-sub truncate" style={{ color: '#7a5717' }}><Icon name="note" size={13} /> {i.tutor_note}</div>}
             </div>
+            <button type="button" className="btn btn-secondary btn-sm library-preview-trigger" onClick={e=>{e.stopPropagation();setPreview(i.id);}}>Посмотреть</button>
             {i.files_count > 0 && <Badge>Файлов: {i.files_count}</Badge>}
             {kind !== 'theory' && <FavStar item={i} onChanged={f.fav||sort==='favorite' ? list.reload : undefined} />}
           </div>
@@ -232,6 +231,8 @@ export function LibraryPage({ kind = 'all' }) {
       </div>
 
       {add&&<Modal title="Добавить материал" onClose={()=>setAdd(false)}><p className="muted">Выберите, что хотите подготовить. Материал останется в вашей библиотеке.</p><div className="library-add-types">{[['game','Интерактивное упражнение','Практика с автоматической проверкой'],['deck','Урок из слайдов','Объяснение и задания на одном занятии'],['html','Готовый HTML-урок','Загрузить свой интерактивный файл'],['theory','Объяснение темы','Теория для ваших учеников'],['task','Задача или письменная работа','Условие, решение и приложения']].map(([k,title,hint])=><Link key={k} className="library-add-type" to={`/library/new?kind=${k}${typeof folderNow==='number'?`&folder=${folderNow}`:''}`} onClick={()=>{rememberList();setAdd(false);}}><b>{title}</b><span className="small muted">{hint}</span></Link>)}</div></Modal>}
+      <MaterialTray/>
+      {preview&&<MaterialPreview id={preview} onClose={()=>setPreview(null)}/>}
       {toLesson && (
         <AddToLessonModal itemIds={[...selected]} onClose={() => setToLesson(false)} onDone={() => { setToLesson(false); setSelected(new Set()); }} />
       )}
@@ -326,6 +327,10 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
   const resetDraft = () => { clearDraft(dkey); setF(base); setRestoredAt(null); };
   const [pending, setPending] = useState([]);
   const [preview, setPreview] = useState(false);
+  const [choosing,setChoosing]=useState(false),[picking,setPicking]=useState(false),[pickError,setPickError]=useState('');
+  const assignAfter=useRef(false),createdId=useRef(null),uploaded=useRef(new Set());
+  const needsFormat=f.kind==='game'&&!f.game;
+  const openPreview=()=>{setPreview(p=>!p);window.scrollTo({top:0,behavior:'instant'});};
 
   const body = () => ({
     kind: f.kind,
@@ -348,17 +353,18 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
     if (f.kind === 'html' && !f.html) throw new Error('Загрузите файл урока (.html)');
     if (f.kind === 'deck' && !f.deck) throw new Error('Выберите шаблон урока');
     if (isNew) {
-      const created = await api.createLibraryItem(body());
+      const created=createdId.current?await api.updateLibraryItem(createdId.current,body()).then(()=>({id:createdId.current})):await api.createLibraryItem(body());
+      createdId.current=created.id;
+      for(const file of pending){if(!uploaded.current.has(file)){await api.uploadFile({library_item_id:created.id},file);uploaded.current.add(file);}}
       clearDraft(dkey);
-      for (const file of pending) await api.uploadFile({ library_item_id: created.id }, file);
       toast('Добавлено в библиотеку');
-      navigate(`/library/${created.id}`);
+      navigate(assignAfter.current?`/homework/new?items=${created.id}`:`/library/${created.id}`);
     } else {
       await api.updateLibraryItem(item.id, body());
       clearDraft(dkey);
       setRestoredAt(null);
       toast('Сохранено');
-      reload();
+      if(assignAfter.current)navigate(`/homework/new?items=${item.id}`);else reload();
     }
   });
 
@@ -369,6 +375,18 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
     navigate(`/library/${KIND_PATH[item.kind]}`);
   };
 
+  const pickFormat=async type=>{
+    let game=structuredClone(EMPTY_GAME[type]);
+    if(f.game?.type==='quick'&&game?.type==='quick')game={...game,items:structuredClone(f.game.items),timer:f.game.timer};
+    else if(isNew&&f.game?.type==='quick'&&f.game.items.some(x=>x.q.trim()||x.a.trim())&&!window.confirm('Этот формат использует другое содержимое. Заменить текущие вопросы новым шаблоном?'))return;
+    if(!game)return;
+    if(!isNew){if(f.game&&!window.confirm('Заменить содержимое упражнения новым форматом? Сначала сохраните текущий вариант, если он нужен.'))return;setF({...f,game});setChoosing(false);return;}
+    if(game.type==='sheet'||game.type==='board'){
+      setPicking(true);setPickError('');
+      try{const created=await api.createLibraryItem({...body(),kind:'game',title:f.title.trim()||SHEET_PRESETS[type]?.label||GAME_TYPES[type]?.label||'Моё упражнение',game:cleanGame(game)});clearDraft(dkey);navigate(`/library/${created.id}`);}
+      catch(e){setPickError(e.message);}finally{setPicking(false);}
+    }else{setF({...f,game});setChoosing(false);requestAnimationFrame(()=>document.getElementById('material-title')?.focus());}
+  };
   const back = libraryReturnPath();
 
   return (
@@ -377,34 +395,22 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
       <DraftNotice at={restoredAt} onReset={resetDraft} />
       <div className="page-head">
         <h1 className="page-title">{isNew ? { task: 'Новая задача', game: 'Новое упражнение', html: 'Новый урок', deck: 'Урок из слайдов', theory: 'Новая теория' }[f.kind] : f.title || 'Материал'}</h1>
-        {!isNew && (
-          <div className="row" style={{ gap: 6 }}>
-            <button className="btn btn-secondary btn-sm" onClick={() => setPreview(!preview)}>{preview ? 'Редактировать' : f.kind === 'deck' ? 'Показать урок' : f.kind === 'game' || f.kind === 'html' ? 'Попробовать' : 'Как увидит ученик'}</button>
+        <div className="row wrap" style={{ gap: 6 }}>
+            {!needsFormat&&!choosing&&!preview&&<button className="btn" form="material-editor-form" type="submit" disabled={save.busy} onClick={()=>{assignAfter.current=false;}}>{save.busy?'Сохраняем…':'Сохранить'}</button>}
+            <button type="button" className="btn btn-secondary" disabled={needsFormat||f.kind==='deck'&&!f.deck||f.kind==='html'&&!f.html} onClick={openPreview}>{preview?'Вернуться к редактированию':'Предпросмотр ученика'}</button>
+            {!isNew&&<>
             {f.kind !== 'theory' && <Link to={`/homework/new?items=${item.id}`} className="btn btn-secondary btn-sm">Выдать как ДЗ</Link>}
             <PublishButton item={item} />
+            </>}
           </div>
-        )}
       </div>
 
-      {!isNew&&<ActivityActions key={item.id} id={item.id}/>}
-      {preview && !isNew ? (
-        <div style={{ maxWidth: f.kind === 'deck' ? 1100 : 860 }}><LibraryItem item={{ ...item, ...body(), files: item.files }} /></div>
-      ) : (
-        <form className="assign-layout" onSubmit={save.submit}>
-          {f.kind === 'game' && (f.game?.type === 'board' || f.game?.type === 'quick') && (
-            <section className="panel dk-panel">
-              {isNew && <div style={{ textAlign: 'right', marginBottom: 6 }}><button type="button" className="btn btn-quiet btn-sm" onClick={() => setF({ ...f, game: null })}>Другой тип</button></div>}
-              {f.game.type === 'quick' ? (
-                <div className="qk-split">
-                  <GameEditor game={f.game} itemId={item?.id} onChange={(game) => setF({ ...f, game })} />
-                  <div className="qk-live">
-                    <div className="section-title" style={{ marginBottom: 8 }}>Как увидит ученик</div>
-                    {(() => { const g = cleanGame(f.game); return g.items.length >= 2 ? <GamePlayer key={JSON.stringify(g)} game={g} /> : <div className="small muted">Заполните хотя бы две строки, и здесь появится игра.</div>; })()}
-                  </div>
-                </div>
-              ) : <GameEditor game={f.game} itemId={item?.id} onChange={(game) => setF({ ...f, game })} />}
-            </section>
-          )}
+      <ol className="material-editor-steps" aria-label="Создание материала"><li className={needsFormat?'current':'done'}>1 <span>Формат</span></li><li className={!needsFormat&&!preview?'current':''}>2 <span>Содержание</span></li><li className={preview?'current':''}>3 <span>Предпросмотр</span></li></ol>
+      {!isNew&&!preview&&<details className="editor-share-tools"><summary>Ссылка на упражнение и публикация</summary><ActivityActions key={item.id} id={item.id}/></details>}
+      {preview ? (
+        <section className="editor-preview"><p className="learning-note">Это пробное прохождение. Результат не попадёт в журнал ученика.{pending.length?' Новые файлы появятся после сохранения.':''}</p><LibraryItem item={{ ...item, ...body(),title:f.title.trim()||'Без названия', files: item?.files||[] }} /><button type="button" className="btn btn-secondary" onClick={openPreview}>Вернуться к редактированию</button></section>
+      ) : needsFormat||choosing ? <section className="panel editor-format-panel">{choosing&&<button type="button" className="btn btn-quiet btn-sm" onClick={()=>setChoosing(false)}>Вернуться к содержимому</button>}<fieldset disabled={picking}><GameTypePicker onPick={pickFormat}/></fieldset><p className="small muted">Для форматов с аудио, изображениями и своим макетом материал сохранится в библиотеку сразу — затем добавьте своё содержание.</p>{picking&&<p role="status">Открываем конструктор…</p>}{pickError&&<ErrorBox error={pickError}/>}</section> : (
+        <form id="material-editor-form" className="assign-layout material-editor" onSubmit={save.submit}>
           {f.kind === 'deck' && (
             <section className="panel dk-panel">
               {f.deck ? <DeckEditor deck={f.deck} onChange={(deck) => setF({ ...f, deck })} itemId={item?.id} /> : (
@@ -415,8 +421,7 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
             </section>
           )}
           <section className="panel form">
-            <FormulaBar />
-            {isNew && (
+            {isNew && f.kind!=='game' && (
               <div className="row wrap" style={{ gap: 6 }}>
                 {Object.keys(NEW_LABEL).filter((k) => k !== 'books').map((k) => (
                   <button type="button" key={k} className={`btn btn-sm ${f.kind === k ? '' : 'btn-secondary'}`} onClick={() => setF({ ...f, kind: k })}>{NEW_LABEL[k]}</button>
@@ -424,23 +429,10 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
               </div>
             )}
             <Field label="Название">
-              <input className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} required autoFocus={isNew}
+              <input id="material-title" className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} required autoFocus={isNew}
                 placeholder={{ task: 'Задача 13 ОГЭ: вариант 4', game: 'Термины: найди пару', html: 'Интерактивный урок по теме', deck: 'Present Continuous: что происходит сейчас', theory: 'Правило или конспект темы' }[f.kind]} />
             </Field>
-            {f.kind === 'game' && !f.game && (
-              <Field label="Тип упражнения">
-                <GameTypePicker onPick={(type) => ((type === 'sheet' || type === 'board' || SHEET_PRESETS[type]) && isNew ? createSheet(f.title, type) : setF({ ...f, game: EMPTY_GAME[type] }))} />
-              </Field>
-            )}
-            {f.kind === 'game' && f.game && f.game.type !== 'board' && f.game.type !== 'quick' && (
-              <div className="game-editor">
-                <div className="row-between" style={{ marginBottom: 12 }}>
-                  <span className="game-type">{GAME_TYPES[f.game.type].label}</span>
-                  {isNew && <button type="button" className="btn btn-quiet btn-sm" onClick={() => setF({ ...f, game: null })}>Другой тип</button>}
-                </div>
-                <GameEditor key={f.game.type} game={f.game} itemId={item?.id} onChange={(game) => setF({ ...f, game })} />
-              </div>
-            )}
+            {f.kind==='game'&&f.game&&<div className="game-editor"><div className="editor-section-heading"><div><h2>{f.game.type==='quick'?'Список вопросов и ответов':f.game.type==='sheet'?'Содержание упражнения':GAME_TYPES[f.game.type]?.label}</h2><p className="small muted">Замените примеры своими. Проверить задание можно в «Предпросмотре ученика».</p></div>{isNew&&<button type="button" className="btn btn-quiet btn-sm" onClick={()=>setChoosing(true)}>Сменить формат</button>}</div><GameEditor key={f.game.type} game={f.game} itemId={item?.id} onChange={game=>setF({...f,game})}/></div>}
             {f.kind === 'html' && <HtmlUpload f={f} setF={setF} />}
             {f.kind === 'game' || f.kind === 'html' || f.kind === 'deck' ? (
               <Field label="Инструкция для ученика" hint="Необязательно">
@@ -456,6 +448,7 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
                 <textarea className="textarea" style={{ minHeight: 90 }} value={f.answer} onChange={(e) => setF({ ...f, answer: e.target.value })} />
               </Field>
             )}
+            <details className="editor-extra"><summary>Ссылки, файлы и формулы{pending.length?` · файлов: ${pending.length}`:''}</summary><div className="form"><FormulaBar/>
             <Field label="Ссылки" hint="Видео, онлайн-упражнения, статьи: каждая ссылка с новой строки">
               <textarea className="textarea" style={{ minHeight: 60 }} value={f.links} onChange={(e) => setF({ ...f, links: e.target.value })} />
             </Field>
@@ -474,14 +467,18 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
                 </>
               )}
             </Field>
+            </div></details>
+            {save.error&&<div className="alert" role="alert">{save.error}</div>}
+            <div className="editor-save-bar"><div><strong>{isNew?'Сохранить в библиотеку':'Сохранить изменения'}</strong><p className="small muted">Сохранение не выдаёт задание ученику.</p></div><div className="row wrap"><button className="btn" disabled={save.busy} onClick={()=>{assignAfter.current=false;}}>{save.busy?'Сохраняем…':'Сохранить'}</button>{f.kind!=='theory'&&<button className="btn btn-secondary" disabled={save.busy} onClick={()=>{assignAfter.current=true;}}>Сохранить и выдать</button>}</div></div>
           </section>
 
-          <aside className="panel work-card form">
+          <aside className="panel work-card form editor-settings"><h2 className="section-title">Где хранить</h2>
             <Field label="Предмет">
               <input className="input" list="subjects" value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })} />
               <datalist id="subjects">{facets.subjects.map((s) => <option key={s} value={s} />)}</datalist>
             </Field>
-            <div className="form-row" style={{ gap: 10 }}>
+            {folders.length > 0 && <FolderSelect folders={folders} value={f.folder_id} onChange={(v) => setF({ ...f, folder_id: v })} />}
+            <details className="editor-extra"><summary>Экзамен, теги и заметки</summary><div className="form">            <div className="form-row" style={{ gap: 10 }}>
               <Field label="Экзамен">
                 <select className="select" value={f.exam} onChange={(e) => setF({ ...f, exam: e.target.value })}>
                   <option value="">Нет</option><option>ОГЭ</option><option>ЕГЭ</option><option>ВПР</option>
@@ -491,7 +488,6 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
                 <input className="input" type="number" min={1} max={50} disabled={!f.exam} value={f.exam_task} onChange={(e) => setF({ ...f, exam_task: e.target.value })} />
               </Field>
             </div>
-            {folders.length > 0 && <FolderSelect folders={folders} value={f.folder_id} onChange={(v) => setF({ ...f, folder_id: v })} />}
             <Field label="Теги" hint={`Через запятую${facets.tags.length ? `. Уже есть: ${facets.tags.slice(0, 8).join(', ')}` : ''}`}>
               <input className="input" value={f.tags} onChange={(e) => setF({ ...f, tags: e.target.value })} placeholder={tagHint} />
             </Field>
@@ -499,9 +495,9 @@ function EditorForm({ item, presetKind, presetFolder, folders, facets, reload })
               <textarea className="textarea" style={{ minHeight: 80 }} value={f.tutor_note} onChange={(e) => setF({ ...f, tutor_note: e.target.value })}
                 placeholder="Пригодится для 13 задания ОГЭ" />
             </Field>
-            {save.error && <div className="alert">{save.error}</div>}
-            <button className="btn" style={{ height: 46 }} disabled={save.busy}>{save.busy ? 'Сохраняем…' : isNew ? 'Добавить' : 'Сохранить'}</button>
-            {!isNew && <button type="button" className="btn btn-danger" onClick={remove}>Удалить</button>}
+            </div></details>
+            <p className="small muted">Ученик увидит материал, когда вы добавите его в урок или домашнюю работу.</p>
+            {!isNew&&<details className="editor-extra"><summary>Удаление материала</summary><button type="button" className="btn btn-danger" onClick={remove}>Удалить материал</button></details>}
           </aside>
         </form>
       )}

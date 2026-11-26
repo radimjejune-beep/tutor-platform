@@ -78,7 +78,7 @@ router.get(
     const { rows } = await query(`SELECT g.*, ${MEMBERS} FROM groups g WHERE g.id = $1`, [id]);
     if (!rows[0]) return res.status(404).json({ error: 'Группа не найдена' });
     const { rows: lessons } = await query(
-      `SELECT l.starts_at, MIN(l.duration_min) AS duration_min, MIN(l.topic) AS topic, MIN(l.summary) AS summary,
+      `SELECT l.starts_at, MIN(l.duration_min) AS duration_min, MIN(l.topic) AS topic, MIN(l.summary) AS summary, MIN(l.private_notes) AS private_notes,
               json_agg(json_build_object('lesson_id', l.id, 'student_id', l.student_id, 'student_name', s.full_name, 'status', l.status)
                        ORDER BY s.full_name) AS students
          FROM lessons l JOIN students s ON s.id = l.student_id
@@ -174,6 +174,7 @@ router.post(
         duration_min: z.number().int().min(15).max(240).optional(),
         price: z.number().int().min(0).max(100000).optional(),
         topic: z.string().trim().max(255).optional(),
+        private_notes:z.string().trim().max(5000).optional(),
         repeat_weeks: z.number().int().min(1).max(26).default(1),
       })
       .strict()
@@ -195,9 +196,9 @@ router.post(
       for (const slot of slots) {
         for (const m of group.members) {
           await client.query(
-            `INSERT INTO lessons (student_id, starts_at, duration_min, price, topic, group_id, call_link)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-            [m.id, slot.toISOString(), duration, price, b.topic || null, id, group.call_link]
+            `INSERT INTO lessons (student_id, starts_at, duration_min, price, topic, group_id, call_link,private_notes)
+             VALUES ($1, $2, $3, $4, $5, $6, $7,$8)`,
+            [m.id, slot.toISOString(), duration, price, b.topic || null, id, group.call_link,b.private_notes||null]
           );
           n++;
         }
@@ -234,6 +235,12 @@ router.post(
     res.json({ moved: rows.length });
   })
 );
+
+// A plan belongs to the whole group session; one UPDATE keeps all member rows consistent.
+router.patch('/:id/lessons/plan',validateBody(z.object({starts_at:iso,private_notes:z.string().trim().max(5000).nullable()}).strict()),asyncHandler(async(req,res)=>{
+ const {rowCount}=await query('UPDATE lessons SET private_notes=$3 WHERE group_id=$1 AND starts_at=$2',[Number(req.params.id),req.body.starts_at,req.body.private_notes||null]);
+ if(!rowCount)return res.status(404).json({error:'Занятие группы не найдено'});res.json({updated:rowCount,private_notes:req.body.private_notes||null});
+}));
 
 // Отменить групповое занятие для всех
 router.post(

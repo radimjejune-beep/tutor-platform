@@ -43,6 +43,7 @@ async function migrate() {
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS refunded_rub NUMERIC(12,2) NOT NULL DEFAULT 0;
     CREATE TABLE IF NOT EXISTS order_refunds(id TEXT PRIMARY KEY,order_id TEXT NOT NULL REFERENCES orders(id),amount_rub NUMERIC(12,2) NOT NULL,status TEXT NOT NULL,updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
     CREATE UNIQUE INDEX IF NOT EXISTS orders_request_key ON orders(platform_user_id,request_key);
+    CREATE UNIQUE INDEX IF NOT EXISTS orders_lesson_request ON orders(request_key) WHERE kind='lesson' AND platform_user_id IS NULL AND request_key IS NOT NULL;
     CREATE INDEX IF NOT EXISTS orders_email ON orders (lower(email));
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS tg_user_id BIGINT;
     ALTER TABLE orders ADD COLUMN IF NOT EXISTS tg_name TEXT;
@@ -96,28 +97,45 @@ async function sellerReady() {
 }
 const SELLER_MISSING = 'Продажи откроются, как только мы опубликуем сведения о продавце. Попробуйте чуть позже.';
 
-async function create({ sku, email, news, ip }) {
+async function create({ sku, email, news, ip, requestKey }) {
   if (!config.payEnabled) throw Object.assign(new Error('Оплата на сайте пока не подключена'), { status: 503 });
   if (!(await sellerReady())) throw Object.assign(new Error(SELLER_MISSING), { status: 503 });
   const p = catalog.product(sku);
   if (!p || !catalog.purchasable(p)) throw Object.assign(new Error('Этот урок сейчас нельзя купить'), { status: 409 });
   email = String(email || '').trim().toLowerCase();
   if (!EMAIL_RE.test(email)) throw Object.assign(new Error('Проверьте адрес почты'), { status: 422 });
-  const recent = await db.q(`SELECT count(*)::int AS n FROM orders WHERE ip = $1 AND created_at > now() - interval '1 hour'`, [ip]);
-  if (recent.rows[0].n >= 20) throw Object.assign(new Error('Слишком много заказов подряд. Попробуйте через час.'), { status: 429 });
-  const order = {
-    id: crypto.randomUUID(), token: crypto.randomBytes(24).toString('base64url'),
-    email, sku, title: productTitle(p), amount_rub: Number(p.price), news: !!news, ip
-  };
-  await db.q(`INSERT INTO orders (id, token, email, sku, title, amount_rub, news, ip) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-    [order.id, order.token, order.email, order.sku, order.title, order.amount_rub, order.news, ip]);
-  const payment = await pay.createPayment({
-    orderId: order.id, amountRub: order.amount_rub, email,
-    description: `Лицензия на урок Lessonfold: ${order.title}, заказ ${shortId(order)}`,
-    returnUrl: orderUrl(order)
+  const key=requestKey===undefined?crypto.randomUUID():String(requestKey);
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key))throw Object.assign(new Error('Обновите страницу оформления заказа'),{status:422});
+  const hash=crypto.createHash('sha256').update(JSON.stringify([sku,email,!!news,Number(p.price)])).digest('hex');
+  let order=(await db.q("SELECT * FROM orders WHERE request_key=$1 AND kind='lesson' AND platform_user_id IS NULL",[key])).rows[0];
+  if(!order){
+    const recent=await db.q("SELECT count(*)::int AS n FROM orders WHERE ip=$1 AND created_at>NOW()-INTERVAL '1 hour'",[ip]);
+    if(recent.rows[0].n>=20)throw Object.assign(new Error('Слишком много заказов подряд. Попробуйте через час.'),{status:429});
+    const id=crypto.randomUUID(),token=crypto.randomBytes(24).toString('base64url');
+    await db.q(`INSERT INTO orders(id,token,email,sku,title,amount_rub,news,ip,request_key,payload) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT DO NOTHING`,[id,token,email,sku,productTitle(p),Number(p.price),!!news,ip,key,{request_hash:hash}]);
+    order=(await db.q("SELECT * FROM orders WHERE request_key=$1 AND kind='lesson' AND platform_user_id IS NULL",[key])).rows[0];
+  }
+  if(!order||order.payload?.request_hash!==hash)throw Object.assign(new Error('Параметры заказа изменились. Откройте оформление заново.'),{status:409});
+  if(order.status==='paid')return {order,confirmationUrl:orderUrl(order)};
+  if(order.status!=='pending'||Date.now()-new Date(order.created_at)>23*3600000)throw Object.assign(new Error('Срок оформления истёк. Откройте оформление заново.'),{status:409});
+  return beginLessonPayment(order);
+}
+
+// Stable order id is also YooKassa's idempotence key. A timeout may have happened after charging.
+async function beginLessonPayment(order){
+  return db.transaction(async c=>{
+    const current=(await c.query('SELECT * FROM orders WHERE id=$1 FOR UPDATE',[order.id])).rows[0];
+    if(current.status==='paid')return {order:current,confirmationUrl:orderUrl(current)};
+    if(current.status!=='pending')return {order:current,confirmationUrl:orderUrl(current)};
+    if(current.yk_payment_id&&current.confirmation_url)return {order:current,confirmationUrl:current.confirmation_url};
+    if(Date.now()-new Date(current.created_at)>23*3600000)throw Object.assign(new Error('Срок повторной оплаты истёк. Откройте оформление заново.'),{status:409});
+    const payment=await pay.createPayment({orderId:current.id,amountRub:current.amount_rub,email:current.email,description:`Лицензия на урок Lessonfold: ${current.title}, заказ ${shortId(current)}`,returnUrl:orderUrl(current)});
+    if(!payment.id||(current.yk_payment_id&&current.yk_payment_id!==payment.id))throw Error('Платёж не относится к заказу');
+    const url=payment.confirmation?.confirmation_url||null;
+    if(url&&new URL(url).protocol!=='https:')throw Error('Некорректный адрес оплаты');
+    const updated=(await c.query('UPDATE orders SET yk_payment_id=$2,confirmation_url=$3 WHERE id=$1 RETURNING *',[current.id,payment.id,url])).rows[0];
+    return {order:updated,confirmationUrl:url||orderUrl(updated)};
   });
-  await db.q('UPDATE orders SET yk_payment_id = $2 WHERE id = $1', [order.id, payment.id]);
-  return { order, confirmationUrl: payment.confirmation && payment.confirmation.confirmation_url };
 }
 
 // Retain the legacy API name so stale callers fail explicitly before any DB/payment operation.
@@ -133,7 +151,7 @@ async function sync(order) {
   if (!order || order.status !== 'pending' || !order.yk_payment_id) return order;
   await db.q('UPDATE orders SET checked_at = now() WHERE id = $1', [order.id]);
   const pmt = await pay.getPayment(order.yk_payment_id);
-  if(order.kind!=='lesson' && (!pmt.id || pmt.id!==order.yk_payment_id || pmt.metadata?.order_id!==order.id)) throw Error('Платёж не относится к заказу');
+  if(!pmt?.id || pmt.id!==order.yk_payment_id || ((order.kind!=='lesson'||order.request_key)&&pmt.metadata?.order_id!==order.id)) throw Error('Платёж не относится к заказу');
   if (pmt.metadata && pmt.metadata.order_id && pmt.metadata.order_id !== order.id) throw new Error('Платёж не относится к заказу');
   if (pmt.status === 'succeeded' && pmt.paid) {
     if (Number(pmt.amount.value) !== Number(order.amount_rub) || pmt.amount.currency !== 'RUB') {
@@ -174,11 +192,11 @@ async function webhook(body) {
   if (!r.rows[0]) {
     if(!String(body.event||'').startsWith('refund.') && obj.metadata?.order_id){
       const pending=await byId(obj.metadata.order_id);
-      if(pending && pending.kind!=='lesson' && pending.status==='pending'){
+      if(pending && pending.status==='pending' && (!pending.yk_payment_id||pending.yk_payment_id===obj.id)){
         const verified=await pay.getPayment(obj.id);
-        if(verified.metadata?.order_id!==pending.id || Number(verified.amount?.value)!==pending.amount_rub || verified.amount?.currency!=='RUB')throw Error('Платёж не относится к заказу');
+        if(verified.id!==obj.id || verified.metadata?.order_id!==pending.id || Number(verified.amount?.value)!==Number(pending.amount_rub) || verified.amount?.currency!=='RUB')throw Error('Платёж не относится к заказу');
         await db.q('UPDATE orders SET yk_payment_id=$2 WHERE id=$1 AND yk_payment_id IS NULL',[pending.id,obj.id]);
-        await sync(await byId(pending.id));return true;
+        const linked=await byId(pending.id);if(linked.yk_payment_id!==obj.id)return false;await sync(linked);return true;
       }
     }
     return false;
@@ -261,10 +279,10 @@ async function releases() {
 
 // Заказы, которые остались pending: сверить с ЮKassa (на случай, если уведомление не дошло)
 async function syncStale() {
-  const r = await db.q(`SELECT * FROM orders WHERE ((status='pending' AND yk_payment_id IS NOT NULL AND created_at>NOW()-INTERVAL '2 days') OR (status='paid' AND (refund_state='pending' OR auto_refund))) AND (checked_at IS NULL OR checked_at<NOW()-INTERVAL '10 minutes')`);
+  const r = await db.q(`SELECT * FROM orders WHERE ((status='pending' AND (yk_payment_id IS NOT NULL OR (request_key IS NOT NULL AND created_at>NOW()-INTERVAL '23 hours')) AND created_at>NOW()-INTERVAL '2 days') OR (status='paid' AND (refund_state='pending' OR auto_refund))) AND (checked_at IS NULL OR checked_at<NOW()-INTERVAL '1 minute')`);
   let n = 0;
   for (const o of r.rows) {
-    try { const x = await sync(o); if (x && x.status === 'paid') n++; } catch (e) { console.error('sync order', o.id, e.message); }
+    try { if(!o.yk_payment_id){await db.q('UPDATE orders SET checked_at=NOW() WHERE id=$1',[o.id]);if(o.kind==='lesson')await beginLessonPayment(o);else await require('./commerce').beginPayment(o,Boolean(o.payload?.renewal));} const x = await sync(await byId(o.id)); if (x && x.status === 'paid') n++; } catch (e) { console.error('sync order', o.id, e.message); }
   }
   await db.q(`UPDATE orders SET status = 'canceled', note = COALESCE(note, 'не оплачен за 2 дня') WHERE status = 'pending' AND created_at < now() - interval '2 days'`);
   // неоплаченные заказы храним 30 дней (так написано в политике)

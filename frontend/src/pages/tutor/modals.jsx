@@ -44,6 +44,7 @@ export function NewLessonModal({ studentId, groupId: fixedGroup, defaultStart, o
     duration_min: '',
     price: '',
     topic: '',
+    private_notes:'',
     subject: '',
     repeat_weeks: 1,
   });
@@ -62,6 +63,7 @@ export function NewLessonModal({ studentId, groupId: fixedGroup, defaultStart, o
       duration_min: num(f.duration_min),
       price: num(f.price),
       topic: f.topic.trim() || undefined,
+      private_notes:f.private_notes.trim()||undefined,
       repeat_weeks: Number(f.repeat_weeks) || 1,
       force: Boolean(conflicts),
     };
@@ -131,6 +133,7 @@ export function NewLessonModal({ studentId, groupId: fixedGroup, defaultStart, o
           <input className="input" value={f.topic} onChange={(e) => setF({ ...f, topic: e.target.value })} placeholder="Present Simple: questions" />
         </Field>
 
+        <Field label="План занятия" hint="Только для вас. Появится в ежедневнике; ученик и родитель его не видят."><textarea className="textarea" rows={3} maxLength={5000} value={f.private_notes} onChange={e=>setF({...f,private_notes:e.target.value})} placeholder="С чего начнём, что повторим и что хочется успеть"/></Field>
         {conflicts && (
           <div className="note">
             В это время уже есть занятия:
